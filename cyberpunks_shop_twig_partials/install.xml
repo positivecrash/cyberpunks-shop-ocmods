@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Twig partials (include)</name>
+	<code>cyberpunks_shop_twig_partials</code>
+	<version>1.0.0</version>
+	<author>positivecrash</author>
+
+	<file path="system/library/template/twig.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function render($filename, $code = '') {]]></search>
+			<add position="after"><![CDATA[
+		$file = DIR_TEMPLATE . $filename . '.twig';
+		$include_root = dirname($file);
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false" index="1"><![CDATA[			$file = DIR_TEMPLATE . $filename . '.twig';]]></search>
+			<add position="replace"><![CDATA[]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$loader = new \Twig\Loader\ArrayLoader(array($filename . '.twig' => $code));]]></search>
+			<add position="replace"><![CDATA[			$loader = new \Twig\Loader\ChainLoader(array(
+				new \Twig\Loader\ArrayLoader(array($filename . '.twig' => $code)),
+				new \Twig\Loader\FilesystemLoader($include_root),
+			));
+
+			$twig = new \Twig\Environment($loader, $config);
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false" index="1"><![CDATA[			$twig = new \Twig\Environment($loader, $config);]]></search>
+			<add position="replace"><![CDATA[]]></add>
+		</operation>
+	</file>
+</modification>

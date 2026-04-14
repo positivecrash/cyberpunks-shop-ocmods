@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Head Includes</name>
+	<code>cyberpunks_shop_head_includes</code>
+	<version>1.0.2</version>
+	<author>positivecrash</author>
+	<link>https://github.com/positivecrash</link>
+
+	<file path="system/engine/loader.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$result = $this->registry->get('event')->trigger('controller/' . $trigger . '/before', array(&$route, &$data));]]></search>
+			<add position="before"><![CDATA[		if (is_file(DIR_SYSTEM . 'library/cyberpunks_shop_head_includes.php')) {
+			require_once DIR_SYSTEM . 'library/cyberpunks_shop_head_includes.php';
+			CyberpunksShopHeadIncludes::applyControllerRules($this->registry, $route);
+		}
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/common/header.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['scripts'] = $this->document->getScripts('header');]]></search>
+			<add position="after"><![CDATA[
+		$cyberpunks_shop_head_includes_exclude = $this->registry->has('cyberpunks_shop_head_includes_exclude') ? $this->registry->get('cyberpunks_shop_head_includes_exclude') : array();
+		if (is_array($cyberpunks_shop_head_includes_exclude)) {
+			if (!empty($cyberpunks_shop_head_includes_exclude['css']) && is_array($cyberpunks_shop_head_includes_exclude['css']) && is_array($data['styles'])) {
+				foreach ($cyberpunks_shop_head_includes_exclude['css'] as $css_exclude_path) {
+					if (isset($data['styles'][$css_exclude_path])) {
+						unset($data['styles'][$css_exclude_path]);
+					}
+				}
+			}
+
+			if (!empty($cyberpunks_shop_head_includes_exclude['js']) && is_array($cyberpunks_shop_head_includes_exclude['js']) && is_array($data['scripts'])) {
+				$data['scripts'] = array_values(array_filter($data['scripts'], function($script) use ($cyberpunks_shop_head_includes_exclude) {
+					return !isset($cyberpunks_shop_head_includes_exclude['js'][$script]);
+				}));
+			}
+		}
+]]></add>
+		</operation>
+	</file>
+</modification>

@@ -1,0 +1,125 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-module" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+          <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+      <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+      </div>
+    {% endif %}
+
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3>
+      </div>
+      <div class="panel-body">
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-module" class="form-horizontal">
+          <div id="rules">
+            {% set rule_row = 0 %}
+            {% for rule in rules %}
+              <div class="panel panel-default" id="rule-{{ rule_row }}">
+                <div class="panel-heading">
+                  <h4 class="panel-title">{{ text_rule }} #{{ rule_row + 1 }}</h4>
+                </div>
+                <div class="panel-body">
+                  <div class="form-group">
+                    <label class="col-sm-2 control-label">{{ entry_template }}</label>
+                    <div class="col-sm-10">
+                      <input type="text" name="cyberpunks_shop_head_includes_rules[{{ rule_row }}][template]" value="{{ rule.template|default('') }}" class="form-control" placeholder="product/product or *" />
+                      <div class="help-block">{{ help_template }}</div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-2 control-label">{{ entry_js }}</label>
+                    <div class="col-sm-10">
+                      <textarea name="cyberpunks_shop_head_includes_rules[{{ rule_row }}][js]" rows="4" class="form-control">{{ rule.js|default('') }}</textarea>
+                      <div class="help-block">{{ help_js }}</div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-2 control-label">{{ entry_css }}</label>
+                    <div class="col-sm-10">
+                      <textarea name="cyberpunks_shop_head_includes_rules[{{ rule_row }}][css]" rows="4" class="form-control">{{ rule.css|default('') }}</textarea>
+                      <div class="help-block">{{ help_css }}</div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-2 control-label">{{ entry_js_exclude }}</label>
+                    <div class="col-sm-10">
+                      <textarea name="cyberpunks_shop_head_includes_rules[{{ rule_row }}][js_exclude]" rows="4" class="form-control">{{ rule.js_exclude|default('') }}</textarea>
+                      <div class="help-block">{{ help_js_exclude }}</div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-2 control-label">{{ entry_css_exclude }}</label>
+                    <div class="col-sm-10">
+                      <textarea name="cyberpunks_shop_head_includes_rules[{{ rule_row }}][css_exclude]" rows="4" class="form-control">{{ rule.css_exclude|default('') }}</textarea>
+                      <div class="help-block">{{ help_css_exclude }}</div>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="col-sm-2 control-label">{{ entry_rule_status }}</label>
+                    <div class="col-sm-8">
+                      <select name="cyberpunks_shop_head_includes_rules[{{ rule_row }}][status]" class="form-control">
+                        {% if rule.status|default(0) %}
+                          <option value="1" selected="selected">{{ text_enabled }}</option>
+                          <option value="0">{{ text_disabled }}</option>
+                        {% else %}
+                          <option value="1">{{ text_enabled }}</option>
+                          <option value="0" selected="selected">{{ text_disabled }}</option>
+                        {% endif %}
+                      </select>
+                    </div>
+                    <div class="col-sm-2 text-right">
+                      <button type="button" class="btn btn-danger" onclick="$('#rule-{{ rule_row }}').remove();"><i class="fa fa-trash"></i></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% set rule_row = rule_row + 1 %}
+            {% endfor %}
+          </div>
+
+          <div class="text-right">
+            <button type="button" id="button-add-rule" class="btn btn-success"><i class="fa fa-plus"></i> {{ button_add_rule }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript"><!--
+var rule_row = {{ rules|length }};
+
+$('#button-add-rule').on('click', function() {
+  var html = '';
+  html += '<div class="panel panel-default" id="rule-' + rule_row + '">';
+  html += '  <div class="panel-heading"><h4 class="panel-title">{{ text_rule }} #' + (rule_row + 1) + '</h4></div>';
+  html += '  <div class="panel-body">';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_template }}</label><div class="col-sm-10"><input type="text" name="cyberpunks_shop_head_includes_rules[' + rule_row + '][template]" value="" class="form-control" placeholder="product/product or *" /><div class="help-block">{{ help_template }}</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_js }}</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + rule_row + '][js]" rows="4" class="form-control"></textarea><div class="help-block">{{ help_js }}</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_css }}</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + rule_row + '][css]" rows="4" class="form-control"></textarea><div class="help-block">{{ help_css }}</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_js_exclude }}</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + rule_row + '][js_exclude]" rows="4" class="form-control"></textarea><div class="help-block">{{ help_js_exclude }}</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_css_exclude }}</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + rule_row + '][css_exclude]" rows="4" class="form-control"></textarea><div class="help-block">{{ help_css_exclude }}</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_rule_status }}</label><div class="col-sm-8"><select name="cyberpunks_shop_head_includes_rules[' + rule_row + '][status]" class="form-control"><option value="1" selected="selected">{{ text_enabled }}</option><option value="0">{{ text_disabled }}</option></select></div><div class="col-sm-2 text-right"><button type="button" class="btn btn-danger" onclick="$(\'#rule-' + rule_row + '\').remove();"><i class="fa fa-trash"></i></button></div></div>';
+  html += '  </div>';
+  html += '</div>';
+
+  $('#rules').append(html);
+  rule_row++;
+});
+//--></script>
+{{ footer }}

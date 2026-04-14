@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Product Templates</name>
+	<code>cyberpunks_shop_product_templates</code>
+	<version>1.1.0</version>
+	<author>positivecrash</author>
+	<link>https://github.com/positivecrash</link>
+
+	<file path="admin/model/catalog/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function addProduct($data) {]]></search>
+			<add position="after"><![CDATA[
+		static $cyberpunks_shop_tpl_schema_add;
+		if (!isset($cyberpunks_shop_tpl_schema_add)) {
+			$cyberpunks_shop_tpl_schema_add = true;
+			$cyberpunks_shop_tpl_col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "product` LIKE 'cyberpunks_template'");
+			if (!$cyberpunks_shop_tpl_col->num_rows) {
+				$this->db->query("ALTER TABLE `" . DB_PREFIX . "product` ADD `cyberpunks_template` VARCHAR(255) NOT NULL DEFAULT ''");
+			}
+		}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function editProduct($product_id, $data) {]]></search>
+			<add position="after"><![CDATA[
+		static $cyberpunks_shop_tpl_schema_edit;
+		if (!isset($cyberpunks_shop_tpl_schema_edit)) {
+			$cyberpunks_shop_tpl_schema_edit = true;
+			$cyberpunks_shop_tpl_col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "product` LIKE 'cyberpunks_template'");
+			if (!$cyberpunks_shop_tpl_col->num_rows) {
+				$this->db->query("ALTER TABLE `" . DB_PREFIX . "product` ADD `cyberpunks_template` VARCHAR(255) NOT NULL DEFAULT ''");
+			}
+		}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[', sort_order = '" . (int)$data['sort_order'] . "', date_added = NOW(), date_modified = NOW()");]]></search>
+			<add position="replace"><![CDATA[', sort_order = '" . (int)$data['sort_order'] . "', cyberpunks_template = '" . $this->db->escape(isset($data['cyberpunks_template']) ? $data['cyberpunks_template'] : '') . "', date_added = NOW(), date_modified = NOW()");]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[', sort_order = '" . (int)$data['sort_order'] . "', date_modified = NOW() WHERE product_id = '" . (int)$product_id . "'");]]></search>
+			<add position="replace"><![CDATA[', sort_order = '" . (int)$data['sort_order'] . "', cyberpunks_template = '" . $this->db->escape(isset($data['cyberpunks_template']) ? $data['cyberpunks_template'] : '') . "', date_modified = NOW() WHERE product_id = '" . (int)$product_id . "'");]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/controller/catalog/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		if (isset($this->request->post['product_layout'])) {]]></search>
+			<add position="before"><![CDATA[		if (isset($this->request->post['cyberpunks_template'])) {
+			$data['cyberpunks_template'] = $this->request->post['cyberpunks_template'];
+		} elseif (!empty($product_info)) {
+			$data['cyberpunks_template'] = isset($product_info['cyberpunks_template']) ? $product_info['cyberpunks_template'] : '';
+		} else {
+			$data['cyberpunks_template'] = '';
+		}
+
+		$data['cyberpunks_template_options'] = array();
+		$cyberpunks_shop_tpl_seen = array();
+		$cyberpunks_shop_theme_root = DIR_CATALOG . 'view/theme/';
+		if (is_dir($cyberpunks_shop_theme_root)) {
+			foreach (glob($cyberpunks_shop_theme_root . '*', GLOB_ONLYDIR) as $cyberpunks_shop_theme_dir) {
+				$cyberpunks_shop_product_tpl = $cyberpunks_shop_theme_dir . '/template/product';
+				if (!is_dir($cyberpunks_shop_product_tpl)) {
+					continue;
+				}
+				foreach (glob($cyberpunks_shop_product_tpl . '/*.twig') as $cyberpunks_shop_tpl_file) {
+					$cyberpunks_shop_tpl_key = 'product/' . basename($cyberpunks_shop_tpl_file, '.twig');
+					if (!isset($cyberpunks_shop_tpl_seen[$cyberpunks_shop_tpl_key])) {
+						$cyberpunks_shop_tpl_seen[$cyberpunks_shop_tpl_key] = true;
+						$data['cyberpunks_template_options'][] = $cyberpunks_shop_tpl_key;
+					}
+				}
+			}
+			sort($data['cyberpunks_template_options']);
+		}
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/view/template/catalog/product_form.twig">
+		<operation error="skip">
+			<search trim="false"><![CDATA[            <div class="tab-pane" id="tab-design">]]></search>
+			<add position="after"><![CDATA[              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_cyberpunks_template }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="cyberpunks_template" value="{{ cyberpunks_template }}" list="cyberpunks-template-list" placeholder="product/product" class="form-control" autocomplete="off"/>
+                  <datalist id="cyberpunks-template-list">
+                    {% for opt in cyberpunks_template_options %}
+                    <option value="{{ opt }}">{{ opt }}</option>
+                    {% endfor %}
+                  </datalist>
+                  <p class="help-block">{{ help_cyberpunks_template }}</p>
+                </div>
+              </div>
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/language/en-gb/catalog/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[$_['entry_layout']           = 'Layout Override';]]></search>
+			<add position="after"><![CDATA[$_['entry_cyberpunks_template'] = 'Catalog view template';
+$_['help_cyberpunks_template'] = 'Leave empty for product/product';
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/model/catalog/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[				'viewed'           => $query->row['viewed']]]></search>
+			<add position="replace"><![CDATA[				'viewed'           => $query->row['viewed'],
+				'cyberpunks_template' => isset($query->row['cyberpunks_template']) ? $query->row['cyberpunks_template'] : '']]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/product/product.php">
+		<operation error="skip">
+			<search trim="false" index="0"><![CDATA[			$data['header'] = $this->load->controller('common/header');]]></search>
+			<add position="before"><![CDATA[			$cyberpunks_catalog_view_route = 'product/product';
+			if (!empty($product_info['cyberpunks_template'])) {
+				$cyberpunks_catalog_view_route = preg_replace('/[^a-zA-Z0-9_\/]/', '', (string)$product_info['cyberpunks_template']);
+			}
+			if ($cyberpunks_catalog_view_route === '') {
+				$cyberpunks_catalog_view_route = 'product/product';
+			}
+			$this->registry->set('cyberpunks_catalog_view_route', $cyberpunks_catalog_view_route);
+			if (is_file(DIR_SYSTEM . 'library/cyberpunks_shop_head_includes.php')) {
+				require_once DIR_SYSTEM . 'library/cyberpunks_shop_head_includes.php';
+				CyberpunksShopHeadIncludes::applyViewRules($this->registry, $cyberpunks_catalog_view_route);
+			}
+
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->response->setOutput($this->load->view('product/product', $data));]]></search>
+			<add position="replace"><![CDATA[			$this->response->setOutput($this->load->view($cyberpunks_catalog_view_route, $data));]]></add>
+		</operation>
+	</file>
+</modification>

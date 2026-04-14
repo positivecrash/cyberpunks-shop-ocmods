@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Features</name>
+	<code>cyberpunks_shop_features</code>
+	<version>1.0.0</version>
+	<author>vol4tim</author>
+
+	<file path="catalog/controller/product/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[$data['heading_title'] = $product_info['name'];]]></search>
+			<add position="after"><![CDATA[			$data['currency'] = $this->session->data['currency'];]]></add>
+		</operation>
+	</file>
+</modification>

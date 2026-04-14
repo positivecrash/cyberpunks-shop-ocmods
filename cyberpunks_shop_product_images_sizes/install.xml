@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Product Images Better Quality</name>
+	<code>cyberpunks_shop_product_images_sizes</code>
+	<version>1.0.0</version>
+	<author>positivecrash</author>
+
+	<file path="catalog/model/tool/image.php">
+		<operation>
+			<!-- находит конец resize() и закрывающую } класса, между ними вставляется метод -->
+			<search regex="true"><![CDATA[~(\t\}\r?\n)(\}\s*)~]]></search>
+			<add position="replace"><![CDATA[$1
+
+	public function urlNoResize($filename) {
+		if (!$filename) {
+			return '';
+		}
+
+		if (!is_file(DIR_IMAGE . $filename) || substr(str_replace('\\\\', '/', realpath(DIR_IMAGE . $filename)), 0, strlen(DIR_IMAGE)) != str_replace('\\\\', '/', DIR_IMAGE)) {
+			return '';
+		}
+
+		$filename = str_replace(' ', '%20', $filename);
+
+		if ($this->request->server['HTTPS']) {
+			return $this->config->get('config_ssl') . 'image/' . $filename;
+		}
+
+		return $this->config->get('config_url') . 'image/' . $filename;
+	}
+
+$2]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/product/product.php">
+		<operation>
+			<search><![CDATA[$data['popup'] = $this->model_tool_image->resize($product_info['image'], $this->config->get('theme_' . $this->config->get('config_theme') . '_image_popup_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_popup_height'));]]></search>
+			<add position="replace"><![CDATA[$data['popup'] = $this->model_tool_image->urlNoResize($product_info['image']);]]></add>
+		</operation>
+		<operation>
+			<search><![CDATA[$data['thumb'] = $this->model_tool_image->resize($product_info['image'], $this->config->get('theme_' . $this->config->get('config_theme') . '_image_thumb_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_thumb_height'));]]></search>
+			<add position="replace"><![CDATA[$data['thumb'] = $this->model_tool_image->urlNoResize($product_info['image']);]]></add>
+		</operation>
+		<operation>
+			<search><![CDATA['popup' => $this->model_tool_image->resize($result['image'], $this->config->get('theme_' . $this->config->get('config_theme') . '_image_popup_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_popup_height')),]]></search>
+			<add position="replace"><![CDATA['popup' => $this->model_tool_image->urlNoResize($result['image']),]]></add>
+		</operation>
+		<operation>
+			<search><![CDATA['thumb' => $this->model_tool_image->resize($result['image'], $this->config->get('theme_' . $this->config->get('config_theme') . '_image_additional_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_additional_height'))]]></search>
+			<add position="replace"><![CDATA['thumb' => $this->model_tool_image->urlNoResize($result['image'])]]></add>
+		</operation>
+	</file>
+</modification>
