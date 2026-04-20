@@ -4,6 +4,7 @@
  */
 final class CyberpunksShopHeadIncludes {
 	private static $applied_controller_routes = array();
+	private static $theme_asset_prefix = 'catalog/view/theme/cybershops/';
 
 	private static function normalizeRoute($route) {
 		$route = trim((string)$route);
@@ -119,6 +120,7 @@ final class CyberpunksShopHeadIncludes {
 
 	private static function mergeRules($registry, $rules, callable $matcher) {
 		$exclude = $registry->has('cyberpunks_shop_head_includes_exclude') ? $registry->get('cyberpunks_shop_head_includes_exclude') : array('js' => array(), 'css' => array());
+		$script_types = $registry->has('cyberpunks_shop_head_includes_script_types') ? $registry->get('cyberpunks_shop_head_includes_script_types') : array();
 
 		if (!isset($exclude['js']) || !is_array($exclude['js'])) {
 			$exclude['js'] = array();
@@ -126,6 +128,9 @@ final class CyberpunksShopHeadIncludes {
 
 		if (!isset($exclude['css']) || !is_array($exclude['css'])) {
 			$exclude['css'] = array();
+		}
+		if (!is_array($script_types)) {
+			$script_types = array();
 		}
 
 		$document = $registry->get('document');
@@ -146,7 +151,22 @@ final class CyberpunksShopHeadIncludes {
 					$js_path = trim($js_path);
 
 					if ($js_path !== '') {
-						$document->addScript($js_path);
+						$is_module = false;
+						if (stripos($js_path, 'module:') === 0) {
+							$is_module = true;
+							$js_path = trim(substr($js_path, 7));
+						}
+
+						if ($js_path === '') {
+							continue;
+						}
+
+						$resolved_js_path = self::applyAssetVersion($js_path);
+						$document->addScript($resolved_js_path);
+
+						if ($is_module) {
+							$script_types[$resolved_js_path] = 'module';
+						}
 					}
 				}
 			}
@@ -158,7 +178,7 @@ final class CyberpunksShopHeadIncludes {
 					$css_path = trim($css_path);
 
 					if ($css_path !== '') {
-						$document->addStyle($css_path);
+						$document->addStyle(self::applyAssetVersion($css_path));
 					}
 				}
 			}
@@ -189,5 +209,41 @@ final class CyberpunksShopHeadIncludes {
 		}
 
 		$registry->set('cyberpunks_shop_head_includes_exclude', $exclude);
+		$registry->set('cyberpunks_shop_head_includes_script_types', $script_types);
+	}
+
+	private static function applyAssetVersion($asset_path) {
+		$asset_path = trim((string)$asset_path);
+
+		if ($asset_path === '' || strpos($asset_path, '?v=') !== false) {
+			return $asset_path;
+		}
+
+		$asset_path_without_query = preg_replace('/\?.*$/', '', $asset_path);
+
+		// Skip remote URLs and protocol-relative URLs.
+		if (preg_match('#^(https?:)?//#i', $asset_path)) {
+			return $asset_path;
+		}
+
+		$local_path = ltrim($asset_path_without_query, '/');
+
+		if (strpos($local_path, self::$theme_asset_prefix) !== 0) {
+			return $asset_path;
+		}
+
+		$relative_theme_file = substr($local_path, strlen(self::$theme_asset_prefix));
+		$absolute_file = rtrim(DIR_APPLICATION, '/\\') . '/view/theme/cybershops/' . $relative_theme_file;
+
+		if (!is_file($absolute_file)) {
+			return $asset_path;
+		}
+
+		$version = (string)@filemtime($absolute_file);
+		if ($version === '' || $version === '0') {
+			return $asset_path;
+		}
+
+		return $asset_path . (strpos($asset_path, '?') === false ? '?' : '&') . 'v=' . $version;
 	}
 }

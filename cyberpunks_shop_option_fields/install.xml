@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Option Fields</name>
+	<code>cyberpunks_shop_option_fields</code>
+	<version>1.2.7</version>
+	<author>positivecrash</author>
+	<link>https://github.com/positivecrash</link>
+
+	<file path="admin/controller/catalog/option.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_catalog_option->addOption($this->request->post);]]></search>
+			<add position="replace"><![CDATA[			$this->load->model('extension/module/cyberpunks_shop_option_fields');
+			$this->model_extension_module_cyberpunks_shop_option_fields->install();
+			$option_id = $this->model_catalog_option->addOption($this->request->post);
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionMode($option_id, $this->request->post);
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionFieldValues($option_id, isset($this->request->post['cyberpunks_option_custom_fields']) ? $this->request->post['cyberpunks_option_custom_fields'] : array());]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_catalog_option->editOption($this->request->get['option_id'], $this->request->post);]]></search>
+			<add position="replace"><![CDATA[			$this->load->model('extension/module/cyberpunks_shop_option_fields');
+			$this->model_extension_module_cyberpunks_shop_option_fields->install();
+			$this->model_catalog_option->editOption($this->request->get['option_id'], $this->request->post);
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionMode((int)$this->request->get['option_id'], $this->request->post);
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionFieldValues((int)$this->request->get['option_id'], isset($this->request->post['cyberpunks_option_custom_fields']) ? $this->request->post['cyberpunks_option_custom_fields'] : array());]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[				$this->model_catalog_option->deleteOption($option_id);]]></search>
+			<add position="after"><![CDATA[
+				$this->load->model('extension/module/cyberpunks_shop_option_fields');
+				$this->model_extension_module_cyberpunks_shop_option_fields->deleteOptionData((int)$option_id);
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[		if (isset($this->request->post['sort_order'])) {]]></search>
+			<add position="before"><![CDATA[
+		$this->load->model('extension/module/cyberpunks_shop_option_fields');
+		$this->model_extension_module_cyberpunks_shop_option_fields->install();
+		$cyberpunks_custom_fields = $this->model_extension_module_cyberpunks_shop_option_fields->getCustomFields(true);
+		$data['cyberpunks_option_custom_fields'] = array();
+		$data['cyberpunks_option_value_custom_field_defs'] = array();
+		foreach ($cyberpunks_custom_fields as $cyberpunks_custom_field) {
+			if (isset($cyberpunks_custom_field['scope']) && $cyberpunks_custom_field['scope'] === 'option') {
+				$data['cyberpunks_option_custom_fields'][] = $cyberpunks_custom_field;
+			} else {
+				$data['cyberpunks_option_value_custom_field_defs'][] = $cyberpunks_custom_field;
+			}
+		}
+
+		if (isset($this->request->post['cyberpunks_option_mode'])) {
+			$data['cyberpunks_option_mode'] = $this->request->post['cyberpunks_option_mode'];
+		} elseif (!empty($option_info) && isset($option_info['option_id'])) {
+			$data['cyberpunks_option_mode'] = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionMode((int)$option_info['option_id']);
+		} else {
+			$data['cyberpunks_option_mode'] = array('show_image' => 1, 'enabled_field_ids' => array());
+		}
+
+		$data['cyberpunks_option_value_custom_fields'] = array();
+		if (isset($this->request->post['option_value']) && is_array($this->request->post['option_value'])) {
+			foreach ($this->request->post['option_value'] as $cyberpunks_option_value_row => $cyberpunks_option_value_data) {
+				$data['cyberpunks_option_value_custom_fields'][$cyberpunks_option_value_row] = isset($cyberpunks_option_value_data['cyberpunks_custom_fields']) && is_array($cyberpunks_option_value_data['cyberpunks_custom_fields']) ? $cyberpunks_option_value_data['cyberpunks_custom_fields'] : array();
+			}
+		} elseif (!empty($option_info) && isset($option_info['option_id'])) {
+			$data['cyberpunks_option_value_custom_fields'] = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionValueFieldValues((int)$option_info['option_id']);
+		}
+
+		if (isset($this->request->post['cyberpunks_option_custom_fields']) && is_array($this->request->post['cyberpunks_option_custom_fields'])) {
+			$data['cyberpunks_option_custom_field_values'] = $this->request->post['cyberpunks_option_custom_fields'];
+		} elseif (!empty($option_info) && isset($option_info['option_id'])) {
+			$data['cyberpunks_option_custom_field_values'] = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionFieldValues((int)$option_info['option_id']);
+		} else {
+			$data['cyberpunks_option_custom_field_values'] = array();
+		}
+
+		$data['entry_cyberpunks_show_image'] = $this->language->get('entry_cyberpunks_show_image');
+		$data['entry_cyberpunks_custom_fields'] = $this->language->get('entry_cyberpunks_custom_fields');
+		$data['entry_cyberpunks_option_fields'] = $this->language->get('entry_cyberpunks_option_fields');
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[				'sort_order'               => $option_value['sort_order']]]></search>
+			<add position="replace"><![CDATA[				'sort_order'               => $option_value['sort_order'],
+				'cyberpunks_custom_fields' => isset($data['cyberpunks_option_value_custom_fields'][$option_value['option_value_id']]) ? $data['cyberpunks_option_value_custom_fields'][$option_value['option_value_id']] : array()]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/model/catalog/option.php">
+		<operation error="skip">
+			<search trim="false" index="0"><![CDATA[				$option_value_id = $this->db->getLastId();]]></search>
+			<add position="after"><![CDATA[
+				$cyberpunks_custom_fields = isset($option_value['cyberpunks_custom_fields']) && is_array($option_value['cyberpunks_custom_fields']) ? $option_value['cyberpunks_custom_fields'] : array();
+				foreach ($cyberpunks_custom_fields as $field_id => $field_value) {
+					$field_id = (int)$field_id;
+					if ($field_id <= 0) {
+						continue;
+					}
+					$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_option_custom_field_value` SET option_id = '" . (int)$option_id . "', option_value_id = '" . (int)$option_value_id . "', field_id = '" . $field_id . "', value = '" . $this->db->escape((string)$field_value) . "', date_modified = NOW()");
+				}
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false" index="1"><![CDATA[				$option_value_id = $this->db->getLastId();]]></search>
+			<add position="after"><![CDATA[
+				if (!(int)$option_value_id && !empty($option_value['option_value_id'])) {
+					$option_value_id = (int)$option_value['option_value_id'];
+				}
+
+				$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` WHERE option_value_id = '" . (int)$option_value_id . "'");
+				$cyberpunks_custom_fields = isset($option_value['cyberpunks_custom_fields']) && is_array($option_value['cyberpunks_custom_fields']) ? $option_value['cyberpunks_custom_fields'] : array();
+				foreach ($cyberpunks_custom_fields as $field_id => $field_value) {
+					$field_id = (int)$field_id;
+					if ($field_id <= 0) {
+						continue;
+					}
+					$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_option_custom_field_value` SET option_id = '" . (int)$option_id . "', option_value_id = '" . (int)$option_value_id . "', field_id = '" . $field_id . "', value = '" . $this->db->escape((string)$field_value) . "', date_modified = NOW()");
+				}
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/view/template/catalog/option_form.twig">
+		<operation error="skip">
+			<search trim="false"><![CDATA[              <label class="col-sm-2 control-label" for="input-type">{{ entry_type }}</label>]]></search>
+			<add position="before"><![CDATA[
+            <div class="form-group">
+              <label class="col-sm-2 control-label">{{ entry_cyberpunks_show_image }}</label>
+              <div class="col-sm-10">
+                <label class="checkbox-inline">
+                  <input type="checkbox" id="input-cyberpunks-show-image" name="cyberpunks_option_mode[show_image]" value="1" {% if cyberpunks_option_mode.show_image %}checked="checked"{% endif %}/>
+                  {{ entry_image }}
+                </label>
+                {% for field in cyberpunks_option_value_custom_field_defs %}
+                <label class="checkbox-inline">
+                  <input type="checkbox" id="input-cyberpunks-show-field-{{ field.field_id }}" name="cyberpunks_option_mode[enabled_field_ids][]" value="{{ field.field_id }}" {% if cyberpunks_option_mode.enabled_field_ids is defined and field.field_id in cyberpunks_option_mode.enabled_field_ids %}checked="checked"{% endif %}/>
+                  {{ field.label }}
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[                  <td class="text-center">{{ entry_image }}</td>]]></search>
+			<add position="replace"><![CDATA[                  <td class="text-center cyberpunks-image-column">{{ entry_image }}</td>
+                  {% for field in cyberpunks_option_value_custom_field_defs %}
+                  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}">{{ field.label }}</td>
+                  {% endfor %}]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[                <td class="text-left"><a href="" id="thumb-image{{ option_value_row }}" data-toggle="image" class="img-thumbnail"><img src="{{ option_value.thumb }}" alt="" title="" data-placeholder="{{ placeholder }}" /></a>]]></search>
+			<add position="replace"><![CDATA[                <td class="text-left cyberpunks-image-column"><a href="" id="thumb-image{{ option_value_row }}" data-toggle="image" class="img-thumbnail"><img src="{{ option_value.thumb }}" alt="" title="" data-placeholder="{{ placeholder }}" /></a>
+                  <input type="hidden" name="option_value[{{ option_value_row }}][image]" value="{{ option_value.image }}" id="input-image{{ option_value_row }}" /></td>
+                {% for field in cyberpunks_option_value_custom_field_defs %}
+                <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}">
+                  {% if field.field_type == 'textarea' %}
+                  <textarea name="option_value[{{ option_value_row }}][cyberpunks_custom_fields][{{ field.field_id }}]" rows="2" class="form-control">{{ option_value.cyberpunks_custom_fields[field.field_id] is defined ? option_value.cyberpunks_custom_fields[field.field_id] : '' }}</textarea>
+                  {% elseif field.field_type == 'boolean' %}
+                  <input type="hidden" name="option_value[{{ option_value_row }}][cyberpunks_custom_fields][{{ field.field_id }}]" value="0" />
+                  <input type="checkbox" name="option_value[{{ option_value_row }}][cyberpunks_custom_fields][{{ field.field_id }}]" value="1" {% if option_value.cyberpunks_custom_fields[field.field_id] is defined and option_value.cyberpunks_custom_fields[field.field_id] %}checked="checked"{% endif %} />
+                  {% else %}
+                  <input type="text" name="option_value[{{ option_value_row }}][cyberpunks_custom_fields][{{ field.field_id }}]" value="{{ option_value.cyberpunks_custom_fields[field.field_id] is defined ? option_value.cyberpunks_custom_fields[field.field_id] : '' }}" class="form-control" />
+                  {% endif %}
+                </td>
+                {% endfor %}]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[    html += '  <td class="text-center"><a href="" id="thumb-image' + option_value_row + '" data-toggle="image" class="img-thumbnail"><img src="{{ placeholder }}" alt="" title="" data-placeholder="{{ placeholder }}" /></a><input type="hidden" name="option_value[' + option_value_row + '][image]" value="" id="input-image' + option_value_row + '" /></td>';]]></search>
+			<add position="replace"><![CDATA[    html += '  <td class="text-center cyberpunks-image-column"><a href="" id="thumb-image' + option_value_row + '" data-toggle="image" class="img-thumbnail"><img src="{{ placeholder }}" alt="" title="" data-placeholder="{{ placeholder }}" /></a><input type="hidden" name="option_value[' + option_value_row + '][image]" value="" id="input-image' + option_value_row + '" /></td>';
+	{% for field in cyberpunks_option_value_custom_field_defs %}
+	{% if field.field_type == 'textarea' %}
+    html += '  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}"><textarea name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" rows="2" class="form-control"></textarea></td>';
+	{% elseif field.field_type == 'boolean' %}
+    html += '  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}"><input type="hidden" name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" value="0" /><input type="checkbox" name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" value="1" /></td>';
+	{% else %}
+    html += '  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}"><input type="text" name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" value="" class="form-control" /></td>';
+	{% endif %}
+	{% endfor %}]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[	$('#option-value tbody').append(html);]]></search>
+			<add position="after"><![CDATA[
+	cyberpunksToggleColumns();]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[                  <td colspan="3"></td>]]></search>
+			<add position="replace"><![CDATA[                  <td colspan="{{ 3 + (cyberpunks_option_value_custom_field_defs|length) }}"></td>]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[$('select[name=\'type\']').trigger('change');]]></search>
+			<add position="after"><![CDATA[
+function cyberpunksToggleColumns() {
+	var showImage = $('#input-cyberpunks-show-image').is(':checked');
+	$('.cyberpunks-image-column').toggle(showImage);
+
+	{% for field in cyberpunks_option_value_custom_field_defs %}
+	var showField{{ field.field_id }} = $('#input-cyberpunks-show-field-{{ field.field_id }}').is(':checked');
+	$('.cyberpunks-custom-field-column-{{ field.field_id }}').toggle(showField{{ field.field_id }});
+	{% endfor %}
+}
+
+$('#input-cyberpunks-show-image').on('change', cyberpunksToggleColumns);
+{% for field in cyberpunks_option_value_custom_field_defs %}
+$('#input-cyberpunks-show-field-{{ field.field_id }}').on('change', cyberpunksToggleColumns);
+{% endfor %}
+{% for field in cyberpunks_option_custom_fields %}
+$('#input-cyberpunks-show-option-field-{{ field.field_id }}').on('change', function() {
+	$('.cyberpunks-option-field-input-{{ field.field_id }}').toggle($(this).is(':checked'));
+});
+$('.cyberpunks-option-field-input-{{ field.field_id }}').toggle($('#input-cyberpunks-show-option-field-{{ field.field_id }}').is(':checked'));
+{% endfor %}
+cyberpunksToggleColumns();
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[              <label class="col-sm-2 control-label" for="input-sort-order">{{ entry_sort_order }}</label>]]></search>
+			<add position="before"><![CDATA[
+            {% if cyberpunks_option_custom_fields %}
+            <div class="form-group">
+              <label class="col-sm-2 control-label">{{ entry_cyberpunks_option_fields }}</label>
+              <div class="col-sm-10">
+                {% for field in cyberpunks_option_custom_fields %}
+                <div class="form-group cyberpunks-option-field-row cyberpunks-option-field-row-{{ field.field_id }}" style="margin-left:0;margin-right:0;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <input type="checkbox" id="input-cyberpunks-show-option-field-{{ field.field_id }}" name="cyberpunks_option_mode[enabled_field_ids][]" value="{{ field.field_id }}" {% if cyberpunks_option_mode.enabled_field_ids is defined and field.field_id in cyberpunks_option_mode.enabled_field_ids %}checked="checked"{% endif %} />
+                    <span style="font-weight:600;">{{ field.label }}</span>
+                  </div>
+                  <div class="cyberpunks-option-field-input cyberpunks-option-field-input-{{ field.field_id }}">
+                  {% if field.field_type == 'textarea' %}
+                  <textarea name="cyberpunks_option_custom_fields[{{ field.field_id }}]" rows="2" class="form-control">{{ cyberpunks_option_custom_field_values[field.field_id] is defined ? cyberpunks_option_custom_field_values[field.field_id] : '' }}</textarea>
+                  {% elseif field.field_type == 'boolean' %}
+                  <select name="cyberpunks_option_custom_fields[{{ field.field_id }}]" class="form-control">
+                    <option value="1" {% if cyberpunks_option_custom_field_values[field.field_id] is defined and cyberpunks_option_custom_field_values[field.field_id] == '1' %}selected="selected"{% endif %}>true</option>
+                    <option value="0" {% if cyberpunks_option_custom_field_values[field.field_id] is not defined or cyberpunks_option_custom_field_values[field.field_id] == '0' %}selected="selected"{% endif %}>false</option>
+                  </select>
+                  {% else %}
+                  <input type="text" name="cyberpunks_option_custom_fields[{{ field.field_id }}]" value="{{ cyberpunks_option_custom_field_values[field.field_id] is defined ? cyberpunks_option_custom_field_values[field.field_id] : '' }}" class="form-control" />
+                  {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/language/en-gb/catalog/option.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[$_['entry_sort_order']   = 'Sort Order';]]></search>
+			<add position="after"><![CDATA[
+$_['entry_cyberpunks_show_image'] = 'Display mode';
+$_['entry_cyberpunks_custom_fields'] = 'Custom option value fields';
+$_['entry_cyberpunks_option_fields'] = 'Custom option fields';
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/model/catalog/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$product_option_data[] = array(]]></search>
+			<add position="before"><![CDATA[
+			$cyberpunks_option_fields = array();
+			$cyberpunks_option_fields_tables = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_option_custom_field_value") . "'");
+
+			if ($cyberpunks_option_fields_tables->num_rows) {
+				$cyberpunks_option_fields_query = $this->db->query("SELECT f.field_key, v.value FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_option_custom_field` f ON (v.field_id = f.field_id) WHERE v.option_id = '" . (int)$product_option['option_id'] . "' AND v.option_value_id = '0' AND f.status = '1'");
+
+				foreach ($cyberpunks_option_fields_query->rows as $cyberpunks_option_field_row) {
+					if (!empty($cyberpunks_option_field_row['field_key'])) {
+						$cyberpunks_option_fields[$cyberpunks_option_field_row['field_key']] = $cyberpunks_option_field_row['value'];
+					}
+				}
+			}
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[			foreach ($product_option_value_query->rows as $product_option_value) {]]></search>
+			<add position="after"><![CDATA[
+				$cyberpunks_fields = array();
+				$cyberpunks_fields_tables = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_option_custom_field_value") . "'");
+
+				if ($cyberpunks_fields_tables->num_rows) {
+					$cyberpunks_fields_query = $this->db->query("SELECT f.field_key, v.value FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_option_custom_field` f ON (v.field_id = f.field_id) WHERE v.option_value_id = '" . (int)$product_option_value['option_value_id'] . "' AND f.status = '1'");
+
+					foreach ($cyberpunks_fields_query->rows as $cyberpunks_field_row) {
+						if (!empty($cyberpunks_field_row['field_key'])) {
+							$cyberpunks_fields[$cyberpunks_field_row['field_key']] = $cyberpunks_field_row['value'];
+						}
+					}
+				}
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[				'required'             => $product_option['required']]]></search>
+			<add position="replace"><![CDATA[				'required'             => $product_option['required'],
+				'cyberpunks_fields'    => $cyberpunks_option_fields]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[					'weight_prefix'           => $product_option_value['weight_prefix']]]></search>
+			<add position="replace"><![CDATA[					'weight_prefix'           => $product_option_value['weight_prefix'],
+					'cyberpunks_fields'       => $cyberpunks_fields]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/product/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[					'required'             => $option['required']]]></search>
+			<add position="replace"><![CDATA[					'required'             => $option['required'],
+					'cyberpunks_fields'    => isset($option['cyberpunks_fields']) ? $option['cyberpunks_fields'] : array()]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[							'price_prefix'            => $option_value['price_prefix']]]></search>
+			<add position="replace"><![CDATA[							'price_prefix'            => $option_value['price_prefix'],
+							'cyberpunks_fields'       => isset($option_value['cyberpunks_fields']) ? $option_value['cyberpunks_fields'] : array()]]></add>
+		</operation>
+	</file>
+</modification>
