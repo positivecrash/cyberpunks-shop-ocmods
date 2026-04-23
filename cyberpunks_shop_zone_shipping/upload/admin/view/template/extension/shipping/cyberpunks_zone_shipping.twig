@@ -1,0 +1,280 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-zone-shipping" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+          <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    {% if error_warning %}
+      <div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}</div>
+    {% endif %}
+    {% if success %}
+      <div class="alert alert-success"><i class="fa fa-check-circle"></i> {{ success }}</div>
+    {% endif %}
+
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3>
+      </div>
+      <div class="panel-body">
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-zone-shipping" class="form-horizontal">
+          <div class="form-group">
+            <label class="col-sm-2 control-label">{{ entry_status }}</label>
+            <div class="col-sm-10">
+              <select name="shipping_cyberpunks_zone_shipping_status" class="form-control">
+                <option value="1" {% if shipping_cyberpunks_zone_shipping_status %}selected{% endif %}>{{ text_enabled }}</option>
+                <option value="0" {% if not shipping_cyberpunks_zone_shipping_status %}selected{% endif %}>{{ text_disabled }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="col-sm-2 control-label">{{ entry_sort_order }}</label>
+            <div class="col-sm-10">
+              <input type="number" name="shipping_cyberpunks_zone_shipping_sort_order" value="{{ shipping_cyberpunks_zone_shipping_sort_order }}" class="form-control" />
+            </div>
+          </div>
+
+          <hr />
+          <div class="text-right" style="margin-bottom: 15px;">
+            <button type="button" class="btn btn-primary" id="button-add-zone"><i class="fa fa-plus-circle"></i> {{ button_add_zone }}</button>
+          </div>
+          <div id="zones-wrap"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript"><!--
+var countries = {{ countries|json_encode }};
+var taxClasses = {{ tax_classes|json_encode }};
+var zonesData = {{ zones|json_encode }};
+
+function esc(v) {
+  return String(v === undefined || v === null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function countriesChecklist(zoneIdx, selected) {
+  var selectedSet = {};
+  (selected || []).forEach(function(id) { selectedSet[String(id)] = true; });
+  var sorted = countries.slice().sort(function(a, b) {
+    var aId = String(a.country_id);
+    var bId = String(b.country_id);
+    var aSelected = selectedSet[aId] ? 1 : 0;
+    var bSelected = selectedSet[bId] ? 1 : 0;
+    if (aSelected !== bSelected) {
+      return bSelected - aSelected; // selected countries first
+    }
+    return String(a.name || '').localeCompare(String(b.name || ''));
+  });
+  return sorted.map(function(c, index) {
+    var id = String(c.country_id);
+    var checked = selectedSet[id] ? ' checked' : '';
+    var inputId = 'zone-' + zoneIdx + '-country-' + index;
+    return '' +
+      '<label data-country-name="' + esc(String(c.name || '').toLowerCase()) + '" style="display:flex; align-items:center; gap:8px; margin:0 0 6px 0; font-weight:normal;">' +
+        '<input type="checkbox" class="cp-zone-country-checkbox" id="' + esc(inputId) + '" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][countries][]" value="' + esc(id) + '"' + checked + ' style="margin:0; position:static;" />' +
+        '<span>' + esc(c.name) + '</span>' +
+      '</label>';
+  }).join('');
+}
+
+function taxClassOptions(selected) {
+  var html = '<option value="0"' + (String(selected || '0') === '0' ? ' selected' : '') + '>{{ entry_no_tax_class|e("js") }}</option>';
+  taxClasses.forEach(function(t) {
+    var id = String(t.tax_class_id);
+    var sel = String(selected || '') === id ? ' selected' : '';
+    html += '<option value="' + esc(id) + '"' + sel + '>' + esc(t.title) + '</option>';
+  });
+  return html;
+}
+
+function methodRow(zoneIdx, methodIdx, method) {
+  method = method || {};
+  return '' +
+    '<tr data-method-row="' + methodIdx + '">' +
+      '<td><input class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][name]" value="' + esc(method.name || '') + '" /></td>' +
+      '<td><input class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][code]" value="' + esc(method.code || '') + '" /></td>' +
+      '<td><input type="number" step="0.01" min="0" class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][cost]" value="' + esc(method.cost || '0') + '" /></td>' +
+      '<td><select class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][tax_class_id]">' + taxClassOptions(method.tax_class_id) + '</select></td>' +
+      '<td><input type="number" class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][sort_order]" value="' + esc(method.sort_order || '0') + '" /></td>' +
+      '<td><select class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][status]"><option value="1"' + ((String(method.status || '1') === '1') ? ' selected' : '') + '>{{ text_enabled|e("js") }}</option><option value="0"' + ((String(method.status || '1') === '0') ? ' selected' : '') + '>{{ text_disabled|e("js") }}</option></select></td>' +
+      '<td class="text-right"><button type="button" class="btn btn-danger" data-remove-method><i class="fa fa-minus-circle"></i></button></td>' +
+    '</tr>';
+}
+
+function zonePanel(zoneIdx, zone) {
+  zone = zone || {};
+  zone.methods = Array.isArray(zone.methods) ? zone.methods : [];
+  if (!zone.methods.length) zone.methods.push({name: 'Standard', code: 'standard', cost: '0', tax_class_id: 0, sort_order: 0, status: 1});
+
+  var methodsRows = zone.methods.map(function(m, i){ return methodRow(zoneIdx, i, m); }).join('');
+  return '' +
+    '<div class="panel panel-default" data-zone-row="' + zoneIdx + '">' +
+      '<div class="panel-heading clearfix">' +
+        '<h4 class="panel-title pull-left" style="margin-top:8px;">Zone #' + (zoneIdx + 1) + '</h4>' +
+        '<button type="button" class="btn btn-danger btn-sm pull-right" data-remove-zone><i class="fa fa-minus-circle"></i> {{ button_remove_zone|e("js") }}</button>' +
+      '</div>' +
+      '<div class="panel-body">' +
+        '<div class="row">' +
+          '<div class="col-sm-4"><label>{{ entry_zone_name|e("js") }}</label><input class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][name]" value="' + esc(zone.name || '') + '" /></div>' +
+          '<div class="col-sm-2"><label>{{ entry_zone_sort_order|e("js") }}</label><input type="number" class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][sort_order]" value="' + esc(zone.sort_order || '0') + '" /></div>' +
+          '<div class="col-sm-2"><label>{{ entry_zone_status|e("js") }}</label><select class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][status]"><option value="1"' + ((String(zone.status || '1') === '1') ? ' selected' : '') + '>{{ text_enabled|e("js") }}</option><option value="0"' + ((String(zone.status || '1') === '0') ? ' selected' : '') + '>{{ text_disabled|e("js") }}</option></select></div>' +
+          '<div class="col-sm-4">' +
+            '<label>{{ entry_zone_countries|e("js") }}</label>' +
+            '<div style="margin-bottom:6px; display:flex; gap:6px;">' +
+              '<input type="text" class="form-control input-sm" data-country-filter placeholder="Search country..." />' +
+              '<button type="button" class="btn btn-default btn-sm" data-country-select-all>Select all</button>' +
+              '<button type="button" class="btn btn-default btn-sm" data-country-clear>Clear</button>' +
+            '</div>' +
+            '<div class="well well-sm" data-country-list style="height:160px; overflow:auto; margin-bottom:0; padding:12px;">' + countriesChecklist(zoneIdx, zone.countries || []) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<hr />' +
+        '<h4>{{ entry_methods|e("js") }}</h4>' +
+        '<table class="table table-bordered">' +
+          '<thead><tr><th>{{ entry_method_name|e("js") }}</th><th>{{ entry_method_code|e("js") }}</th><th>{{ (entry_method_cost ~ " (" ~ store_currency_code ~ ")")|e("js") }}</th><th>{{ entry_method_tax_class|e("js") }}</th><th>{{ entry_method_sort_order|e("js") }}</th><th>{{ entry_method_status|e("js") }}</th><th></th></tr></thead>' +
+          '<tbody data-methods-wrap>' + methodsRows + '</tbody>' +
+        '</table>' +
+        '<button type="button" class="btn btn-primary btn-sm" data-add-method><i class="fa fa-plus-circle"></i> {{ button_add_method|e("js") }}</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function reindexZones() {
+  var panels = document.querySelectorAll('[data-zone-row]');
+  var rebuilt = [];
+  panels.forEach(function(panel, idx) {
+    var formData = new FormData(panel.closest('form'));
+    var originalIdx = panel.getAttribute('data-zone-row');
+    var zone = {
+      name: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][name]') || '',
+      sort_order: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][sort_order]') || '0',
+      status: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][status]') || '1',
+      countries: formData.getAll('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][countries][]'),
+      methods: []
+    };
+    var methodRows = panel.querySelectorAll('[data-method-row]');
+    methodRows.forEach(function(row) {
+      var mid = row.getAttribute('data-method-row');
+      zone.methods.push({
+        name: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][name]') || '',
+        code: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][code]') || '',
+        cost: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][cost]') || '0',
+        tax_class_id: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][tax_class_id]') || '0',
+        sort_order: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][sort_order]') || '0',
+        status: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][status]') || '1'
+      });
+    });
+    rebuilt.push(zone);
+  });
+  renderZones(rebuilt);
+}
+
+function renderZones(zones) {
+  var wrap = document.getElementById('zones-wrap');
+  wrap.innerHTML = '';
+  if (!zones.length) {
+    wrap.innerHTML = '<div class="alert alert-info">{{ text_no_results|e("js") }}</div>';
+    return;
+  }
+  zones.forEach(function(zone, idx){
+    wrap.insertAdjacentHTML('beforeend', zonePanel(idx, zone));
+  });
+}
+
+document.getElementById('button-add-zone').addEventListener('click', function() {
+  var zones = Array.isArray(zonesData) ? zonesData.slice() : [];
+  zones.push({name: '', sort_order: 0, status: 1, countries: [], methods: [{name: 'Standard', code: 'standard', cost: '0', tax_class_id: 0, sort_order: 0, status: 1}]});
+  zonesData = zones;
+  renderZones(zonesData);
+});
+
+document.getElementById('zones-wrap').addEventListener('click', function(e) {
+  var removeZone = e.target.closest('[data-remove-zone]');
+  if (removeZone) {
+    removeZone.closest('[data-zone-row]').remove();
+    reindexZones();
+    return;
+  }
+
+  var addMethod = e.target.closest('[data-add-method]');
+  if (addMethod) {
+    var panel = addMethod.closest('[data-zone-row]');
+    var zoneIdx = panel.getAttribute('data-zone-row');
+    var tbody = panel.querySelector('[data-methods-wrap]');
+    var nextIdx = tbody.querySelectorAll('[data-method-row]').length;
+    tbody.insertAdjacentHTML('beforeend', methodRow(zoneIdx, nextIdx, {name: '', code: '', cost: '0', tax_class_id: 0, sort_order: 0, status: 1}));
+    return;
+  }
+
+  var removeMethod = e.target.closest('[data-remove-method]');
+  if (removeMethod) {
+    var row = removeMethod.closest('[data-method-row]');
+    var tbody2 = row.parentNode;
+    if (tbody2.querySelectorAll('[data-method-row]').length > 1) {
+      row.remove();
+      reindexZones();
+    }
+  }
+
+  var selectAllCountries = e.target.closest('[data-country-select-all]');
+  if (selectAllCountries) {
+    var panel2 = selectAllCountries.closest('[data-zone-row]');
+    var checks = panel2.querySelectorAll('[data-country-list] input[type="checkbox"]');
+    checks.forEach(function(ch) { ch.checked = true; });
+  }
+
+  var clearCountries = e.target.closest('[data-country-clear]');
+  if (clearCountries) {
+    var panel3 = clearCountries.closest('[data-zone-row]');
+    var checks2 = panel3.querySelectorAll('[data-country-list] input[type="checkbox"]');
+    checks2.forEach(function(ch) { ch.checked = false; });
+  }
+});
+
+document.getElementById('zones-wrap').addEventListener('input', function(e) {
+  var filter = e.target.closest('[data-country-filter]');
+  if (!filter) return;
+  var panel = filter.closest('[data-zone-row]');
+  var query = String(filter.value || '').toLowerCase().trim();
+  var labels = panel.querySelectorAll('[data-country-list] [data-country-name]');
+  labels.forEach(function(label) {
+    var name = label.getAttribute('data-country-name') || '';
+    label.style.display = !query || name.indexOf(query) !== -1 ? 'block' : 'none';
+  });
+});
+
+renderZones(Array.isArray(zonesData) ? zonesData : []);
+//--></script>
+<style type="text/css">
+  /* Keep checkmarks visible in admin; default stylesheet shifts pseudo-tick outside */
+  .cp-zone-country-checkbox {
+    -webkit-appearance: checkbox !important;
+    appearance: auto !important;
+    width: 16px !important;
+    height: 16px !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    position: static !important;
+  }
+</style>
+{{ footer }}

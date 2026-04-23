@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Zone Shipping</name>
+	<code>cyberpunks_shop_zone_shipping</code>
+	<version>1.0.7</version>
+	<author>positivecrash</author>
+	<description>Custom shipping extension with zones, countries and delivery types.</description>
+
+	<file path="catalog/controller/extension/total/shipping.php">
+		<operation error="skip">
+			<search><![CDATA[$data['countries'] = $this->model_localisation_country->getCountries();]]></search>
+			<add position="after"><![CDATA[
+			$data['allowed_country_ids'] = array();
+
+			// Restrict estimator countries to countries configured in Cyberpunks Zone Shipping.
+			if ($this->config->get('shipping_cyberpunks_zone_shipping_status')) {
+				$zones = $this->config->get('shipping_cyberpunks_zone_shipping_zones');
+				$allowed = array();
+
+				if (is_array($zones)) {
+					foreach ($zones as $zone) {
+						if (empty($zone['status'])) {
+							continue;
+						}
+
+						$countries = isset($zone['countries']) && is_array($zone['countries']) ? $zone['countries'] : array();
+
+						// Empty list means all countries for this zone, so keep full country list.
+						if (!$countries) {
+							$allowed = array();
+							break;
+						}
+
+						foreach ($countries as $country_id) {
+							$allowed[(int)$country_id] = (int)$country_id;
+						}
+					}
+				}
+
+				if ($allowed) {
+					$data['allowed_country_ids'] = array_values($allowed);
+					$data['countries'] = array_values(array_filter($data['countries'], function($country) use ($allowed) {
+						return isset($allowed[(int)$country['country_id']]);
+					}));
+				}
+			}
+
+			$has_selected_country = false;
+			foreach ($data['countries'] as $country) {
+				if ((int)$country['country_id'] === (int)$data['country_id']) {
+					$has_selected_country = true;
+					break;
+				}
+			}
+			if (!$has_selected_country) {
+				$data['country_id'] = !empty($data['countries']) ? (int)$data['countries'][0]['country_id'] : 0;
+			}
+			]]></add>
+		</operation>
+	</file>
+</modification>

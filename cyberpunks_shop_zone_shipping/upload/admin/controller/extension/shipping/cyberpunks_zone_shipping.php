@@ -1,0 +1,149 @@
+<?php
+class ControllerExtensionShippingCyberpunksZoneShipping extends Controller {
+	private $error = array();
+	private $backup_code = 'cyberpunks_zone_shipping_backup';
+	private $backup_key = 'cyberpunks_zone_shipping_backup_payload';
+
+	public function index() {
+		$this->load->language('extension/shipping/cyberpunks_zone_shipping');
+		$this->document->setTitle($this->language->get('heading_title'));
+		$this->load->model('setting/setting');
+
+		$this->restoreFromBackupIfNeeded();
+
+		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
+			$this->model_setting_setting->editSetting('shipping_cyberpunks_zone_shipping', $this->request->post);
+			$this->saveBackupPayload($this->request->post);
+			$this->session->data['success'] = $this->language->get('text_success');
+			$this->response->redirect($this->url->link('extension/shipping/cyberpunks_zone_shipping', 'user_token=' . $this->session->data['user_token'] . '&type=shipping', true));
+		}
+
+		$this->load->model('localisation/country');
+		$this->load->model('localisation/tax_class');
+		$data['countries'] = $this->model_localisation_country->getCountries();
+		$data['tax_classes'] = $this->model_localisation_tax_class->getTaxClasses();
+		$data['store_currency_code'] = (string)$this->config->get('config_currency');
+
+		$data['breadcrumbs'] = array();
+		$data['breadcrumbs'][] = array(
+			'text' => $this->language->get('text_home'),
+			'href' => $this->url->link('common/dashboard', 'user_token=' . $this->session->data['user_token'], true)
+		);
+		$data['breadcrumbs'][] = array(
+			'text' => $this->language->get('text_extension'),
+			'href' => $this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=shipping', true)
+		);
+		$data['breadcrumbs'][] = array(
+			'text' => $this->language->get('heading_title'),
+			'href' => $this->url->link('extension/shipping/cyberpunks_zone_shipping', 'user_token=' . $this->session->data['user_token'], true)
+		);
+
+		$data['action'] = $this->url->link('extension/shipping/cyberpunks_zone_shipping', 'user_token=' . $this->session->data['user_token'], true);
+		$data['cancel'] = $this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=shipping', true);
+
+		$data['shipping_cyberpunks_zone_shipping_status'] = $this->request->post['shipping_cyberpunks_zone_shipping_status'] ?? $this->config->get('shipping_cyberpunks_zone_shipping_status');
+		$data['shipping_cyberpunks_zone_shipping_sort_order'] = $this->request->post['shipping_cyberpunks_zone_shipping_sort_order'] ?? $this->config->get('shipping_cyberpunks_zone_shipping_sort_order');
+		$data['shipping_cyberpunks_zone_shipping_status'] = (int)$data['shipping_cyberpunks_zone_shipping_status'];
+		$data['shipping_cyberpunks_zone_shipping_sort_order'] = (int)$data['shipping_cyberpunks_zone_shipping_sort_order'];
+
+		$zones = $this->request->post['shipping_cyberpunks_zone_shipping_zones'] ?? $this->config->get('shipping_cyberpunks_zone_shipping_zones');
+		if (!is_array($zones)) {
+			$zones = array();
+		}
+		foreach ($zones as &$zone) {
+			if (!isset($zone['countries']) || !is_array($zone['countries'])) {
+				$zone['countries'] = array();
+			}
+			if (!isset($zone['methods']) || !is_array($zone['methods'])) {
+				$zone['methods'] = array();
+			}
+		}
+		unset($zone);
+		$data['zones'] = $zones;
+
+		$data['error_warning'] = $this->error['warning'] ?? '';
+		$data['error_zone'] = $this->error['zone'] ?? array();
+		$data['error_method'] = $this->error['method'] ?? array();
+
+		if (isset($this->session->data['success'])) {
+			$data['success'] = $this->session->data['success'];
+			unset($this->session->data['success']);
+		} else {
+			$data['success'] = '';
+		}
+
+		$data['header'] = $this->load->controller('common/header');
+		$data['column_left'] = $this->load->controller('common/column_left');
+		$data['footer'] = $this->load->controller('common/footer');
+		$this->response->setOutput($this->load->view('extension/shipping/cyberpunks_zone_shipping', $data));
+	}
+
+	protected function validate() {
+		if (!$this->user->hasPermission('modify', 'extension/shipping/cyberpunks_zone_shipping')) {
+			$this->error['warning'] = $this->language->get('error_permission');
+		}
+
+		$zones = $this->request->post['shipping_cyberpunks_zone_shipping_zones'] ?? array();
+		if (!is_array($zones)) {
+			$zones = array();
+		}
+
+		foreach ($zones as $zone_row => $zone) {
+			$zone_name = trim((string)($zone['name'] ?? ''));
+			if ($zone_name === '') {
+				$this->error['zone'][$zone_row]['name'] = $this->language->get('error_zone_name');
+			}
+
+			$methods = $zone['methods'] ?? array();
+			if (!is_array($methods) || !$methods) {
+				$this->error['zone'][$zone_row]['methods'] = $this->language->get('error_zone_methods');
+				continue;
+			}
+
+			foreach ($methods as $method_row => $method) {
+				$method_name = trim((string)($method['name'] ?? ''));
+				$method_code = trim((string)($method['code'] ?? ''));
+				$cost = $method['cost'] ?? '';
+
+				if ($method_name === '') {
+					$this->error['method'][$zone_row][$method_row]['name'] = $this->language->get('error_method_name');
+				}
+				if ($method_code === '') {
+					$this->error['method'][$zone_row][$method_row]['code'] = $this->language->get('error_method_code');
+				}
+				if ($cost !== '' && !is_numeric($cost)) {
+					$this->error['method'][$zone_row][$method_row]['cost'] = $this->language->get('error_method_cost');
+				}
+			}
+		}
+
+		return !$this->error;
+	}
+
+	private function saveBackupPayload($post_data) {
+		$payload = array(
+			'shipping_cyberpunks_zone_shipping_status' => $post_data['shipping_cyberpunks_zone_shipping_status'] ?? 0,
+			'shipping_cyberpunks_zone_shipping_sort_order' => $post_data['shipping_cyberpunks_zone_shipping_sort_order'] ?? 0,
+			'shipping_cyberpunks_zone_shipping_zones' => $post_data['shipping_cyberpunks_zone_shipping_zones'] ?? array()
+		);
+		$this->model_setting_setting->editSetting($this->backup_code, array(
+			$this->backup_key => $payload
+		));
+	}
+
+	private function restoreFromBackupIfNeeded() {
+		$has_status = $this->config->has('shipping_cyberpunks_zone_shipping_status');
+		$has_zones = $this->config->has('shipping_cyberpunks_zone_shipping_zones');
+
+		if ($has_status || $has_zones) {
+			return;
+		}
+
+		$backup = $this->model_setting_setting->getSetting($this->backup_code);
+		$payload = $backup[$this->backup_key] ?? null;
+
+		if (is_array($payload) && $payload) {
+			$this->model_setting_setting->editSetting('shipping_cyberpunks_zone_shipping', $payload);
+		}
+	}
+}
