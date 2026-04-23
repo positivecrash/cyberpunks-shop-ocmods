@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Variant Images</name>
+	<code>cyberpunks_shop_variant_images</code>
+	<version>1.2.7</version>
+	<author>positivecrash</author>
+	<description>Resolve cart image by selected option combination with admin mappings UI.</description>
+
+	<file path="catalog/controller/checkout/cart.php">
+		<operation error="skip">
+			<search><![CDATA[if ($product['image']) {]]></search>
+			<add position="before"><![CDATA[$cart_image = $product['image'];
+
+				$option_value_ids = array();
+				foreach ($product['option'] as $option_item) {
+					if (!empty($option_item['option_value_id'])) {
+						$option_value_ids[] = (int)$option_item['option_value_id'];
+					}
+				}
+
+				if ($option_value_ids) {
+					$option_value_ids = array_values(array_unique($option_value_ids));
+					sort($option_value_ids, SORT_NUMERIC);
+					$current_ids_lookup = array_flip($option_value_ids);
+					$variant_mappings = $this->config->get('module_cyberpunks_variant_images_mappings');
+					$matched_map_image = '';
+
+					if (is_array($variant_mappings)) {
+						foreach ($variant_mappings as $variant_mapping) {
+							if (empty($variant_mapping['status'])) {
+								continue;
+							}
+
+							$map_product_id = isset($variant_mapping['product_id']) ? (int)$variant_mapping['product_id'] : 0;
+							$map_signature = isset($variant_mapping['option_value_signature']) ? trim((string)$variant_mapping['option_value_signature']) : '';
+							$map_image = isset($variant_mapping['image']) ? trim((string)$variant_mapping['image']) : '';
+
+							if ($map_product_id !== (int)$product['product_id'] || $map_signature === '' || $map_image === '') {
+								continue;
+							}
+
+							$map_ids = array_filter(array_map('intval', explode('-', $map_signature)));
+							if (!$map_ids) {
+								continue;
+							}
+
+							$map_ids = array_values(array_unique($map_ids));
+							$is_subset = true;
+
+							foreach ($map_ids as $map_id) {
+								if (!isset($current_ids_lookup[$map_id])) {
+									$is_subset = false;
+									break;
+								}
+							}
+
+							// First subset match wins (respect admin row order).
+							if ($is_subset) {
+								$matched_map_image = $map_image;
+								break;
+							}
+						}
+					}
+
+					if ($matched_map_image !== '') {
+						$cart_image = $matched_map_image;
+					}
+			}
+			]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[$image = $this->model_tool_image->resize($product['image'], $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_height'));]]></search>
+			<add position="replace"><![CDATA[$cart_image = ltrim((string)$cart_image, '/');
+
+					// Support direct theme asset path (outside DIR_IMAGE), e.g. catalog/view/theme/...
+					if (strpos($cart_image, 'catalog/view/theme/') === 0) {
+						$image = '/' . $cart_image;
+					} else {
+						$image = $this->model_tool_image->resize($cart_image, $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_height'));
+					}]]></add>
+		</operation>
+	</file>
+</modification>
