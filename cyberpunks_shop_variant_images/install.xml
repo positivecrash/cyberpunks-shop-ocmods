@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Variant Images</name>
 	<code>cyberpunks_shop_variant_images</code>
-	<version>1.2.7</version>
+	<version>1.3.13</version>
 	<author>positivecrash</author>
 	<description>Resolve cart image by selected option combination with admin mappings UI.</description>
 
@@ -11,31 +11,37 @@
 			<search><![CDATA[if ($product['image']) {]]></search>
 			<add position="before"><![CDATA[$cart_image = $product['image'];
 
-				$option_value_ids = array();
+				$signature_ids = array();
 				foreach ($product['option'] as $option_item) {
-					if (!empty($option_item['option_value_id'])) {
-						$option_value_ids[] = (int)$option_item['option_value_id'];
+					if (!empty($option_item['product_option_value_id'])) {
+						$signature_ids[] = (int)$option_item['product_option_value_id'];
 					}
 				}
 
-				if ($option_value_ids) {
-					$option_value_ids = array_values(array_unique($option_value_ids));
-					sort($option_value_ids, SORT_NUMERIC);
-					$current_ids_lookup = array_flip($option_value_ids);
+				if ($signature_ids) {
+					$signature_ids = array_values(array_unique($signature_ids));
+					sort($signature_ids, SORT_NUMERIC);
+					$current_ids_lookup = array_flip($signature_ids);
 					$variant_mappings = $this->config->get('module_cyberpunks_variant_images_mappings');
 					$matched_map_image = '';
+					$matched_map_size = -1;
 
 					if (is_array($variant_mappings)) {
 						foreach ($variant_mappings as $variant_mapping) {
-							if (empty($variant_mapping['status'])) {
+							$map_status = isset($variant_mapping['status']) ? $variant_mapping['status'] : (isset($variant_mapping['t']) ? $variant_mapping['t'] : 1);
+							if (empty($map_status)) {
 								continue;
 							}
 
-							$map_product_id = isset($variant_mapping['product_id']) ? (int)$variant_mapping['product_id'] : 0;
-							$map_signature = isset($variant_mapping['option_value_signature']) ? trim((string)$variant_mapping['option_value_signature']) : '';
-							$map_image = isset($variant_mapping['image']) ? trim((string)$variant_mapping['image']) : '';
+							$map_product_id = isset($variant_mapping['product_id']) ? (int)$variant_mapping['product_id'] : (isset($variant_mapping['p']) ? (int)$variant_mapping['p'] : 0);
+							$map_signature = isset($variant_mapping['option_value_signature']) ? trim((string)$variant_mapping['option_value_signature']) : (isset($variant_mapping['s']) ? trim((string)$variant_mapping['s']) : '');
+							$map_image = isset($variant_mapping['image']) ? trim((string)$variant_mapping['image']) : (isset($variant_mapping['i']) ? trim((string)$variant_mapping['i']) : '');
 
-							if ($map_product_id !== (int)$product['product_id'] || $map_signature === '' || $map_image === '') {
+							if ($map_image !== '' && strpos($map_image, '/') === false) {
+								$map_image = 'catalog/view/theme/cybershops/media/altruist-bundle/product-previews/' . $map_image;
+							}
+
+							if ($map_product_id !== (int)$product['product_id'] || $map_image === '' || $map_signature === '') {
 								continue;
 							}
 
@@ -54,10 +60,10 @@
 								}
 							}
 
-							// First subset match wins (respect admin row order).
-							if ($is_subset) {
+							// Choose the most specific subset match.
+							if ($is_subset && count($map_ids) > $matched_map_size) {
+								$matched_map_size = count($map_ids);
 								$matched_map_image = $map_image;
-								break;
 							}
 						}
 					}

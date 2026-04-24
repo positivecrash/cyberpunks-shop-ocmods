@@ -14,6 +14,9 @@
     </div>
   </div>
   <div class="container-fluid">
+    {% if success %}
+      <div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> {{ success }}</div>
+    {% endif %}
     {% if error_warning %}
       <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}</div>
     {% endif %}
@@ -26,6 +29,20 @@
           <label class="col-sm-2 control-label">{{ entry_status }}</label>
           <div class="col-sm-10">
             <div class="well well-sm" style="margin-bottom:10px;">
+              <form action="{{ import_action }}" method="post" enctype="multipart/form-data" id="import-form" style="margin-bottom:10px;">
+                <input type="hidden" name="import_action" value="1" />
+                <div class="row">
+                  <div class="col-sm-6">
+                    <input type="file" name="import_file" class="form-control" accept=".txt,.json,.yaml,.yml,.conf" />
+                  </div>
+                  <div class="col-sm-2">
+                    <button type="submit" class="btn btn-info">{{ button_import }}</button>
+                  </div>
+                  <div class="col-sm-12" style="margin-top:6px;">
+                    <small class="text-muted">{{ help_import }}</small>
+                  </div>
+                </div>
+              </form>
               <div class="row">
                 <div class="col-sm-6">
                   <select id="new-product-tab-select" class="form-control">
@@ -56,6 +73,16 @@
               <form action="{{ action }}" method="post" enctype="multipart/form-data" class="form-horizontal product-form" id="form-product-{{ group.product_id }}">
                 <input type="hidden" name="active_product_id" value="{{ group.product_id }}" />
                 <input type="hidden" name="module_cyberpunks_variant_images_status" value="{{ module_cyberpunks_variant_images_status ? 1 : 0 }}" />
+                <input type="hidden" name="module_cyberpunks_variant_images_payload" class="js-mappings-payload" value="" />
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                  <div>
+                    <a href="{{ export_url_base }}{{ group.product_id }}" class="btn btn-default"><i class="fa fa-download"></i> {{ button_export }}</a>
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> {{ button_save }}</button>
+                  </div>
+                  <div>
+                    <button type="submit" name="delete_tab_action" value="1" class="btn btn-danger" onclick="return confirm('{{ text_confirm_delete_tab|e('js') }}');"><i class="fa fa-trash"></i> {{ button_delete_tab }}</button>
+                  </div>
+                </div>
                 <div class="table-responsive">
                   <table class="table table-striped table-bordered table-hover">
                     <thead>
@@ -104,8 +131,14 @@
                     </tfoot>
                   </table>
                 </div>
-                <div class="text-right">
-                  <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> {{ button_save }}</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <div>
+                    <a href="{{ export_url_base }}{{ group.product_id }}" class="btn btn-default"><i class="fa fa-download"></i> {{ button_export }}</a>
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> {{ button_save }}</button>
+                  </div>
+                  <div>
+                    <button type="submit" name="delete_tab_action" value="1" class="btn btn-danger" onclick="return confirm('{{ text_confirm_delete_tab|e('js') }}');"><i class="fa fa-trash"></i> {{ button_delete_tab }}</button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -121,6 +154,7 @@ var productOptionsHtml = '{% for product in products %}<option value="{{ product
 var optionDataUrl = '{{ option_data_url|replace({'&amp;': '&'})|e('js') }}';
 var optionCache = {};
 var moduleAction = '{{ action|replace({'&amp;': '&'})|e('js') }}';
+var exportUrlBase = '{{ export_url_base|replace({'&amp;': '&'})|e('js') }}';
 var moduleStatus = {{ module_cyberpunks_variant_images_status ? 1 : 0 }};
 var productNameMap = { {% for product in products %}'{{ product.product_id }}': '{{ product.name|e('js') }}'{% if not loop.last %}, {% endif %}{% endfor %} };
 
@@ -260,7 +294,7 @@ function syncRowData(row) {
   if (!rowEl) return;
 
   var pairs = [];
-  var optionValueIds = [];
+  var signatureIds = [];
 
   rowEl.querySelectorAll('.js-pair-item').forEach(function(item) {
     var optionSelect = item.querySelector('.js-pair-option');
@@ -279,11 +313,11 @@ function syncRowData(row) {
       product_option_value_id: productOptionValueId,
       option_value_id: optionValueId
     });
-    optionValueIds.push(optionValueId);
+    signatureIds.push(productOptionValueId);
   });
 
-  optionValueIds = Array.from(new Set(optionValueIds)).sort(function(a, b) { return a - b; });
-  var signature = optionValueIds.join('-');
+  signatureIds = Array.from(new Set(signatureIds)).sort(function(a, b) { return a - b; });
+  var signature = signatureIds.join('-');
 
   var signatureInput = rowEl.querySelector('.js-signature-input');
   var pairsJsonInput = rowEl.querySelector('.js-pairs-json-input');
@@ -351,6 +385,57 @@ document.querySelectorAll('.js-add-mapping-btn').forEach(function(btn) {
   });
 });
 
+function buildFormPayload(form) {
+  var productIdInput = form.querySelector('input[name="active_product_id"]');
+  var productId = Number(productIdInput ? productIdInput.value : 0);
+  var payload = [];
+
+  form.querySelectorAll('tr[id^="mapping-row-"]').forEach(function(rowEl) {
+    var signatureInput = rowEl.querySelector('.js-signature-input');
+    var pairsInput = rowEl.querySelector('.js-pairs-json-input');
+    var imageInput = rowEl.querySelector('input[name*="[image]"]');
+    var statusSelect = rowEl.querySelector('select[name*="[status]"]');
+
+    var signature = signatureInput ? String(signatureInput.value || '').trim() : '';
+    var image = imageInput ? String(imageInput.value || '').trim() : '';
+    var pairsJson = pairsInput ? String(pairsInput.value || '[]') : '[]';
+    var status = statusSelect ? Number(statusSelect.value || 0) : 0;
+
+    if (!signature || !image) {
+      return;
+    }
+
+    payload.push({
+      product_id: productId,
+      option_value_signature: signature,
+      pairs_json: pairsJson,
+      image: image,
+      status: status ? 1 : 0
+    });
+  });
+
+  return payload;
+}
+
+function bindFormSubmit(form) {
+  if (!form || form.getAttribute('data-payload-bound') === '1') return;
+  form.setAttribute('data-payload-bound', '1');
+
+  form.addEventListener('submit', function() {
+    var payloadInput = form.querySelector('.js-mappings-payload');
+    if (!payloadInput) return;
+
+    payloadInput.value = JSON.stringify(buildFormPayload(form));
+
+    // Remove verbose per-row input names to avoid max_input_vars limits.
+    form.querySelectorAll('tr[id^="mapping-row-"] input[name], tr[id^="mapping-row-"] select[name]').forEach(function(el) {
+      el.removeAttribute('name');
+    });
+  });
+}
+
+document.querySelectorAll('form.product-form').forEach(bindFormSubmit);
+
 document.getElementById('open-product-tab-btn').addEventListener('click', function() {
   var select = document.getElementById('new-product-tab-select');
   var productId = Number(select.value || 0);
@@ -372,6 +457,8 @@ document.getElementById('open-product-tab-btn').addEventListener('click', functi
       '<form action="' + moduleAction + '" method="post" enctype="multipart/form-data" class="form-horizontal product-form" id="form-product-' + productId + '">' +
         '<input type="hidden" name="active_product_id" value="' + productId + '" />' +
         '<input type="hidden" name="module_cyberpunks_variant_images_status" value="' + moduleStatus + '" />' +
+        '<input type="hidden" name="module_cyberpunks_variant_images_payload" class="js-mappings-payload" value="" />' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div><a href="' + exportUrlBase + productId + '" class="btn btn-default"><i class="fa fa-download"></i> {{ button_export }}</a> <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> {{ button_save }}</button></div><div><button type="submit" name="delete_tab_action" value="1" class="btn btn-danger" onclick="return confirm(\\\'{{ text_confirm_delete_tab|e('js') }}\\\');"><i class="fa fa-trash"></i> {{ button_delete_tab }}</button></div></div>' +
         '<div class="table-responsive">' +
           '<table class="table table-striped table-bordered table-hover">' +
             '<thead><tr>' +
@@ -384,7 +471,7 @@ document.getElementById('open-product-tab-btn').addEventListener('click', functi
             '<tfoot><tr><td colspan="3"></td><td class="text-right"><button type="button" class="btn btn-primary js-add-mapping-btn" data-product-id="' + productId + '"><i class="fa fa-plus-circle"></i></button></td></tr></tfoot>' +
           '</table>' +
         '</div>' +
-        '<div class="text-right"><button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> {{ button_save }}</button></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;"><div><a href="' + exportUrlBase + productId + '" class="btn btn-default"><i class="fa fa-download"></i> {{ button_export }}</a> <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> {{ button_save }}</button></div><div><button type="submit" name="delete_tab_action" value="1" class="btn btn-danger" onclick="return confirm(\\\'{{ text_confirm_delete_tab|e('js') }}\\\');"><i class="fa fa-trash"></i> {{ button_delete_tab }}</button></div></div>' +
       '</form>' +
     '</div>';
   document.getElementById('product-tab-content').insertAdjacentHTML('beforeend', paneHtml);
@@ -396,6 +483,8 @@ document.getElementById('open-product-tab-btn').addEventListener('click', functi
     });
     addMappingRow(productId);
   }
+
+  bindFormSubmit(document.getElementById('form-product-' + productId));
 
   $('#product-tabs a[href="#' + tabId + '"]').tab('show');
 });
