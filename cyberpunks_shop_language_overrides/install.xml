@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Language Overrides</name>
 	<code>cyberpunks_shop_language_overrides</code>
-	<version>1.1.0</version>
+	<version>1.2.0</version>
 	<author>positivecrash</author>
 	<description>Admin-managed language overrides for checkout cart strings.</description>
 
@@ -19,6 +19,32 @@
 			}
 		}
 			]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search><![CDATA[$data['totals'] = array();]]></search>
+			<add position="after"><![CDATA[
+			$cp_total_label_overrides = $this->config->get('module_cyberpunks_language_overrides_total_labels');
+			if (!is_array($cp_total_label_overrides)) {
+				$cp_total_label_overrides = array();
+			}
+			]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search><![CDATA[$data['totals'][] = array(]]></search>
+			<add position="before"><![CDATA[
+				$cp_total_code = isset($total['code']) ? (string)$total['code'] : '';
+				$cp_total_title = $total['title'];
+				if ($cp_total_code !== '' && !empty($cp_total_label_overrides[$cp_total_code])) {
+					$cp_total_title = $cp_total_label_overrides[$cp_total_code];
+				}
+			]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search><![CDATA['title' => $total['title'],]]></search>
+			<add position="replace"><![CDATA['title' => $cp_total_title,]]></add>
 		</operation>
 	</file>
 </modification>

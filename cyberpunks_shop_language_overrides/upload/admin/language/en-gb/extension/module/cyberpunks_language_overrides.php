@@ -8,6 +8,9 @@ $_['text_home'] = 'Home';
 $_['text_override'] = 'Override';
 $_['text_original'] = 'Original';
 $_['text_key'] = 'Language Key';
+$_['text_total_labels'] = 'Cart Total Labels';
+$_['text_total_labels_help'] = 'Override order total labels by code for checkout cart rendering.';
+$_['text_total_code'] = 'Total Code';
 
 $_['entry_override'] = 'Override Text';
 

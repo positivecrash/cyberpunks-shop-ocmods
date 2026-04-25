@@ -22,9 +22,23 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 				}
 			}
 
+			$posted_total_labels = isset($this->request->post['module_cyberpunks_language_overrides_total_labels']) && is_array($this->request->post['module_cyberpunks_language_overrides_total_labels'])
+				? $this->request->post['module_cyberpunks_language_overrides_total_labels']
+				: array();
+
+			$clean_total_labels = array();
+			foreach ($posted_total_labels as $code => $label) {
+				$code = trim((string)$code);
+				$label = trim((string)$label);
+				if ($code !== '' && $label !== '') {
+					$clean_total_labels[$code] = $label;
+				}
+			}
+
 			$this->model_setting_setting->editSetting('module_cyberpunks_language_overrides', array(
 				'module_cyberpunks_language_overrides_status' => 1,
-				'module_cyberpunks_language_overrides_map' => $clean
+				'module_cyberpunks_language_overrides_map' => $clean,
+				'module_cyberpunks_language_overrides_total_labels' => $clean_total_labels
 			));
 
 			$this->session->data['success'] = $this->language->get('text_success');
@@ -77,6 +91,21 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 			);
 		}
 
+		$total_label_defaults = $this->getCartTotalLabelDefaults();
+		$total_label_overrides = $this->config->get('module_cyberpunks_language_overrides_total_labels');
+		if (!is_array($total_label_overrides)) {
+			$total_label_overrides = array();
+		}
+
+		$data['total_labels'] = array();
+		foreach ($total_label_defaults as $total_code => $total_default_label) {
+			$data['total_labels'][] = array(
+				'code' => $total_code,
+				'default' => $total_default_label,
+				'override' => isset($total_label_overrides[$total_code]) ? $total_label_overrides[$total_code] : ''
+			);
+		}
+
 		$data['header'] = $this->load->controller('common/header');
 		$data['column_left'] = $this->load->controller('common/column_left');
 		$data['footer'] = $this->load->controller('common/footer');
@@ -108,6 +137,18 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		}
 
 		return $result;
+	}
+
+	private function getCartTotalLabelDefaults() {
+		return array(
+			'sub_total' => 'Sub-Total',
+			'shipping'  => 'Shipping',
+			'coupon'    => 'Coupon',
+			'voucher'   => 'Voucher',
+			'reward'    => 'Reward Points',
+			'tax'       => 'Tax',
+			'total'     => 'Total'
+		);
 	}
 
 	protected function validate() {

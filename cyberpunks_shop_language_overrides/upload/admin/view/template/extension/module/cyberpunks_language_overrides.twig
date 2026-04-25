@@ -28,6 +28,33 @@
       </div>
       <div class="panel-body">
         <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-language-overrides" class="form-horizontal">
+          <fieldset style="margin-bottom: 20px;">
+            <legend>{{ text_total_labels }}</legend>
+            <p class="help-block">{{ text_total_labels_help }}</p>
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover">
+                <thead>
+                  <tr>
+                    <td class="text-left" style="width: 30%;">{{ text_total_code }}</td>
+                    <td class="text-left" style="width: 30%;">{{ text_original }}</td>
+                    <td class="text-left" style="width: 40%;">{{ text_override }}</td>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in total_labels %}
+                    <tr>
+                      <td><code>{{ row.code }}</code></td>
+                      <td>{{ row.default }}</td>
+                      <td>
+                        <input type="text" name="module_cyberpunks_language_overrides_total_labels[{{ row.code }}]" value="{{ row.override }}" class="form-control" placeholder="Leave empty to use original" />
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </fieldset>
+
           <div class="table-responsive">
             <table class="table table-bordered table-hover">
               <thead>

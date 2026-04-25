@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Option Fields</name>
 	<code>cyberpunks_shop_option_fields</code>
-	<version>1.2.7</version>
+	<version>1.2.8</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -328,6 +328,58 @@ $_['entry_cyberpunks_option_fields'] = 'Custom option fields';
 			<search trim="false"><![CDATA[							'price_prefix'            => $option_value['price_prefix']]]></search>
 			<add position="replace"><![CDATA[							'price_prefix'            => $option_value['price_prefix'],
 							'cyberpunks_fields'       => isset($option_value['cyberpunks_fields']) ? $option_value['cyberpunks_fields'] : array()]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/checkout/cart.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[				$option_data = array();]]></search>
+			<add position="after"><![CDATA[
+				$cyberpunks_option_name_map = array();
+				$cyberpunks_option_fields_tables = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_option_custom_field_value") . "'");
+				$cyberpunks_option_fields_enabled = (bool)$cyberpunks_option_fields_tables->num_rows;
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[					$option_data[] = array(]]></search>
+			<add position="before"><![CDATA[
+					$option_display_name = $option['name'];
+
+					if ($cyberpunks_option_fields_enabled && isset($option['option_id'])) {
+						$option_id = (int)$option['option_id'];
+
+						if (!isset($cyberpunks_option_name_map[$option_id])) {
+							$cyberpunks_option_name_map[$option_id] = '';
+
+							$option_name_query = $this->db->query("SELECT f.field_key, v.value FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_option_custom_field` f ON (v.field_id = f.field_id) WHERE v.option_id = '" . $option_id . "' AND v.option_value_id = '0' AND f.status = '1' AND f.field_key IN ('display_name', 'pick_display_name')");
+
+							$option_field_values = array();
+
+							foreach ($option_name_query->rows as $option_name_row) {
+								if (!empty($option_name_row['field_key']) && $option_name_row['value'] !== '') {
+									$option_field_values[$option_name_row['field_key']] = $option_name_row['value'];
+								}
+							}
+
+							if (!empty($option_field_values['display_name'])) {
+								$cyberpunks_option_name_map[$option_id] = $option_field_values['display_name'];
+							} elseif (!empty($option_field_values['pick_display_name'])) {
+								$cyberpunks_option_name_map[$option_id] = $option_field_values['pick_display_name'];
+							}
+						}
+
+						if (!empty($cyberpunks_option_name_map[$option_id])) {
+							$option_display_name = $cyberpunks_option_name_map[$option_id];
+						}
+					}
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[						'name'  => $option['name'],]]></search>
+			<add position="replace"><![CDATA[						'name'         => $option['name'],
+						'display_name' => $option_display_name,]]></add>
 		</operation>
 	</file>
 </modification>
