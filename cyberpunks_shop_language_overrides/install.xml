@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Language Overrides</name>
+	<code>cyberpunks_shop_language_overrides</code>
+	<version>1.1.0</version>
+	<author>positivecrash</author>
+	<description>Admin-managed language overrides for checkout cart strings.</description>
+
+	<file path="catalog/controller/checkout/cart.php">
+		<operation error="skip">
+			<search><![CDATA[$this->load->language('checkout/cart');]]></search>
+			<add position="after"><![CDATA[
+		$cp_language_overrides = $this->config->get('module_cyberpunks_language_overrides_map');
+		if (is_array($cp_language_overrides)) {
+			foreach ($cp_language_overrides as $cp_language_key => $cp_language_value) {
+				if ($cp_language_value !== '') {
+					$this->language->set($cp_language_key, $cp_language_value);
+				}
+			}
+		}
+			]]></add>
+		</operation>
+	</file>
+</modification>

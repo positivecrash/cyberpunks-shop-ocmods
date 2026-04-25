@@ -1,0 +1,58 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-language-overrides" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+          <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+      <div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}</div>
+    {% endif %}
+    {% if success %}
+      <div class="alert alert-success"><i class="fa fa-check-circle"></i> {{ success }}</div>
+    {% endif %}
+
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3>
+      </div>
+      <div class="panel-body">
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-language-overrides" class="form-horizontal">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+              <thead>
+                <tr>
+                  <td class="text-left" style="width: 20%;">{{ text_key }}</td>
+                  <td class="text-left" style="width: 35%;">{{ text_original }}</td>
+                  <td class="text-left" style="width: 45%;">{{ text_override }}</td>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in strings %}
+                  <tr{% if row.has_override %} class="info"{% endif %}>
+                    <td><code>{{ row.key }}</code></td>
+                    <td>{{ row.original }}</td>
+                    <td>
+                      <input type="text" name="module_cyberpunks_language_overrides_map[{{ row.key }}]" value="{{ row.override }}" class="form-control" placeholder="Leave empty to use original" />
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{{ footer }}

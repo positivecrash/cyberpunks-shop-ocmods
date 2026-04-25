@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Cart Stock Sum By Product</name>
 	<code>cyberpunks_shop_cart_stock_sum_by_product</code>
-	<version>1.0.1</version>
+	<version>1.0.5</version>
 	<author>positivecrash</author>
 
 	<file path="system/library/cart/cart.php">

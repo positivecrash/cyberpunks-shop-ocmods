@@ -2,10 +2,32 @@
 <modification>
 	<name>Cyberpunks Shop Cart Empty State</name>
 	<code>cyberpunks_shop_cart_empty_state</code>
-	<version>1.0.1</version>
+	<version>1.0.2</version>
 	<author>positivecrash</author>
 
 	<file path="catalog/controller/checkout/cart.php">
+		<operation error="skip">
+			<search><![CDATA[$this->load->model('tool/upload');]]></search>
+			<add position="after"><![CDATA[
+			$this->load->model('catalog/product');
+			]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search><![CDATA[$product_total = 0;]]></search>
+			<add position="before"><![CDATA[
+				$product_info = $this->model_catalog_product->getProduct($product['product_id']);
+				$stock_quantity = ($product_info && isset($product_info['quantity'])) ? (int)$product_info['quantity'] : 0;
+			]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search><![CDATA['quantity'  => $product['quantity'],]]></search>
+			<add position="after"><![CDATA[
+					'stock_quantity' => $stock_quantity,
+			]]></add>
+		</operation>
+
 		<operation error="skip">
 			<search trim="false"><![CDATA[			$data['text_error'] = $this->language->get('text_empty');
 			
