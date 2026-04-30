@@ -3,6 +3,8 @@
   <div class="page-header">
     <div class="container-fluid">
       <div class="pull-right">
+        <a href="{{ export }}" data-toggle="tooltip" title="{{ button_export }}" class="btn btn-default"><i class="fa fa-download"></i></a>
+        <button type="button" id="button-import-config" data-toggle="tooltip" title="{{ button_import }}" class="btn btn-default"><i class="fa fa-upload"></i></button>
         <button type="submit" form="form-zone-shipping" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
         <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
       </div>
@@ -51,6 +53,9 @@
             <button type="button" class="btn btn-primary" id="button-add-zone"><i class="fa fa-plus-circle"></i> {{ button_add_zone }}</button>
           </div>
           <div id="zones-wrap"></div>
+        </form>
+        <form action="{{ import }}" method="post" enctype="multipart/form-data" id="form-zone-shipping-import" style="display:none;">
+          <input type="file" name="import_file" id="input-zone-shipping-import-file" accept=".json,application/json" />
         </form>
       </div>
     </div>
@@ -112,6 +117,7 @@ function methodRow(zoneIdx, methodIdx, method) {
     '<tr data-method-row="' + methodIdx + '">' +
       '<td><input class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][name]" value="' + esc(method.name || '') + '" /></td>' +
       '<td><input class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][code]" value="' + esc(method.code || '') + '" /></td>' +
+      '<td><input class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][delivery_days]" value="' + esc(method.delivery_days || '') + '" placeholder="e.g. 1-2" /></td>' +
       '<td><input type="number" step="0.01" min="0" class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][cost]" value="' + esc(method.cost || '0') + '" /></td>' +
       '<td><select class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][tax_class_id]">' + taxClassOptions(method.tax_class_id) + '</select></td>' +
       '<td><input type="number" class="form-control" name="shipping_cyberpunks_zone_shipping_zones[' + zoneIdx + '][methods][' + methodIdx + '][sort_order]" value="' + esc(method.sort_order || '0') + '" /></td>' +
@@ -123,7 +129,7 @@ function methodRow(zoneIdx, methodIdx, method) {
 function zonePanel(zoneIdx, zone) {
   zone = zone || {};
   zone.methods = Array.isArray(zone.methods) ? zone.methods : [];
-  if (!zone.methods.length) zone.methods.push({name: 'Standard', code: 'standard', cost: '0', tax_class_id: 0, sort_order: 0, status: 1});
+  if (!zone.methods.length) zone.methods.push({name: 'Standard', code: 'standard', delivery_days: '', cost: '0', tax_class_id: 0, sort_order: 0, status: 1});
 
   var methodsRows = zone.methods.map(function(m, i){ return methodRow(zoneIdx, i, m); }).join('');
   return '' +
@@ -150,7 +156,7 @@ function zonePanel(zoneIdx, zone) {
         '<hr />' +
         '<h4>{{ entry_methods|e("js") }}</h4>' +
         '<table class="table table-bordered">' +
-          '<thead><tr><th>{{ entry_method_name|e("js") }}</th><th>{{ entry_method_code|e("js") }}</th><th>{{ (entry_method_cost ~ " (" ~ store_currency_code ~ ")")|e("js") }}</th><th>{{ entry_method_tax_class|e("js") }}</th><th>{{ entry_method_sort_order|e("js") }}</th><th>{{ entry_method_status|e("js") }}</th><th></th></tr></thead>' +
+          '<thead><tr><th>{{ entry_method_name|e("js") }}</th><th>{{ entry_method_code|e("js") }}</th><th>{{ entry_method_delivery_days|e("js") }}</th><th>{{ (entry_method_cost ~ " (" ~ store_currency_code ~ ")")|e("js") }}</th><th>{{ entry_method_tax_class|e("js") }}</th><th>{{ entry_method_sort_order|e("js") }}</th><th>{{ entry_method_status|e("js") }}</th><th></th></tr></thead>' +
           '<tbody data-methods-wrap>' + methodsRows + '</tbody>' +
         '</table>' +
         '<button type="button" class="btn btn-primary btn-sm" data-add-method><i class="fa fa-plus-circle"></i> {{ button_add_method|e("js") }}</button>' +
@@ -177,6 +183,7 @@ function reindexZones() {
       zone.methods.push({
         name: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][name]') || '',
         code: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][code]') || '',
+        delivery_days: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][delivery_days]') || '',
         cost: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][cost]') || '0',
         tax_class_id: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][tax_class_id]') || '0',
         sort_order: formData.get('shipping_cyberpunks_zone_shipping_zones[' + originalIdx + '][methods][' + mid + '][sort_order]') || '0',
@@ -202,7 +209,7 @@ function renderZones(zones) {
 
 document.getElementById('button-add-zone').addEventListener('click', function() {
   var zones = Array.isArray(zonesData) ? zonesData.slice() : [];
-  zones.push({name: '', sort_order: 0, status: 1, countries: [], methods: [{name: 'Standard', code: 'standard', cost: '0', tax_class_id: 0, sort_order: 0, status: 1}]});
+    zones.push({name: '', sort_order: 0, status: 1, countries: [], methods: [{name: 'Standard', code: 'standard', delivery_days: '', cost: '0', tax_class_id: 0, sort_order: 0, status: 1}]});
   zonesData = zones;
   renderZones(zonesData);
 });
@@ -221,7 +228,7 @@ document.getElementById('zones-wrap').addEventListener('click', function(e) {
     var zoneIdx = panel.getAttribute('data-zone-row');
     var tbody = panel.querySelector('[data-methods-wrap]');
     var nextIdx = tbody.querySelectorAll('[data-method-row]').length;
-    tbody.insertAdjacentHTML('beforeend', methodRow(zoneIdx, nextIdx, {name: '', code: '', cost: '0', tax_class_id: 0, sort_order: 0, status: 1}));
+    tbody.insertAdjacentHTML('beforeend', methodRow(zoneIdx, nextIdx, {name: '', code: '', delivery_days: '', cost: '0', tax_class_id: 0, sort_order: 0, status: 1}));
     return;
   }
 
@@ -263,6 +270,22 @@ document.getElementById('zones-wrap').addEventListener('input', function(e) {
 });
 
 renderZones(Array.isArray(zonesData) ? zonesData : []);
+
+var importBtn = document.getElementById('button-import-config');
+var importFileInput = document.getElementById('input-zone-shipping-import-file');
+var importForm = document.getElementById('form-zone-shipping-import');
+
+if (importBtn && importFileInput && importForm) {
+  importBtn.addEventListener('click', function() {
+    importFileInput.value = '';
+    importFileInput.click();
+  });
+
+  importFileInput.addEventListener('change', function() {
+    if (!importFileInput.files || !importFileInput.files.length) return;
+    importForm.submit();
+  });
+}
 //--></script>
 <style type="text/css">
   /* Keep checkmarks visible in admin; default stylesheet shifts pseudo-tick outside */

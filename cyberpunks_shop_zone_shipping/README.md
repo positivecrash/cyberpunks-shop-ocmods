@@ -9,6 +9,8 @@ Configures shipping as:
 - shipping zones (custom names),
 - countries assigned to each zone,
 - multiple delivery types per zone (for example `standard`, `express`),
+- optional delivery time text per method (for example `2-4 business days`),
+- import/export of full module settings via JSON file in admin,
 - individual price / status / sort order for each delivery type in each zone.
 
 ## Admin path

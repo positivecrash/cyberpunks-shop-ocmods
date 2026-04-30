@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Checkout Hardening</name>
+	<code>cyberpunks_shop_checkout_hardening</code>
+	<version>1.0.0</version>
+	<author>positivecrash</author>
+	<description>Defensive fallbacks for checkout request payloads.</description>
+
+	<file path="catalog/controller/checkout/shipping_method.php">
+		<operation error="skip">
+			<search><![CDATA[$this->session->data['comment'] = strip_tags($this->request->post['comment']);]]></search>
+			<add position="replace"><![CDATA[$this->session->data['comment'] = strip_tags(isset($this->request->post['comment']) ? $this->request->post['comment'] : '');]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/checkout/payment_method.php">
+		<operation error="skip">
+			<search><![CDATA[$this->session->data['comment'] = strip_tags($this->request->post['comment']);]]></search>
+			<add position="replace"><![CDATA[$this->session->data['comment'] = strip_tags(isset($this->request->post['comment']) ? $this->request->post['comment'] : '');]]></add>
+		</operation>
+	</file>
+</modification>

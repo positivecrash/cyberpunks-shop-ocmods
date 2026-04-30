@@ -54,6 +54,7 @@ class ModelExtensionShippingCyberpunksZoneShipping extends Model {
 			}
 			$name = trim((string)($method['name'] ?? ''));
 			$code = trim((string)($method['code'] ?? ''));
+			$delivery_days = trim((string)($method['delivery_days'] ?? ''));
 			$cost = (float)($method['cost'] ?? 0);
 			$tax_class_id = (int)($method['tax_class_id'] ?? 0);
 
@@ -64,6 +65,9 @@ class ModelExtensionShippingCyberpunksZoneShipping extends Model {
 			$method_code = strtolower(preg_replace('/[^a-z0-9]+/i', '_', $code));
 			$key = $zone_key . '_' . $method_code . '_' . $idx;
 			$title = $name;
+			if ($delivery_days !== '') {
+				$title .= ' (' . $delivery_days . ')';
+			}
 
 			$quote_data[$key] = array(
 				'code'         => 'cyberpunks_zone_shipping.' . $key,
