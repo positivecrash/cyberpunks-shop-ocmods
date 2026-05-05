@@ -138,6 +138,10 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		if (!$json) {
 			$this->session->data['payment_method'] = $this->session->data['payment_methods'][$this->request->post['payment_method']];
 			$this->session->data['comment'] = strip_tags(isset($this->request->post['comment']) ? $this->request->post['comment'] : '');
+
+			// Start payment with a fresh Revolut session state to avoid redirecting to stale completed orders.
+			unset($this->session->data['revolut_order_id']);
+
 			$this->hydrateSections($json);
 			// Return SEO-rewritten URL (if SEO module supports this route).
 			$json['payment_url'] = $this->url->link('extension/cyberpunks_checkout_facade/payment', '', true);
@@ -168,6 +172,9 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		$data['heading_title'] = $this->language->get('heading_title');
 		$data['header'] = $this->load->controller('common/header');
 		$data['footer'] = $this->load->controller('common/footer');
+
+		// /payment should always create a fresh Revolut order for the current checkout session.
+		unset($this->session->data['revolut_order_id']);
 
 		// This will run checkout/confirm (creates the order) and output order summary + payment widget.
 		$data['confirm_html'] = $this->renderControllerOutput('checkout/confirm');
