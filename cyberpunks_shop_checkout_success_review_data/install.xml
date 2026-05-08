@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Checkout Success Review Data</name>
 	<code>cyberpunks_shop_checkout_success_review_data</code>
-	<version>1.0.0</version>
+	<version>1.0.1</version>
 	<author>positivecrash</author>
 	<description>Inject order products/totals into checkout/success common/success.twig</description>
 
@@ -33,6 +33,7 @@
 
 		// Order review data (for cybershops/common/success.twig)
 		$data['order_id'] = (int)$order_id;
+		$data['firstname'] = '';
 		$data['email'] = '';
 		$data['shipping_method_text'] = '';
 		$data['arrives_by_text'] = '';
@@ -47,6 +48,7 @@
 
 			$order_info = $this->model_checkout_order->getOrder($order_id);
 			if ($order_info) {
+				$data['firstname'] = isset($order_info['firstname']) ? (string)$order_info['firstname'] : '';
 				$data['email'] = isset($order_info['email']) ? (string)$order_info['email'] : '';
 				$raw_shipping_method = isset($order_info['shipping_method']) ? (string)$order_info['shipping_method'] : '';
 				$data['shipping_method_text'] = $raw_shipping_method;
