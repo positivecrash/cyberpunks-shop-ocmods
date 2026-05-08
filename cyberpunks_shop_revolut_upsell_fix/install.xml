@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Revolut Upsell Fix</name>
+	<code>cyberpunks_shop_revolut_upsell_fix</code>
+	<version>1.0.1</version>
+	<author>positivecrash</author>
+	<description>Fix truthy &quot;0&quot; upsell_banner_enabled in revolut_card.js by loading patched script.</description>
+
+	<file path="catalog/view/theme/*/template/extension/payment/revolut_card.twig">
+		<operation error="skip">
+			<search><![CDATA[<script src="catalog/view/javascript/revolut_card.js" id="revolut-pay-js"></script>]]></search>
+			<add position="replace"><![CDATA[<script src="catalog/view/javascript/revolut_card.cyberpunks.js" id="revolut-pay-js"></script>]]></add>
+		</operation>
+	</file>
+</modification>

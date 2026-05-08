@@ -12,6 +12,9 @@ $_['text_total_labels'] = 'Cart Total Labels';
 $_['text_total_labels_help'] = 'Override order total labels by code for checkout cart rendering.';
 $_['text_total_code'] = 'Total Code';
 
+$_['text_checkout_placeholders'] = 'Checkout Placeholders';
+$_['text_checkout_placeholders_help'] = 'Override checkout field placeholders / labels (keys from catalog/language/en-gb/checkout/checkout.php).';
+
 $_['entry_override'] = 'Override Text';
 
 $_['error_permission'] = 'Warning: You do not have permission to modify this module.';

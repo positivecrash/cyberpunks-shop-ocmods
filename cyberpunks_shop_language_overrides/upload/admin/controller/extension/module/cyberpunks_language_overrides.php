@@ -106,6 +106,26 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 			);
 		}
 
+		$checkout_strings = $this->readCheckoutStrings();
+		usort($checkout_strings, function($a, $b) use ($overrides) {
+			$a_over = isset($overrides[$a['key']]) && $overrides[$a['key']] !== '' ? 1 : 0;
+			$b_over = isset($overrides[$b['key']]) && $overrides[$b['key']] !== '' ? 1 : 0;
+			if ($a_over !== $b_over) {
+				return $b_over - $a_over;
+			}
+			return strcmp($a['key'], $b['key']);
+		});
+
+		$data['checkout_strings'] = array();
+		foreach ($checkout_strings as $row) {
+			$data['checkout_strings'][] = array(
+				'key' => $row['key'],
+				'original' => $row['value'],
+				'override' => isset($overrides[$row['key']]) ? $overrides[$row['key']] : '',
+				'has_override' => isset($overrides[$row['key']]) && $overrides[$row['key']] !== ''
+			);
+		}
+
 		$data['header'] = $this->load->controller('common/header');
 		$data['column_left'] = $this->load->controller('common/column_left');
 		$data['footer'] = $this->load->controller('common/footer');
@@ -149,6 +169,37 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 			'tax'       => 'Tax',
 			'total'     => 'Total'
 		);
+	}
+
+	private function readCheckoutStrings() {
+		$file = DIR_CATALOG . 'language/en-gb/checkout/checkout.php';
+		$result = array();
+
+		if (!is_file($file)) {
+			return $result;
+		}
+
+		$lines = file($file);
+		if (!is_array($lines)) {
+			return $result;
+		}
+
+		foreach ($lines as $line) {
+			$matches = array();
+			if (preg_match('/^\$_\[\'([^\']+)\'\]\s*=\s*\'(.*)\';\s*$/', trim($line), $matches) === 1) {
+				$key = $matches[1];
+				if (strpos($key, 'entry_') !== 0 && $key !== 'text_agree') {
+					continue;
+				}
+
+				$result[] = array(
+					'key' => $key,
+					'value' => stripcslashes($matches[2])
+				);
+			}
+		}
+
+		return $result;
 	}
 
 	protected function validate() {
