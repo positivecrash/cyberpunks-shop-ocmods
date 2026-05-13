@@ -2,13 +2,51 @@
 <modification>
 	<name>Cyberpunks Shop Features</name>
 	<code>cyberpunks_shop_features</code>
-	<version>1.0.0</version>
-	<author>vol4tim</author>
+	<version>1.0.3</version>
+	<author>vol4tim, positivecrash</author>
 
 	<file path="catalog/controller/product/product.php">
 		<operation error="skip">
 			<search trim="false"><![CDATA[$data['heading_title'] = $product_info['name'];]]></search>
 			<add position="after"><![CDATA[			$data['currency'] = $this->session->data['currency'];]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/information/information.php">
+		<operation error="skip">
+			<search trim="true"><![CDATA[
+		$this->response->addHeader('X-Robots-Tag: noindex');
+
+		$this->response->setOutput($output);
+]]></search>
+			<add position="replace"><![CDATA[
+		$data = array();
+		$data['heading_title'] = 'Terms & Conditions';
+		$data['description'] = $output;
+		$data['footer'] = $this->load->controller('common/footer');
+		$data['header'] = $this->load->controller('common/header');
+
+		$this->response->addHeader('X-Robots-Tag: noindex');
+		$this->response->setOutput($this->load->view('information/agree', $data));
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/checkout/payment_method.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[				$data['text_agree'] = sprintf($this->language->get('text_agree'), $this->url->link('information/information/agree', 'information_id=' . $this->config->get('config_checkout_id'), true), $information_info['title']);]]></search>
+			<add position="replace"><![CDATA[				$data['text_agree'] = sprintf($this->language->get('text_agree'), $this->url->link('information/information', 'information_id=' . $this->config->get('config_checkout_id'), true), $information_info['title']);]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="true"><![CDATA[$cp_text_agree_url = $this->url->link('information/information/agree', 'information_id=' . $this->config->get('config_checkout_id'), true);]]></search>
+			<add position="replace"><![CDATA[$cp_text_agree_url = $this->url->link('information/information', 'information_id=' . $this->config->get('config_checkout_id'), true);]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/language/en-gb/checkout/checkout.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[$_['text_agree']                     = 'I have read and agree to the <a href="%s" class="agree"><b>%s</b></a>';]]></search>
+			<add position="replace"><![CDATA[$_['text_agree']                     = 'I have read and agree to the <a href="%s" class="agree" target="_blank" rel="noopener noreferrer"><b>%s</b></a>';]]></add>
 		</operation>
 	</file>
 </modification>

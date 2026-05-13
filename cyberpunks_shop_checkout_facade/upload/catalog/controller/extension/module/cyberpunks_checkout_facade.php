@@ -1,5 +1,8 @@
 <?php
 class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
+	/** @var string Payment method `code` to restore after `payment_methods` is rebuilt (see hydrateSections). */
+	private $cpPreservePaymentMethodCode = '';
+
 	public function review_totals() {
 		$this->load->language('checkout/checkout');
 
@@ -212,6 +215,8 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			$this->tryRestoreShippingMethod($preserve_shipping_code);
 		}
 
+		$this->cpPreservePaymentMethodCode = $this->getCurrentPaymentMethodCode();
+
 		unset($this->session->data['payment_method']);
 		unset($this->session->data['payment_methods']);
 
@@ -398,6 +403,9 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 	}
 
 	private function loadPaymentReviewData(&$data) {
+		$this->load->language('extension/module/cyberpunks_checkout_facade');
+		$data['text_cp_payment_method_label'] = $this->language->get('text_payment_method_label');
+
 		$this->load->model('tool/image');
 		$this->load->model('setting/extension');
 
@@ -559,12 +567,110 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		}
 
 		$data['coupon_code'] = isset($this->session->data['coupon']) ? (string)$this->session->data['coupon'] : '';
+
+		$data['cp_checkout_summary'] = $this->buildCheckoutOrderSummary();
+	}
+
+	/**
+	 * Name, contact, shipping label and one-line address for the /payment review page (e.g. COD).
+	 *
+	 * @return array<string,string>
+	 */
+	private function buildCheckoutOrderSummary() {
+		$out = array(
+			'full_name'              => '',
+			'email'                  => '',
+			'telephone'              => '',
+			'shipping_method'        => '',
+			'payment_method_title'   => '',
+			'ships_to'               => '',
+		);
+
+		$pa = (isset($this->session->data['payment_address']) && is_array($this->session->data['payment_address'])) ? $this->session->data['payment_address'] : array();
+		$sa = (isset($this->session->data['shipping_address']) && is_array($this->session->data['shipping_address'])) ? $this->session->data['shipping_address'] : array();
+		$guest = (isset($this->session->data['guest']) && is_array($this->session->data['guest'])) ? $this->session->data['guest'] : array();
+
+		$fn = isset($pa['firstname']) ? trim((string)$pa['firstname']) : '';
+		$ln = isset($pa['lastname']) ? trim((string)$pa['lastname']) : '';
+
+		if ($fn === '' && $ln === '' && $guest) {
+			$fn = isset($guest['firstname']) ? trim((string)$guest['firstname']) : '';
+			$ln = isset($guest['lastname']) ? trim((string)$guest['lastname']) : '';
+		}
+
+		$out['full_name'] = trim($fn . ' ' . $ln);
+
+		if ($guest && isset($guest['email'])) {
+			$out['email'] = trim((string)$guest['email']);
+		} elseif (isset($pa['email'])) {
+			$out['email'] = trim((string)$pa['email']);
+		}
+
+		if ($guest && isset($guest['telephone'])) {
+			$out['telephone'] = trim((string)$guest['telephone']);
+		} elseif (isset($pa['telephone'])) {
+			$out['telephone'] = trim((string)$pa['telephone']);
+		}
+
+		if (isset($this->session->data['shipping_method']['title'])) {
+			$out['shipping_method'] = trim((string)$this->session->data['shipping_method']['title']);
+		}
+
+		if (isset($this->session->data['payment_method']['title'])) {
+			$out['payment_method_title'] = trim((string)$this->session->data['payment_method']['title']);
+		}
+
+		$addr_src = $pa;
+
+		if ($this->cart->hasShipping() && $sa && isset($sa['address_1']) && trim((string)$sa['address_1']) !== '') {
+			$addr_src = $sa;
+		}
+
+		$out['ships_to'] = $this->formatCheckoutSummaryAddressLine($addr_src);
+
+		return $out;
+	}
+
+	/**
+	 * @param array $a payment or shipping address row from session
+	 */
+	private function formatCheckoutSummaryAddressLine($a) {
+		if (!is_array($a)) {
+			return '';
+		}
+
+		$parts = array();
+
+		$append = function ($v) use (&$parts) {
+			$v = trim((string)$v);
+
+			if ($v !== '') {
+				$parts[] = $v;
+			}
+		};
+
+		$append(isset($a['postcode']) ? $a['postcode'] : '');
+		$append(isset($a['country']) ? $a['country'] : '');
+		$append(isset($a['zone']) ? $a['zone'] : '');
+		$append(isset($a['city']) ? $a['city'] : '');
+		$append(isset($a['address_1']) ? $a['address_1'] : '');
+		$append(isset($a['company']) ? $a['company'] : '');
+		$append(isset($a['address_2']) ? $a['address_2'] : '');
+
+		return implode(', ', $parts);
 	}
 
 	private function hydrateSections(&$json) {
 		$json['sections'] = array(
 			'payment_method' => $this->renderPaymentMethodSection()
 		);
+
+		$preserve_payment = $this->cpPreservePaymentMethodCode;
+		$this->cpPreservePaymentMethodCode = '';
+
+		if ($preserve_payment !== '' && $this->tryRestorePaymentMethod($preserve_payment)) {
+			$json['sections']['payment_method'] = $this->renderPaymentMethodSection();
+		}
 
 		if ($this->cart->hasShipping()) {
 			$json['sections']['shipping_method'] = $this->renderControllerOutput('checkout/shipping_method');
@@ -692,8 +798,10 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			$json['error']['country'] = $this->language->get('error_country');
 		}
 
-		if (!isset($this->request->post['zone_id']) || $this->request->post['zone_id'] == '' || !is_numeric($this->request->post['zone_id'])) {
-			$json['error']['zone'] = $this->language->get('error_zone');
+		// Zone/region is optional for our checkout: shipping & payments are determined by country.
+		// Use zone_id=0 when user didn't pick a region.
+		if (!isset($this->request->post['zone_id']) || $this->request->post['zone_id'] === '' || !is_numeric($this->request->post['zone_id'])) {
+			$this->request->post['zone_id'] = 0;
 		}
 
 		if (isset($this->request->post['customer_group_id']) && is_array($this->config->get('config_customer_group_display')) && in_array($this->request->post['customer_group_id'], $this->config->get('config_customer_group_display'))) {
@@ -826,6 +934,19 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			$this->tax->setShippingAddress((int)$this->request->post['country_id'], (int)$this->request->post['zone_id']);
 		}
 
+		// Rebuild payment method list for the new address, then apply UI selection from save_guest POST (see checkout.twig collectGuestPayload).
+		$this->renderControllerOutput('checkout/payment_method');
+
+		if (isset($this->request->post['payment_method']) && is_string($this->request->post['payment_method']) && $this->request->post['payment_method'] !== '') {
+			$pm = $this->request->post['payment_method'];
+
+			if (isset($this->session->data['payment_methods'][$pm])) {
+				$this->session->data['payment_method'] = $this->session->data['payment_methods'][$pm];
+			}
+		}
+
+		$this->cpPreservePaymentMethodCode = $this->getCurrentPaymentMethodCode();
+
 		unset($this->session->data['shipping_method']);
 		unset($this->session->data['shipping_methods']);
 		unset($this->session->data['payment_method']);
@@ -835,6 +956,46 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			$this->rebuildShippingMethodsSession();
 			$this->tryRestoreShippingMethod($preserve_shipping_code);
 		}
+	}
+
+	private function getCurrentPaymentMethodCode() {
+		if (isset($this->session->data['payment_method']['code']) && is_string($this->session->data['payment_method']['code'])) {
+			return $this->session->data['payment_method']['code'];
+		}
+
+		return '';
+	}
+
+	/**
+	 * Re-select payment in session after checkout/payment_method rebuilt the list.
+	 *
+	 * @param string $preserve_code Value from payment_method['code'] before unset.
+	 * @return bool True if session payment_method was set.
+	 */
+	private function tryRestorePaymentMethod($preserve_code) {
+		if ($preserve_code === '' || !is_string($preserve_code)) {
+			return false;
+		}
+
+		if (!isset($this->session->data['payment_methods']) || !is_array($this->session->data['payment_methods'])) {
+			return false;
+		}
+
+		if (isset($this->session->data['payment_methods'][$preserve_code])) {
+			$this->session->data['payment_method'] = $this->session->data['payment_methods'][$preserve_code];
+
+			return true;
+		}
+
+		foreach ($this->session->data['payment_methods'] as $method) {
+			if (isset($method['code']) && $method['code'] === $preserve_code) {
+				$this->session->data['payment_method'] = $method;
+
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private function rebuildShippingMethodsSession() {

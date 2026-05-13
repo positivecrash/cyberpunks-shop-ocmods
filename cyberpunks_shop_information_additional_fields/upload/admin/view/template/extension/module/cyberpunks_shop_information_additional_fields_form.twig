@@ -1,0 +1,45 @@
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-og-image"><span data-toggle="tooltip" title="{{ help_og_image }}">{{ entry_og_image }}</span></label>
+                <div class="col-sm-10">
+                  <input type="text" name="og_image" value="{{ og_image }}" placeholder="{{ entry_og_image }}" id="input-og-image" class="form-control" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-noindex"><span data-toggle="tooltip" title="{{ help_noindex }}">{{ entry_noindex }}</span></label>
+                <div class="col-sm-10">
+                  <div class="checkbox">
+                    <label>{% if noindex %}
+                      <input type="checkbox" name="noindex" value="1" checked="checked" id="input-noindex" />
+                      {% else %}
+                      <input type="checkbox" name="noindex" value="1" id="input-noindex" />
+                      {% endif %}
+                      &nbsp;</label>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-show-shipping-rates"><span data-toggle="tooltip" title="{{ help_show_shipping_rates }}">{{ entry_show_shipping_rates }}</span></label>
+                <div class="col-sm-10">
+                  <div class="checkbox">
+                    <label>{% if show_shipping_rates %}
+                      <input type="checkbox" name="show_shipping_rates" value="1" checked="checked" id="input-show-shipping-rates" />
+                      {% else %}
+                      <input type="checkbox" name="show_shipping_rates" value="1" id="input-show-shipping-rates" />
+                      {% endif %}
+                      &nbsp;</label>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-show-in-footer-info-links"><span data-toggle="tooltip" title="{{ help_show_in_footer_info_links }}">{{ entry_show_in_footer_info_links }}</span></label>
+                <div class="col-sm-10">
+                  <div class="checkbox">
+                    <label>{% if show_in_footer_info_links %}
+                      <input type="checkbox" name="show_in_footer_info_links" value="1" checked="checked" id="input-show-in-footer-info-links" />
+                      {% else %}
+                      <input type="checkbox" name="show_in_footer_info_links" value="1" id="input-show-in-footer-info-links" />
+                      {% endif %}
+                      &nbsp;</label>
+                  </div>
+                </div>
+              </div>

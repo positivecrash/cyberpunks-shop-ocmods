@@ -3,6 +3,8 @@ class ControllerExtensionShippingCyberpunksZoneShipping extends Controller {
 	private $error = array();
 	private $backup_code = 'cyberpunks_zone_shipping_backup';
 	private $backup_key = 'cyberpunks_zone_shipping_backup_payload';
+	private $geo_zone_prefix = 'CP: ';
+	private $geo_zone_description = 'Synced from Cyberpunks Zone Shipping';
 
 	public function index() {
 		$this->load->language('extension/shipping/cyberpunks_zone_shipping');
@@ -11,9 +13,38 @@ class ControllerExtensionShippingCyberpunksZoneShipping extends Controller {
 
 		$this->restoreFromBackupIfNeeded();
 
+		// Ensure geo_zone list is always fresh for modules like COD (they use cached getGeoZones()).
+		$this->cache->delete('geo_zone');
+
+		// Auto-initialize Geo Zones for already configured module zones (after an update).
+		if ($this->request->server['REQUEST_METHOD'] !== 'POST' && $this->user->hasPermission('modify', 'extension/shipping/cyberpunks_zone_shipping')) {
+			$zones_config = $this->config->get('shipping_cyberpunks_zone_shipping_zones');
+			if (is_array($zones_config) && $this->needsGeoZoneSync($zones_config)) {
+				$zones_synced = $this->syncGeoZones($zones_config);
+
+				$payload = array(
+					'shipping_cyberpunks_zone_shipping_status' => (int)$this->config->get('shipping_cyberpunks_zone_shipping_status'),
+					'shipping_cyberpunks_zone_shipping_sort_order' => (int)$this->config->get('shipping_cyberpunks_zone_shipping_sort_order'),
+					'shipping_cyberpunks_zone_shipping_zones' => $zones_synced
+				);
+
+				$this->model_setting_setting->editSetting('shipping_cyberpunks_zone_shipping', $payload);
+				$this->saveBackupPayload($payload);
+			}
+		}
+
 		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
-			$this->model_setting_setting->editSetting('shipping_cyberpunks_zone_shipping', $this->request->post);
-			$this->saveBackupPayload($this->request->post);
+			$post = $this->request->post;
+
+			$zones = $post['shipping_cyberpunks_zone_shipping_zones'] ?? array();
+			if (!is_array($zones)) {
+				$zones = array();
+			}
+
+			$post['shipping_cyberpunks_zone_shipping_zones'] = $this->syncGeoZones($zones);
+
+			$this->model_setting_setting->editSetting('shipping_cyberpunks_zone_shipping', $post);
+			$this->saveBackupPayload($post);
 			$this->session->data['success'] = $this->language->get('text_success');
 			$this->response->redirect($this->url->link('extension/shipping/cyberpunks_zone_shipping', 'user_token=' . $this->session->data['user_token'] . '&type=shipping', true));
 		}
@@ -218,5 +249,118 @@ class ControllerExtensionShippingCyberpunksZoneShipping extends Controller {
 		if (is_array($payload) && $payload) {
 			$this->model_setting_setting->editSetting('shipping_cyberpunks_zone_shipping', $payload);
 		}
+	}
+
+	private function syncGeoZones(array $zones): array {
+		$this->load->model('localisation/country');
+
+		$changed = false;
+
+		foreach ($zones as $i => $zone) {
+			if (!is_array($zone)) {
+				continue;
+			}
+
+			$name = trim((string)($zone['name'] ?? ''));
+			if ($name === '') {
+				continue;
+			}
+
+			$is_enabled = !empty($zone['status']);
+			$geo_zone_id = isset($zone['geo_zone_id']) ? (int)$zone['geo_zone_id'] : 0;
+
+			$geo_zone_name = $this->geo_zone_prefix . $name;
+
+			$geo_zone_id = $this->upsertGeoZone($geo_zone_id, $geo_zone_name, $this->geo_zone_description);
+			$zones[$i]['geo_zone_id'] = $geo_zone_id;
+			$changed = true;
+
+			// If zone is disabled, clear its mappings so it never matches.
+			$this->db->query("DELETE FROM " . DB_PREFIX . "zone_to_geo_zone WHERE geo_zone_id = '" . (int)$geo_zone_id . "'");
+			$changed = true;
+
+			if (!$is_enabled) {
+				continue;
+			}
+
+			$countries = $zone['countries'] ?? array();
+			if (!is_array($countries)) {
+				$countries = array();
+			}
+
+			// Empty list means "all countries" for our module.
+			if (!$countries) {
+				$countries = array_map(function($c) {
+					return (int)$c['country_id'];
+				}, $this->model_localisation_country->getCountries());
+			}
+
+			$seen = array();
+			foreach ($countries as $country_id) {
+				$country_id = (int)$country_id;
+				if ($country_id <= 0 || isset($seen[$country_id])) {
+					continue;
+				}
+				$seen[$country_id] = true;
+
+				$this->db->query("INSERT INTO " . DB_PREFIX . "zone_to_geo_zone SET geo_zone_id = '" . (int)$geo_zone_id . "', country_id = '" . (int)$country_id . "', zone_id = '0', date_added = NOW(), date_modified = NOW()");
+				$changed = true;
+			}
+		}
+
+		if ($changed) {
+			$this->cache->delete('geo_zone');
+		}
+
+		return $zones;
+	}
+
+	private function needsGeoZoneSync(array $zones): bool {
+		foreach ($zones as $zone) {
+			if (!is_array($zone)) {
+				continue;
+			}
+
+			$name = trim((string)($zone['name'] ?? ''));
+			if ($name === '') {
+				continue;
+			}
+
+			if (empty($zone['geo_zone_id'])) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function upsertGeoZone(int $geo_zone_id, string $name, string $description): int {
+		$name_sql = $this->db->escape($name);
+		$desc_sql = $this->db->escape($description);
+
+		$existing = null;
+		if ($geo_zone_id > 0) {
+			$q = $this->db->query("SELECT * FROM " . DB_PREFIX . "geo_zone WHERE geo_zone_id = '" . (int)$geo_zone_id . "'");
+			if ($q->num_rows) {
+				$existing = $q->row;
+			}
+		}
+
+		// Only allow updating zones that look like ours (prefix or description marker).
+		if ($existing && (strpos((string)$existing['name'], $this->geo_zone_prefix) === 0 || (string)$existing['description'] === $this->geo_zone_description)) {
+			$this->db->query("UPDATE " . DB_PREFIX . "geo_zone SET name = '" . $name_sql . "', description = '" . $desc_sql . "', date_modified = NOW() WHERE geo_zone_id = '" . (int)$geo_zone_id . "'");
+			return (int)$geo_zone_id;
+		}
+
+		// Try to reuse by name.
+		$q2 = $this->db->query("SELECT geo_zone_id FROM " . DB_PREFIX . "geo_zone WHERE name = '" . $name_sql . "' LIMIT 1");
+		if ($q2->num_rows) {
+			$reuse_id = (int)$q2->row['geo_zone_id'];
+			$this->db->query("UPDATE " . DB_PREFIX . "geo_zone SET description = '" . $desc_sql . "', date_modified = NOW() WHERE geo_zone_id = '" . (int)$reuse_id . "'");
+			return $reuse_id;
+		}
+
+		$this->db->query("INSERT INTO " . DB_PREFIX . "geo_zone SET name = '" . $name_sql . "', description = '" . $desc_sql . "', date_added = NOW(), date_modified = NOW()");
+		return (int)$this->db->getLastId();
 	}
 }

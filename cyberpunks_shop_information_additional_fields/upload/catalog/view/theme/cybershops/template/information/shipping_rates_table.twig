@@ -1,0 +1,33 @@
+{% if shipping_rates %}
+<section class="information-shipping-rates" aria-labelledby="information-shipping-rates-heading">
+	<h2 id="information-shipping-rates-heading">{{ text_shipping_rates_heading }}</h2>
+	<div class="table-responsive">
+		<table class="information-shipping-rates__table">
+			<thead>
+				<tr>
+					<th scope="col">{{ column_zone }}</th>
+					<th scope="col">{{ column_countries }}</th>
+					<th scope="col">{{ column_service }}</th>
+					<th scope="col">{{ column_delivery }}</th>
+					<th scope="col">{{ column_price }}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for zone in shipping_rates %}
+					{% for method in zone.methods %}
+					<tr>
+						{% if loop.first %}
+						<th scope="rowgroup" rowspan="{{ zone.methods|length }}">{{ zone.name }}</th>
+						<td rowspan="{{ zone.methods|length }}">{{ zone.countries_text }}</td>
+						{% endif %}
+						<td>{{ method.name }}</td>
+						<td>{% if method.delivery_days %}{{ method.delivery_days }}{% else %}&mdash;{% endif %}</td>
+						<td>{{ method.price }}</td>
+					</tr>
+					{% endfor %}
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</section>
+{% endif %}

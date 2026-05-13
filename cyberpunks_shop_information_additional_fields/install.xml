@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Information Additional Fields</name>
+	<code>cyberpunks_shop_information_additional_fields</code>
+	<version>1.0.6</version>
+	<author>positivecrash</author>
+	<description>OpenGraph image, SEO noindex, and optional shipping rates table for information pages. Install the package zip with install.xml at the archive root and upload/ beside it, then refresh Modifications.</description>
+
+	<file path="system/library/document.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[	private $keywords;]]></search>
+			<add position="after"><![CDATA[
+	private $robots;
+	private $og_image;]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function addLink($href, $rel) {]]></search>
+			<add position="before"><![CDATA[	public function setRobots($robots) {
+		$this->robots = $robots;
+	}
+
+	public function getRobots() {
+		return $this->robots;
+	}
+
+	public function setOgImage($og_image) {
+		$this->og_image = $og_image;
+	}
+
+	public function getOgImage() {
+		return $this->og_image;
+	}
+
+	]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/controller/catalog/information.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['text_form'] = !isset($this->request->get['information_id']) ? $this->language->get('text_add') : $this->language->get('text_edit');]]></search>
+			<add position="after"><![CDATA[
+		$this->load->model('extension/module/cyberpunks_shop_information_additional_fields');
+		$this->model_extension_module_cyberpunks_shop_information_additional_fields->install();
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[		if (isset($this->request->post['information_seo_url'])) {]]></search>
+			<add position="before"><![CDATA[		if (isset($this->request->post['og_image'])) {
+			$data['og_image'] = $this->request->post['og_image'];
+		} elseif (!empty($information_info)) {
+			$data['og_image'] = isset($information_info['og_image']) ? $information_info['og_image'] : '';
+		} else {
+			$data['og_image'] = '';
+		}
+
+		if (isset($this->request->post['noindex'])) {
+			$data['noindex'] = 1;
+		} elseif (!empty($information_info) && !empty($information_info['noindex'])) {
+			$data['noindex'] = 1;
+		} else {
+			$data['noindex'] = 0;
+		}
+
+		if (isset($this->request->post['show_shipping_rates'])) {
+			$data['show_shipping_rates'] = 1;
+		} elseif (!empty($information_info) && !empty($information_info['show_shipping_rates'])) {
+			$data['show_shipping_rates'] = 1;
+		} else {
+			$data['show_shipping_rates'] = 0;
+		}
+
+		if (isset($this->request->post['show_in_footer_info_links'])) {
+			$data['show_in_footer_info_links'] = 1;
+		} elseif (!empty($information_info) && !empty($information_info['show_in_footer_info_links'])) {
+			$data['show_in_footer_info_links'] = 1;
+		} else {
+			$data['show_in_footer_info_links'] = 0;
+		}
+
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$this->response->setOutput($this->load->view('catalog/information_form', $data));]]></search>
+			<add position="before"><![CDATA[		$this->load->language('extension/module/cyberpunks_shop_information_additional_fields');
+
+		$data['cyberpunks_information_additional_fields'] = $this->load->view('extension/module/cyberpunks_shop_information_additional_fields_form', array(
+			'og_image'                  => isset($data['og_image']) ? $data['og_image'] : '',
+			'noindex'                   => !empty($data['noindex']),
+			'show_shipping_rates'       => !empty($data['show_shipping_rates']),
+			'show_in_footer_info_links' => !empty($data['show_in_footer_info_links']),
+			'entry_og_image'            => $this->language->get('entry_og_image'),
+			'entry_noindex'             => $this->language->get('entry_noindex'),
+			'entry_show_shipping_rates' => $this->language->get('entry_show_shipping_rates'),
+			'entry_show_in_footer_info_links' => $this->language->get('entry_show_in_footer_info_links'),
+			'help_og_image'             => $this->language->get('help_og_image'),
+			'help_noindex'              => $this->language->get('help_noindex'),
+			'help_show_shipping_rates'  => $this->language->get('help_show_shipping_rates'),
+			'help_show_in_footer_info_links'  => $this->language->get('help_show_in_footer_info_links')
+		));
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/model/catalog/information.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$this->db->query("INSERT INTO " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "'");]]></search>
+			<add position="replace"><![CDATA[		$this->db->query("INSERT INTO " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "', noindex = '" . (isset($data['noindex']) ? (int)$data['noindex'] : 0) . "', og_image = '" . $this->db->escape(isset($data['og_image']) ? $data['og_image'] : '') . "', show_shipping_rates = '" . (isset($data['show_shipping_rates']) ? (int)$data['show_shipping_rates'] : 0) . "', show_in_footer_info_links = '" . (isset($data['show_in_footer_info_links']) ? (int)$data['show_in_footer_info_links'] : 0) . "'");]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$this->db->query("UPDATE " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "' WHERE information_id = '" . (int)$information_id . "'");]]></search>
+			<add position="replace"><![CDATA[		$this->db->query("UPDATE " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "', noindex = '" . (isset($data['noindex']) ? (int)$data['noindex'] : 0) . "', og_image = '" . $this->db->escape(isset($data['og_image']) ? $data['og_image'] : '') . "', show_shipping_rates = '" . (isset($data['show_shipping_rates']) ? (int)$data['show_shipping_rates'] : 0) . "', show_in_footer_info_links = '" . (isset($data['show_in_footer_info_links']) ? (int)$data['show_in_footer_info_links'] : 0) . "' WHERE information_id = '" . (int)$information_id . "'");]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/view/template/catalog/information_form.twig">
+		<operation error="skip">
+			<search trim="false"><![CDATA[                  <input type="text" name="sort_order" value="{{ sort_order }}" placeholder="{{ entry_sort_order }}" id="input-sort-order" class="form-control" />]]></search>
+			<add position="after" offset="2"><![CDATA[
+              {{ cyberpunks_information_additional_fields|raw }}]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/information/information.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->document->setKeywords($information_info['meta_keyword']);]]></search>
+			<add position="after"><![CDATA[
+			if (!empty($information_info['noindex'])) {
+				$this->document->setRobots('noindex, follow');
+				$this->response->addHeader('X-Robots-Tag: noindex, follow');
+			}
+
+			if (!empty($information_info['og_image'])) {
+				$og_image = trim($information_info['og_image']);
+
+				if ($og_image !== '' && strpos($og_image, 'http://') !== 0 && strpos($og_image, 'https://') !== 0) {
+					if ($this->request->server['HTTPS']) {
+						$server = $this->config->get('config_ssl');
+					} else {
+						$server = $this->config->get('config_url');
+					}
+
+					$og_image = rtrim($server, '/') . '/' . ltrim($og_image, '/');
+				}
+
+				$this->document->setOgImage($og_image);
+			}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$data['description'] = html_entity_decode($information_info['description'], ENT_QUOTES, 'UTF-8');]]></search>
+			<add position="after"><![CDATA[
+			$data['shipping_rates_html'] = '';
+
+			if (!empty($information_info['show_shipping_rates'])) {
+				$this->load->model('extension/module/cyberpunks_shop_information_additional_fields');
+				$shipping_rates = $this->model_extension_module_cyberpunks_shop_information_additional_fields->getShippingRatesOverview();
+
+				if ($shipping_rates) {
+					$this->load->language('extension/module/cyberpunks_shop_information_additional_fields');
+
+					$data['shipping_rates_html'] = $this->load->view('information/shipping_rates_table', array(
+						'shipping_rates'              => $shipping_rates,
+						'text_shipping_rates_heading' => $this->language->get('text_shipping_rates_heading'),
+						'column_zone'                 => $this->language->get('column_zone'),
+						'column_countries'            => $this->language->get('column_countries'),
+						'column_service'              => $this->language->get('column_service'),
+						'column_delivery'             => $this->language->get('column_delivery'),
+						'column_price'                => $this->language->get('column_price')
+					));
+				}
+			}
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/common/header.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['keywords'] = $this->document->getKeywords();]]></search>
+			<add position="after"><![CDATA[
+		$data['robots'] = $this->document->getRobots();
+		$data['og_image'] = $this->document->getOgImage();]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/common/footer.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$this->load->model('catalog/information');]]></search>
+			<add position="after"><![CDATA[
+		$this->load->model('extension/module/cyberpunks_shop_information_additional_fields');
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['informations'] = array();]]></search>
+			<add position="before"><![CDATA[		$data['footer_info_links'] = $this->model_extension_module_cyberpunks_shop_information_additional_fields->getFooterInfoLinks();
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/view/theme/cybershops/template/common/header.twig">
+		<operation error="skip">
+			<ignoreif><![CDATA[{% if robots %}]]></ignoreif>
+			<search trim="false"><![CDATA[		<title>{{ title }}</title>]]></search>
+			<add position="before"><![CDATA[		{% if robots %}
+		<meta name="robots" content="{{ robots }}" />
+		{% endif %}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<ignoreif><![CDATA[cyberpunks_og_image]]></ignoreif>
+			<search trim="false"><![CDATA[		<meta property="og:image" content="catalog/view/theme/cybershops/media/head/og-altruist-bundle.png" />]]></search>
+			<add position="replace"><![CDATA[		{% set cyberpunks_default_og_image = 'catalog/view/theme/cybershops/media/head/og-altruist-bundle.png' %}
+		{% set cyberpunks_og_image = og_image ? og_image : cyberpunks_default_og_image %}
+		<meta property="og:image" content="{{ cyberpunks_og_image }}" />]]></add>
+		</operation>
+		<operation error="skip">
+			<ignoreif><![CDATA[cyberpunks_og_image]]></ignoreif>
+			<search trim="false"><![CDATA[		<meta name="twitter:image" content="catalog/view/theme/cybershops/media/head/og-altruist-bundle.png" />]]></search>
+			<add position="replace"><![CDATA[		<meta name="twitter:image" content="{{ cyberpunks_og_image }}" />]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/view/theme/cybershops/template/information/information.twig">
+		<operation error="skip">
+			<ignoreif><![CDATA[shipping_rates_html]]></ignoreif>
+			<search trim="false"><![CDATA[		{{ description }}]]></search>
+			<add position="after"><![CDATA[
+		{{ shipping_rates_html|raw }}]]></add>
+		</operation>
+	</file>
+</modification>

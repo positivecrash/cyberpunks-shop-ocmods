@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Language Overrides</name>
 	<code>cyberpunks_shop_language_overrides</code>
-	<version>1.3.0</version>
+	<version>1.3.2</version>
 	<author>positivecrash</author>
 	<description>Admin-managed language overrides for checkout cart strings.</description>
 
@@ -116,7 +116,7 @@
 			<add position="replace"><![CDATA[
 				$cp_text_agree_tpl = (string)$this->language->get('text_agree');
 				$cp_text_agree_args = substr_count($cp_text_agree_tpl, '%s');
-				$cp_text_agree_url = $this->url->link('information/information/agree', 'information_id=' . $this->config->get('config_checkout_id'), true);
+				$cp_text_agree_url = $this->url->link('information/information', 'information_id=' . $this->config->get('config_checkout_id'), true);
 
 				// OpenCart convention:
 				// - if text_agree has 1 placeholder: it expects the FULL HTML link (already formatted)
@@ -124,7 +124,7 @@
 				if ($cp_text_agree_args <= 0) {
 					$data['text_agree'] = $cp_text_agree_tpl;
 				} elseif ($cp_text_agree_args === 1) {
-					$cp_text_agree_link = '<a href="' . $cp_text_agree_url . '" class="agree"><b>' . $information_info['title'] . '</b></a>';
+					$cp_text_agree_link = '<a href="' . $cp_text_agree_url . '" class="agree" target="_blank" rel="noopener noreferrer"><b>' . $information_info['title'] . '</b></a>';
 					$data['text_agree'] = sprintf($cp_text_agree_tpl, $cp_text_agree_link);
 				} else {
 					$data['text_agree'] = sprintf($cp_text_agree_tpl, $cp_text_agree_url, $information_info['title']);
