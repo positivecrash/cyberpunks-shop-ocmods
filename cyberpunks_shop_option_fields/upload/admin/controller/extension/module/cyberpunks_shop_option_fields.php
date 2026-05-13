@@ -66,6 +66,7 @@ class ControllerExtensionModuleCyberpunksShopOptionFields extends Controller {
 		$data['text_boolean'] = $this->language->get('text_boolean');
 		$data['text_scope_option'] = $this->language->get('text_scope_option');
 		$data['text_scope_option_value'] = $this->language->get('text_scope_option_value');
+		$data['text_scope_product'] = $this->language->get('text_scope_product');
 		$data['button_add'] = $this->language->get('button_add');
 		$data['button_remove'] = $this->language->get('button_remove');
 		$data['button_save'] = $this->language->get('button_save');

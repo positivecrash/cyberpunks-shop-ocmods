@@ -55,6 +55,7 @@
                   <select name="cyberpunks_custom_fields[{{ field_row }}][scope]" class="form-control">
                     <option value="option" {% if field.scope is defined and field.scope == 'option' %}selected="selected"{% endif %}>{{ text_scope_option }}</option>
                     <option value="option_value" {% if field.scope is not defined or field.scope == 'option_value' %}selected="selected"{% endif %}>{{ text_scope_option_value }}</option>
+                    <option value="product" {% if field.scope is defined and field.scope == 'product' %}selected="selected"{% endif %}>{{ text_scope_product }}</option>
                   </select>
                 </td>
                 <td class="text-right"><input type="text" name="cyberpunks_custom_fields[{{ field_row }}][sort_order]" value="{{ field.sort_order is defined ? field.sort_order : 0 }}" class="form-control" /></td>
@@ -90,7 +91,7 @@ function addCustomField() {
   html += '  <td class="text-left"><input type="text" name="cyberpunks_custom_fields[' + field_row + '][field_key]" value="" class="form-control" /></td>';
   html += '  <td class="text-left"><input type="text" name="cyberpunks_custom_fields[' + field_row + '][label]" value="" class="form-control" /></td>';
   html += '  <td class="text-left"><select name="cyberpunks_custom_fields[' + field_row + '][field_type]" class="form-control"><option value="text">{{ text_text }}</option><option value="textarea">{{ text_textarea }}</option><option value="boolean">{{ text_boolean }}</option></select></td>';
-  html += '  <td class="text-left"><select name="cyberpunks_custom_fields[' + field_row + '][scope]" class="form-control"><option value="option">{{ text_scope_option }}</option><option value="option_value" selected="selected">{{ text_scope_option_value }}</option></select></td>';
+  html += '  <td class="text-left"><select name="cyberpunks_custom_fields[' + field_row + '][scope]" class="form-control"><option value="option">{{ text_scope_option }}</option><option value="option_value" selected="selected">{{ text_scope_option_value }}</option><option value="product">{{ text_scope_product }}</option></select></td>';
   html += '  <td class="text-right"><input type="text" name="cyberpunks_custom_fields[' + field_row + '][sort_order]" value="0" class="form-control" /></td>';
   html += '  <td class="text-left"><select name="cyberpunks_custom_fields[' + field_row + '][status]" class="form-control"><option value="1">{{ text_enabled }}</option><option value="0">{{ text_disabled }}</option></select></td>';
   html += '  <td class="text-right"><button type="button" onclick="$(\'#field-row-' + field_row + '\').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>';

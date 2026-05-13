@@ -11,6 +11,7 @@ $_['text_textarea'] = 'Textarea';
 $_['text_boolean'] = 'Boolean';
 $_['text_scope_option'] = 'Option';
 $_['text_scope_option_value'] = 'Option value';
+$_['text_scope_product'] = 'Product';
 
 $_['entry_key'] = 'Field key';
 $_['entry_label'] = 'Field label';
