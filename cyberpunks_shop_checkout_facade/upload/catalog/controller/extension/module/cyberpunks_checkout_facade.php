@@ -393,6 +393,8 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		if (isset($this->session->data['payment_method']['code']) && is_string($this->session->data['payment_method']['code']) && $this->session->data['payment_method']['code'] !== '') {
 			$code = $this->session->data['payment_method']['code'];
 		}
+		$data['payment_code'] = $code;
+		$data['cp_payment_show_pay_total'] = (strncmp($code, 'revolut', 7) === 0);
 		$data['payment_html'] = $this->renderControllerOutput('extension/payment/' . $code);
 
 		// Review order (right column): expose cart products and totals to the payment template
