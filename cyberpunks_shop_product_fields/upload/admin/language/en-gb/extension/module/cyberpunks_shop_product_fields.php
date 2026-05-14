@@ -1,0 +1,24 @@
+<?php
+$_['heading_title'] = 'Cyberpunks Shop Product Fields';
+$_['text_extension'] = 'Extensions';
+$_['text_success'] = 'Success: You have modified product fields!';
+$_['text_edit'] = 'Edit Product Fields';
+$_['text_enabled'] = 'Enabled';
+$_['text_disabled'] = 'Disabled';
+$_['text_text'] = 'Text';
+$_['text_checkbox'] = 'Checkbox';
+$_['text_select'] = 'Select';
+$_['entry_key'] = 'Field key';
+$_['entry_label'] = 'Label';
+$_['entry_type'] = 'Type';
+$_['entry_select_options'] = 'Select values';
+$_['entry_admin_hint'] = 'Admin hint';
+$_['entry_sort_order'] = 'Sort order';
+$_['entry_status'] = 'Status';
+$_['help_select_options'] = 'One value per line. Use value|Label for custom labels.';
+$_['help_admin_hint'] = 'Shown as tooltip and help text in the product form.';
+$_['button_add'] = 'Add field';
+$_['button_remove'] = 'Remove';
+$_['button_save'] = 'Save';
+$_['button_cancel'] = 'Cancel';
+$_['error_permission'] = 'Warning: You do not have permission to modify product fields!';

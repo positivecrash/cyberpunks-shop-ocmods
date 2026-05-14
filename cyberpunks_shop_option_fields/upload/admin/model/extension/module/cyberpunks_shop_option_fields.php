@@ -57,19 +57,11 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 		if (!$scope_column->num_rows) {
 			$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_option_custom_field` ADD `scope` VARCHAR(16) NOT NULL DEFAULT 'option_value' AFTER `field_type`");
 		}
-
-		$this->db->query("CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "cyberpunks_product_custom_field_value` (
-			`product_id` INT(11) NOT NULL,
-			`field_id` INT(11) NOT NULL,
-			`value` TEXT NOT NULL,
-			`date_modified` DATETIME NOT NULL,
-			PRIMARY KEY (`product_id`,`field_id`)
-		) ENGINE=MyISAM DEFAULT CHARSET=utf8");
 	}
 
 	public function install() {
 		$this->ensureSchema();
-		$this->ensureBuiltinProductFields();
+		$this->removeLegacyProductScopeFields();
 	}
 
 	public function uninstall() {
@@ -79,10 +71,10 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 	public function getCustomFields($only_active = false) {
 		$this->ensureSchema();
 
-		$sql = "SELECT * FROM `" . DB_PREFIX . "cyberpunks_option_custom_field`";
+		$sql = "SELECT * FROM `" . DB_PREFIX . "cyberpunks_option_custom_field` WHERE scope != 'product'";
 
 		if ($only_active) {
-			$sql .= " WHERE status = '1'";
+			$sql .= " AND status = '1'";
 		}
 
 		$sql .= " ORDER BY sort_order ASC, field_id ASC";
@@ -114,8 +106,6 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 			if (isset($field['scope'])) {
 				if ($field['scope'] === 'option') {
 					$scope = 'option';
-				} elseif ($field['scope'] === 'product') {
-					$scope = 'product';
 				}
 			}
 			$sort_order = isset($field['sort_order']) ? (int)$field['sort_order'] : 0;
@@ -246,94 +236,13 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 		$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` WHERE option_id = '" . (int)$option_id . "'");
 	}
 
-	public function getProductCustomFields($only_active = false) {
+	private function removeLegacyProductScopeFields() {
 		$this->ensureSchema();
 
-		$sql = "SELECT * FROM `" . DB_PREFIX . "cyberpunks_option_custom_field` WHERE scope = 'product'";
-
-		if ($only_active) {
-			$sql .= " AND status = '1'";
-		}
-
-		$sql .= " ORDER BY sort_order ASC, field_id ASC";
-
-		return $this->db->query($sql)->rows;
-	}
-
-	public function getProductFieldValues($product_id) {
-		$this->ensureSchema();
-
-		$data = array();
-		$query = $this->db->query("SELECT field_id, value FROM `" . DB_PREFIX . "cyberpunks_product_custom_field_value` WHERE product_id = '" . (int)$product_id . "'");
+		$query = $this->db->query("SELECT field_id FROM `" . DB_PREFIX . "cyberpunks_option_custom_field` WHERE scope = 'product'");
 
 		foreach ($query->rows as $row) {
-			$data[(int)$row['field_id']] = $row['value'];
+			$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_option_custom_field` WHERE field_id = '" . (int)$row['field_id'] . "'");
 		}
-
-		return $data;
-	}
-
-	public function getProductFieldValueByKey($product_id, $field_key) {
-		$this->ensureSchema();
-
-		$field_key = strtolower(trim((string)$field_key));
-		$field_key = preg_replace('/[^a-z0-9_]/', '_', $field_key);
-
-		if ($field_key === '') {
-			return '';
-		}
-
-		$query = $this->db->query("SELECT v.value FROM `" . DB_PREFIX . "cyberpunks_product_custom_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_option_custom_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "' AND f.field_key = '" . $this->db->escape($field_key) . "' AND f.scope = 'product' AND f.status = '1' LIMIT 1");
-
-		if ($query->num_rows) {
-			return $query->row['value'];
-		}
-
-		return '';
-	}
-
-	public function saveProductFieldValues($product_id, $values) {
-		$this->ensureSchema();
-
-		$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_product_custom_field_value` WHERE product_id = '" . (int)$product_id . "'");
-
-		if (!is_array($values)) {
-			return;
-		}
-
-		foreach ($values as $field_id => $value) {
-			$field_id = (int)$field_id;
-			if ($field_id <= 0) {
-				continue;
-			}
-
-			$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_product_custom_field_value` SET product_id = '" . (int)$product_id . "', field_id = '" . (int)$field_id . "', value = '" . $this->db->escape((string)$value) . "', date_modified = NOW()");
-		}
-	}
-
-	public function deleteProductFieldValues($product_id) {
-		$this->ensureSchema();
-
-		$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_product_custom_field_value` WHERE product_id = '" . (int)$product_id . "'");
-	}
-
-	private function ensureBuiltinProductFields() {
-		$this->ensureSchema();
-
-		$query = $this->db->query("SELECT field_id FROM `" . DB_PREFIX . "cyberpunks_option_custom_field` WHERE field_key = 'og_image' AND scope = 'product' LIMIT 1");
-
-		if ($query->num_rows) {
-			return;
-		}
-
-		$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_option_custom_field` SET
-			`field_key` = 'og_image',
-			`label` = 'Open graph image',
-			`field_type` = 'text',
-			`scope` = 'product',
-			`sort_order` = '0',
-			`status` = '1',
-			`date_added` = NOW(),
-			`date_modified` = NOW()");
 	}
 }

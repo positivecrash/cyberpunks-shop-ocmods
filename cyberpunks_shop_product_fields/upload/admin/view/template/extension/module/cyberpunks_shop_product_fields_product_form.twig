@@ -1,0 +1,27 @@
+{% for field in cyberpunks_product_fields %}
+<div class="form-group">
+  <label class="col-sm-2 control-label" for="input-cyberpunks-product-field-{{ field.field_id }}"{% if field.admin_hint %} data-toggle="tooltip" title="{{ field.admin_hint }}"{% endif %}>{{ field.label }}</label>
+  <div class="col-sm-10">
+    {% if field.field_type == 'checkbox' %}
+      <input type="hidden" name="cyberpunks_product_fields[{{ field.field_id }}]" value="0" />
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" name="cyberpunks_product_fields[{{ field.field_id }}]" value="1" id="input-cyberpunks-product-field-{{ field.field_id }}" {% if cyberpunks_product_field_values[field.field_id] is defined and cyberpunks_product_field_values[field.field_id] %}checked="checked"{% endif %}/>
+        </label>
+      </div>
+    {% elseif field.field_type == 'select' %}
+      <select name="cyberpunks_product_fields[{{ field.field_id }}]" id="input-cyberpunks-product-field-{{ field.field_id }}" class="form-control">
+        <option value=""></option>
+        {% for option in field.options %}
+        <option value="{{ option.value }}" {% if cyberpunks_product_field_values[field.field_id] is defined and cyberpunks_product_field_values[field.field_id] == option.value %}selected="selected"{% endif %}>{{ option.label }}</option>
+        {% endfor %}
+      </select>
+    {% else %}
+      <input type="text" name="cyberpunks_product_fields[{{ field.field_id }}]" value="{{ cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : '' }}" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" class="form-control" />
+    {% endif %}
+    {% if field.admin_hint %}
+    <p class="help-block">{{ field.admin_hint }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
