@@ -16,6 +16,12 @@ Resolve cart item image by selected option combination.
 3. Clear theme cache.
 4. Open module settings in `Extensions -> Extensions -> Modules -> Cyberpunks Variant Images`.
 
+## Storage (v1.3.14+)
+
+Mappings are stored per `product_id` in separate settings keys to avoid MySQL `TEXT` (64KB) truncation when importing large YAML files (e.g. 300+ rows).
+
+On each catalog request, `startup/startup` hydrates `module_cyberpunks_variant_images_mappings` in config from all shards (cart/checkout review keep using `config->get` without extra OCMOD changes).
+
 ## Mapping format
 
 - `product_id`

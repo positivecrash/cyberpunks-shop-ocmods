@@ -57,12 +57,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				}
 			}
 
-			$save_data = array(
-				'module_cyberpunks_variant_images_status' => isset($this->request->post['module_cyberpunks_variant_images_status']) ? (int)$this->request->post['module_cyberpunks_variant_images_status'] : (int)$this->config->get('module_cyberpunks_variant_images_status'),
-				'module_cyberpunks_variant_images_mappings' => $this->compactMappingsForStorage($merged_mappings)
-			);
-
-			$this->model_setting_setting->editSetting('module_cyberpunks_variant_images', $save_data);
+			$this->saveMappingsToSettings($merged_mappings, isset($this->request->post['module_cyberpunks_variant_images_status']) ? (int)$this->request->post['module_cyberpunks_variant_images_status'] : null);
 
 			$this->session->data['success'] = $this->language->get('text_success');
 			$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true));
@@ -108,6 +103,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			$data['module_cyberpunks_variant_images_status'] = $this->config->get('module_cyberpunks_variant_images_status');
 		}
 
+		$this->maybeMigrateLegacyMappingsShard();
 		$data['mappings'] = $this->normalizeMappings($this->getStoredMappingsRaw());
 
 		$data['products'] = $this->model_catalog_product->getProducts(array(
@@ -217,9 +213,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				continue;
 			}
 
-			if (strpos($image, '/') === false) {
-				$image = 'catalog/view/theme/cybershops/media/altruist-bundle/product-previews/' . $image;
-			}
+			$image = CyberpunksShopVariantImagesStorage::expandImagePathFromStorage($image, $product_id);
 
 			$result[] = array(
 				'product_id' => $product_id,
@@ -235,40 +229,61 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 	}
 
 	private function getStoredMappingsRaw() {
-		$from_config = $this->config->get('module_cyberpunks_variant_images_mappings');
-
-		if (is_array($from_config)) {
-			return $from_config;
+		if (!class_exists('CyberpunksShopVariantImagesStorage')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
 		}
 
-		$from_config_decoded = $this->decodeMappingsValue($from_config);
-		if (is_array($from_config_decoded)) {
-			return $from_config_decoded;
+		return CyberpunksShopVariantImagesStorage::loadAll($this->registry);
+	}
+
+	private function maybeMigrateLegacyMappingsShard() {
+		if (!class_exists('CyberpunksShopVariantImagesStorage')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
 		}
 
-		$from_setting_model = $this->model_setting_setting->getSetting('module_cyberpunks_variant_images');
-		if (isset($from_setting_model['module_cyberpunks_variant_images_mappings'])) {
-			$model_value = $from_setting_model['module_cyberpunks_variant_images_mappings'];
-			if (is_array($model_value)) {
-				return $model_value;
-			}
+		$this->load->model('setting/setting');
+		$settings = $this->model_setting_setting->getSetting('module_cyberpunks_variant_images');
+		$has_shards = false;
 
-			$model_decoded = $this->decodeMappingsValue($model_value);
-			if (is_array($model_decoded)) {
-				return $model_decoded;
-			}
-		}
-
-		$query = $this->db->query("SELECT `value` FROM `" . DB_PREFIX . "setting` WHERE `key` = 'module_cyberpunks_variant_images_mappings' AND store_id = '0' ORDER BY setting_id DESC");
-
-		foreach ($query->rows as $row) {
-			$decoded = $this->decodeMappingsValue($row['value']);
-			if (is_array($decoded)) {
-				return $decoded;
+		foreach ($settings as $key => $value) {
+			if (preg_match('/^' . preg_quote(CyberpunksShopVariantImagesStorage::LEGACY_MAPPINGS_KEY, '/') . '_\d+$/', (string)$key)) {
+				$has_shards = true;
+				break;
 			}
 		}
 
-		return array();
+		if ($has_shards) {
+			return;
+		}
+
+		if (empty($settings[CyberpunksShopVariantImagesStorage::LEGACY_MAPPINGS_KEY])) {
+			return;
+		}
+
+		$mappings = $this->normalizeMappings($settings[CyberpunksShopVariantImagesStorage::LEGACY_MAPPINGS_KEY]);
+		if ($mappings) {
+			$this->saveMappingsToSettings($mappings);
+		}
+	}
+
+	private function saveMappingsToSettings($mappings, $status = null) {
+		if (!class_exists('CyberpunksShopVariantImagesStorage')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+		}
+
+		$grouped = array();
+		foreach ($this->compactMappingsForStorage($mappings) as $row) {
+			$product_id = isset($row['p']) ? (int)$row['p'] : 0;
+			if ($product_id <= 0) {
+				continue;
+			}
+			if (!isset($grouped[$product_id])) {
+				$grouped[$product_id] = array();
+			}
+			$grouped[$product_id][] = $row;
+		}
+
+		CyberpunksShopVariantImagesStorage::saveGrouped($this->registry, $grouped, $status);
 	}
 
 	private function decodeMappingsValue($raw) {
@@ -356,12 +371,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			$merged_mappings[] = $mapping;
 		}
 
-		$save_data = array(
-			'module_cyberpunks_variant_images_status' => (int)$this->config->get('module_cyberpunks_variant_images_status'),
-			'module_cyberpunks_variant_images_mappings' => $this->compactMappingsForStorage($merged_mappings)
-		);
-
-		$this->model_setting_setting->editSetting('module_cyberpunks_variant_images', $save_data);
+		$this->saveMappingsToSettings($merged_mappings);
 		$this->session->data['success'] = sprintf($this->language->get('text_import_success_count'), count($import_mappings));
 	}
 
@@ -380,12 +390,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			}
 		}
 
-		$save_data = array(
-			'module_cyberpunks_variant_images_status' => (int)$this->config->get('module_cyberpunks_variant_images_status'),
-			'module_cyberpunks_variant_images_mappings' => $this->compactMappingsForStorage($filtered)
-		);
-
-		$this->model_setting_setting->editSetting('module_cyberpunks_variant_images', $save_data);
+		$this->saveMappingsToSettings($filtered);
 		$this->session->data['success'] = sprintf($this->language->get('text_delete_tab_success'), $product_id);
 	}
 
@@ -671,6 +676,10 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 	}
 
 	private function compactMappingsForStorage($mappings) {
+		if (!class_exists('CyberpunksShopVariantImagesStorage')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+		}
+
 		$result = array();
 
 		if (!is_array($mappings)) {
@@ -687,7 +696,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				continue;
 			}
 
-			$image = preg_replace('#^/?catalog/view/theme/cybershops/media/altruist-bundle/product-previews/#', '', $image);
+			$image = CyberpunksShopVariantImagesStorage::compactImagePathForStorage($image);
 
 			$result[] = array(
 				'p' => $product_id,

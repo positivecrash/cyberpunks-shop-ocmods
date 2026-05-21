@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Checkout Facade</name>
 	<code>cyberpunks_shop_checkout_facade</code>
-	<version>1.2.3</version>
+	<version>1.2.4</version>
 	<author>positivecrash</author>
 	<description>Single API facade for checkout sections and saves.</description>
 </modification>

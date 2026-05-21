@@ -2,16 +2,15 @@
 <modification>
 	<name>Cyberpunks Shop Information Additional Fields</name>
 	<code>cyberpunks_shop_information_additional_fields</code>
-	<version>1.0.6</version>
+	<version>1.0.9</version>
 	<author>positivecrash</author>
-	<description>OpenGraph image, SEO noindex, and optional shipping rates table for information pages. Install the package zip with install.xml at the archive root and upload/ beside it, then refresh Modifications.</description>
+	<description>Information pages: noindex, optional shipping rates table, footer info links. After install: Extensions → Modifications → Refresh.</description>
 
 	<file path="system/library/document.php">
 		<operation error="skip">
 			<search trim="false"><![CDATA[	private $keywords;]]></search>
 			<add position="after"><![CDATA[
-	private $robots;
-	private $og_image;]]></add>
+	private $robots;]]></add>
 		</operation>
 		<operation error="skip">
 			<search trim="false"><![CDATA[	public function addLink($href, $rel) {]]></search>
@@ -23,20 +22,13 @@
 		return $this->robots;
 	}
 
-	public function setOgImage($og_image) {
-		$this->og_image = $og_image;
-	}
-
-	public function getOgImage() {
-		return $this->og_image;
-	}
-
 	]]></add>
 		</operation>
 	</file>
 
 	<file path="admin/controller/catalog/information.php">
 		<operation error="skip">
+			<ignoreif><![CDATA[cyberpunks_shop_information_additional_fields]]></ignoreif>
 			<search trim="false"><![CDATA[		$data['text_form'] = !isset($this->request->get['information_id']) ? $this->language->get('text_add') : $this->language->get('text_edit');]]></search>
 			<add position="after"><![CDATA[
 		$this->load->model('extension/module/cyberpunks_shop_information_additional_fields');
@@ -44,16 +36,9 @@
 ]]></add>
 		</operation>
 		<operation error="skip">
+			<ignoreif><![CDATA[$data['noindex']]]></ignoreif>
 			<search trim="false"><![CDATA[		if (isset($this->request->post['information_seo_url'])) {]]></search>
-			<add position="before"><![CDATA[		if (isset($this->request->post['og_image'])) {
-			$data['og_image'] = $this->request->post['og_image'];
-		} elseif (!empty($information_info)) {
-			$data['og_image'] = isset($information_info['og_image']) ? $information_info['og_image'] : '';
-		} else {
-			$data['og_image'] = '';
-		}
-
-		if (isset($this->request->post['noindex'])) {
+			<add position="before"><![CDATA[		if (isset($this->request->post['noindex'])) {
 			$data['noindex'] = 1;
 		} elseif (!empty($information_info) && !empty($information_info['noindex'])) {
 			$data['noindex'] = 1;
@@ -80,19 +65,17 @@
 ]]></add>
 		</operation>
 		<operation error="skip">
+			<ignoreif><![CDATA[cyberpunks_information_additional_fields]]></ignoreif>
 			<search trim="false"><![CDATA[		$this->response->setOutput($this->load->view('catalog/information_form', $data));]]></search>
 			<add position="before"><![CDATA[		$this->load->language('extension/module/cyberpunks_shop_information_additional_fields');
 
 		$data['cyberpunks_information_additional_fields'] = $this->load->view('extension/module/cyberpunks_shop_information_additional_fields_form', array(
-			'og_image'                  => isset($data['og_image']) ? $data['og_image'] : '',
 			'noindex'                   => !empty($data['noindex']),
 			'show_shipping_rates'       => !empty($data['show_shipping_rates']),
 			'show_in_footer_info_links' => !empty($data['show_in_footer_info_links']),
-			'entry_og_image'            => $this->language->get('entry_og_image'),
 			'entry_noindex'             => $this->language->get('entry_noindex'),
 			'entry_show_shipping_rates' => $this->language->get('entry_show_shipping_rates'),
 			'entry_show_in_footer_info_links' => $this->language->get('entry_show_in_footer_info_links'),
-			'help_og_image'             => $this->language->get('help_og_image'),
 			'help_noindex'              => $this->language->get('help_noindex'),
 			'help_show_shipping_rates'  => $this->language->get('help_show_shipping_rates'),
 			'help_show_in_footer_info_links'  => $this->language->get('help_show_in_footer_info_links')
@@ -104,17 +87,20 @@
 
 	<file path="admin/model/catalog/information.php">
 		<operation error="skip">
+			<ignoreif><![CDATA[show_in_footer_info_links]]></ignoreif>
 			<search trim="false"><![CDATA[		$this->db->query("INSERT INTO " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "'");]]></search>
-			<add position="replace"><![CDATA[		$this->db->query("INSERT INTO " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "', noindex = '" . (isset($data['noindex']) ? (int)$data['noindex'] : 0) . "', og_image = '" . $this->db->escape(isset($data['og_image']) ? $data['og_image'] : '') . "', show_shipping_rates = '" . (isset($data['show_shipping_rates']) ? (int)$data['show_shipping_rates'] : 0) . "', show_in_footer_info_links = '" . (isset($data['show_in_footer_info_links']) ? (int)$data['show_in_footer_info_links'] : 0) . "'");]]></add>
+			<add position="replace"><![CDATA[		$this->db->query("INSERT INTO " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "', noindex = '" . (isset($data['noindex']) ? (int)$data['noindex'] : 0) . "', show_shipping_rates = '" . (isset($data['show_shipping_rates']) ? (int)$data['show_shipping_rates'] : 0) . "', show_in_footer_info_links = '" . (isset($data['show_in_footer_info_links']) ? (int)$data['show_in_footer_info_links'] : 0) . "'");]]></add>
 		</operation>
 		<operation error="skip">
+			<ignoreif><![CDATA[show_in_footer_info_links]]></ignoreif>
 			<search trim="false"><![CDATA[		$this->db->query("UPDATE " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "' WHERE information_id = '" . (int)$information_id . "'");]]></search>
-			<add position="replace"><![CDATA[		$this->db->query("UPDATE " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "', noindex = '" . (isset($data['noindex']) ? (int)$data['noindex'] : 0) . "', og_image = '" . $this->db->escape(isset($data['og_image']) ? $data['og_image'] : '') . "', show_shipping_rates = '" . (isset($data['show_shipping_rates']) ? (int)$data['show_shipping_rates'] : 0) . "', show_in_footer_info_links = '" . (isset($data['show_in_footer_info_links']) ? (int)$data['show_in_footer_info_links'] : 0) . "' WHERE information_id = '" . (int)$information_id . "'");]]></add>
+			<add position="replace"><![CDATA[		$this->db->query("UPDATE " . DB_PREFIX . "information SET sort_order = '" . (int)$data['sort_order'] . "', bottom = '" . (isset($data['bottom']) ? (int)$data['bottom'] : 0) . "', status = '" . (int)$data['status'] . "', noindex = '" . (isset($data['noindex']) ? (int)$data['noindex'] : 0) . "', show_shipping_rates = '" . (isset($data['show_shipping_rates']) ? (int)$data['show_shipping_rates'] : 0) . "', show_in_footer_info_links = '" . (isset($data['show_in_footer_info_links']) ? (int)$data['show_in_footer_info_links'] : 0) . "' WHERE information_id = '" . (int)$information_id . "'");]]></add>
 		</operation>
 	</file>
 
 	<file path="admin/view/template/catalog/information_form.twig">
 		<operation error="skip">
+			<ignoreif><![CDATA[cyberpunks_information_additional_fields]]></ignoreif>
 			<search trim="false"><![CDATA[                  <input type="text" name="sort_order" value="{{ sort_order }}" placeholder="{{ entry_sort_order }}" id="input-sort-order" class="form-control" />]]></search>
 			<add position="after" offset="2"><![CDATA[
               {{ cyberpunks_information_additional_fields|raw }}]]></add>
@@ -128,22 +114,6 @@
 			if (!empty($information_info['noindex'])) {
 				$this->document->setRobots('noindex, follow');
 				$this->response->addHeader('X-Robots-Tag: noindex, follow');
-			}
-
-			if (!empty($information_info['og_image'])) {
-				$og_image = trim($information_info['og_image']);
-
-				if ($og_image !== '' && strpos($og_image, 'http://') !== 0 && strpos($og_image, 'https://') !== 0) {
-					if ($this->request->server['HTTPS']) {
-						$server = $this->config->get('config_ssl');
-					} else {
-						$server = $this->config->get('config_url');
-					}
-
-					$og_image = rtrim($server, '/') . '/' . ltrim($og_image, '/');
-				}
-
-				$this->document->setOgImage($og_image);
 			}
 ]]></add>
 		</operation>
@@ -178,8 +148,7 @@
 		<operation error="skip">
 			<search trim="false"><![CDATA[		$data['keywords'] = $this->document->getKeywords();]]></search>
 			<add position="after"><![CDATA[
-		$data['robots'] = $this->document->getRobots();
-		$data['og_image'] = $this->document->getOgImage();]]></add>
+		$data['robots'] = $this->document->getRobots();]]></add>
 		</operation>
 	</file>
 
@@ -206,18 +175,6 @@
 		<meta name="robots" content="{{ robots }}" />
 		{% endif %}
 ]]></add>
-		</operation>
-		<operation error="skip">
-			<ignoreif><![CDATA[cyberpunks_og_image]]></ignoreif>
-			<search trim="false"><![CDATA[		<meta property="og:image" content="catalog/view/theme/cybershops/media/head/og-altruist-bundle.png" />]]></search>
-			<add position="replace"><![CDATA[		{% set cyberpunks_default_og_image = 'catalog/view/theme/cybershops/media/head/og-altruist-bundle.png' %}
-		{% set cyberpunks_og_image = og_image ? og_image : cyberpunks_default_og_image %}
-		<meta property="og:image" content="{{ cyberpunks_og_image }}" />]]></add>
-		</operation>
-		<operation error="skip">
-			<ignoreif><![CDATA[cyberpunks_og_image]]></ignoreif>
-			<search trim="false"><![CDATA[		<meta name="twitter:image" content="catalog/view/theme/cybershops/media/head/og-altruist-bundle.png" />]]></search>
-			<add position="replace"><![CDATA[		<meta name="twitter:image" content="{{ cyberpunks_og_image }}" />]]></add>
 		</operation>
 	</file>
 

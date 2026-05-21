@@ -32,7 +32,7 @@
             {% for rule in rules %}
               <div class="panel panel-default" id="rule-{{ rule_row }}">
                 <div class="panel-heading">
-                  <h4 class="panel-title">{{ text_rule }} #{{ rule_row + 1 }}</h4>
+                  <h4 class="panel-title rule-title">{{ text_rule }} #{{ rule_row + 1 }}</h4>
                 </div>
                 <div class="panel-body">
                   <div class="form-group">
@@ -84,7 +84,8 @@
                       </select>
                     </div>
                     <div class="col-sm-2 text-right">
-                      <button type="button" class="btn btn-danger" onclick="$('#rule-{{ rule_row }}').remove();"><i class="fa fa-trash"></i></button>
+                      <button type="button" class="btn btn-default btn-copy-rule" data-toggle="tooltip" title="{{ button_copy_rule }}"><i class="fa fa-copy"></i></button>
+                      <button type="button" class="btn btn-danger btn-remove-rule" data-toggle="tooltip" title="{{ button_remove }}"><i class="fa fa-trash"></i></button>
                     </div>
                   </div>
                 </div>
@@ -103,23 +104,102 @@
 </div>
 <script type="text/javascript"><!--
 var rule_row = {{ rules|length }};
+var textRule = {{ text_rule|json_encode|raw }};
+var textEnabled = {{ text_enabled|json_encode|raw }};
+var textDisabled = {{ text_disabled|json_encode|raw }};
+var entryTemplate = {{ entry_template|json_encode|raw }};
+var entryJs = {{ entry_js|json_encode|raw }};
+var entryCss = {{ entry_css|json_encode|raw }};
+var entryJsExclude = {{ entry_js_exclude|json_encode|raw }};
+var entryCssExclude = {{ entry_css_exclude|json_encode|raw }};
+var entryRuleStatus = {{ entry_rule_status|json_encode|raw }};
+var helpTemplate = {{ help_template|json_encode|raw }};
+var helpJs = {{ help_js|json_encode|raw }};
+var helpCss = {{ help_css|json_encode|raw }};
+var helpJsExclude = {{ help_js_exclude|json_encode|raw }};
+var helpCssExclude = {{ help_css_exclude|json_encode|raw }};
+var buttonCopyRule = {{ button_copy_rule|json_encode|raw }};
+var buttonRemove = {{ button_remove|json_encode|raw }};
 
-$('#button-add-rule').on('click', function() {
+function readRuleFromPanel($panel) {
+  return {
+    template: $panel.find('input[name$="[template]"]').val(),
+    js: $panel.find('textarea[name$="[js]"]').val(),
+    css: $panel.find('textarea[name$="[css]"]').val(),
+    js_exclude: $panel.find('textarea[name$="[js_exclude]"]').val(),
+    css_exclude: $panel.find('textarea[name$="[css_exclude]"]').val(),
+    status: $panel.find('select[name$="[status]"]').val()
+  };
+}
+
+function fillRulePanel($panel, rule) {
+  rule = rule || {};
+  $panel.find('input[name$="[template]"]').val(rule.template || '');
+  $panel.find('textarea[name$="[js]"]').val(rule.js || '');
+  $panel.find('textarea[name$="[css]"]').val(rule.css || '');
+  $panel.find('textarea[name$="[js_exclude]"]').val(rule.js_exclude || '');
+  $panel.find('textarea[name$="[css_exclude]"]').val(rule.css_exclude || '');
+  $panel.find('select[name$="[status]"]').val(rule.status === '0' || rule.status === 0 ? '0' : '1');
+}
+
+function buildRulePanel(row, rule) {
+  var status = rule && (rule.status === '0' || rule.status === 0) ? '0' : '1';
+  var enabledSelected = status === '1' ? ' selected="selected"' : '';
+  var disabledSelected = status === '0' ? ' selected="selected"' : '';
   var html = '';
-  html += '<div class="panel panel-default" id="rule-' + rule_row + '">';
-  html += '  <div class="panel-heading"><h4 class="panel-title">{{ text_rule }} #' + (rule_row + 1) + '</h4></div>';
+  html += '<div class="panel panel-default" id="rule-' + row + '">';
+  html += '  <div class="panel-heading"><h4 class="panel-title rule-title">' + textRule + ' #' + (row + 1) + '</h4></div>';
   html += '  <div class="panel-body">';
-  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_template }}</label><div class="col-sm-10"><input type="text" name="cyberpunks_shop_head_includes_rules[' + rule_row + '][template]" value="" class="form-control" placeholder="product/product or *" /><div class="help-block">{{ help_template }}</div></div></div>';
-  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_js }}</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + rule_row + '][js]" rows="4" class="form-control"></textarea><div class="help-block">{{ help_js }}</div></div></div>';
-  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_css }}</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + rule_row + '][css]" rows="4" class="form-control"></textarea><div class="help-block">{{ help_css }}</div></div></div>';
-  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_js_exclude }}</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + rule_row + '][js_exclude]" rows="4" class="form-control"></textarea><div class="help-block">{{ help_js_exclude }}</div></div></div>';
-  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_css_exclude }}</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + rule_row + '][css_exclude]" rows="4" class="form-control"></textarea><div class="help-block">{{ help_css_exclude }}</div></div></div>';
-  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_rule_status }}</label><div class="col-sm-8"><select name="cyberpunks_shop_head_includes_rules[' + rule_row + '][status]" class="form-control"><option value="1" selected="selected">{{ text_enabled }}</option><option value="0">{{ text_disabled }}</option></select></div><div class="col-sm-2 text-right"><button type="button" class="btn btn-danger" onclick="$(\'#rule-' + rule_row + '\').remove();"><i class="fa fa-trash"></i></button></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">' + entryTemplate + '</label><div class="col-sm-10"><input type="text" name="cyberpunks_shop_head_includes_rules[' + row + '][template]" value="" class="form-control" placeholder="product/product or *" /><div class="help-block">' + helpTemplate + '</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">' + entryJs + '</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + row + '][js]" rows="4" class="form-control"></textarea><div class="help-block">' + helpJs + '</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">' + entryCss + '</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + row + '][css]" rows="4" class="form-control"></textarea><div class="help-block">' + helpCss + '</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">' + entryJsExclude + '</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + row + '][js_exclude]" rows="4" class="form-control"></textarea><div class="help-block">' + helpJsExclude + '</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">' + entryCssExclude + '</label><div class="col-sm-10"><textarea name="cyberpunks_shop_head_includes_rules[' + row + '][css_exclude]" rows="4" class="form-control"></textarea><div class="help-block">' + helpCssExclude + '</div></div></div>';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">' + entryRuleStatus + '</label><div class="col-sm-8"><select name="cyberpunks_shop_head_includes_rules[' + row + '][status]" class="form-control"><option value="1"' + enabledSelected + '>' + textEnabled + '</option><option value="0"' + disabledSelected + '>' + textDisabled + '</option></select></div>';
+  html += '    <div class="col-sm-2 text-right"><button type="button" class="btn btn-default btn-copy-rule" data-toggle="tooltip" title="' + buttonCopyRule + '"><i class="fa fa-copy"></i></button> <button type="button" class="btn btn-danger btn-remove-rule" data-toggle="tooltip" title="' + buttonRemove + '"><i class="fa fa-trash"></i></button></div></div>';
   html += '  </div>';
   html += '</div>';
+  return $(html);
+}
 
-  $('#rules').append(html);
+function renumberRules() {
+  $('#rules > .panel').each(function(index) {
+    var $panel = $(this);
+    $panel.attr('id', 'rule-' + index);
+    $panel.find('.rule-title').first().text(textRule + ' #' + (index + 1));
+    $panel.find('[name^="cyberpunks_shop_head_includes_rules"]').each(function() {
+      var name = $(this).attr('name');
+      $(this).attr('name', name.replace(/cyberpunks_shop_head_includes_rules\[\d+\]/, 'cyberpunks_shop_head_includes_rules[' + index + ']'));
+    });
+  });
+  rule_row = $('#rules > .panel').length;
+}
+
+function addRule(rule, $after) {
+  var $panel = buildRulePanel(rule_row, rule);
+  fillRulePanel($panel, rule);
+  if ($after && $after.length) {
+    $after.after($panel);
+  } else {
+    $('#rules').append($panel);
+  }
   rule_row++;
+  renumberRules();
+  $('[data-toggle="tooltip"]').tooltip();
+}
+
+$('#button-add-rule').on('click', function() {
+  addRule(null);
+});
+
+$('#rules').on('click', '.btn-copy-rule', function() {
+  var $source = $(this).closest('.panel.panel-default');
+  addRule(readRuleFromPanel($source), $source);
+});
+
+$('#rules').on('click', '.btn-remove-rule', function() {
+  $(this).closest('.panel.panel-default').remove();
+  renumberRules();
 });
 //--></script>
 {{ footer }}

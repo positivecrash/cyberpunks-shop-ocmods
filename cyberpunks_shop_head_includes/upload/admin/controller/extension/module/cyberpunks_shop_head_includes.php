@@ -90,6 +90,8 @@ class ControllerExtensionModuleCyberpunksShopHeadIncludes extends Controller {
 		$data['button_save'] = $this->language->get('button_save');
 		$data['button_cancel'] = $this->language->get('button_cancel');
 		$data['button_add_rule'] = $this->language->get('button_add_rule');
+		$data['button_copy_rule'] = $this->language->get('button_copy_rule');
+		$data['button_remove'] = $this->language->get('button_remove');
 
 		$data['header'] = $this->load->controller('common/header');
 		$data['column_left'] = $this->load->controller('common/column_left');

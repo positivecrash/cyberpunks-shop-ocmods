@@ -450,6 +450,8 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 				$matched_map_size = -1;
 
 				if (is_array($variant_mappings)) {
+					require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+
 					foreach ($variant_mappings as $variant_mapping) {
 						$map_status = isset($variant_mapping['status']) ? $variant_mapping['status'] : (isset($variant_mapping['t']) ? $variant_mapping['t'] : 1);
 						if (empty($map_status)) {
@@ -460,8 +462,8 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 						$map_signature = isset($variant_mapping['option_value_signature']) ? trim((string)$variant_mapping['option_value_signature']) : (isset($variant_mapping['s']) ? trim((string)$variant_mapping['s']) : '');
 						$map_image = isset($variant_mapping['image']) ? trim((string)$variant_mapping['image']) : (isset($variant_mapping['i']) ? trim((string)$variant_mapping['i']) : '');
 
-						if ($map_image !== '' && strpos($map_image, '/') === false) {
-							$map_image = 'catalog/view/theme/cybershops/media/altruist-bundle/product-previews/' . $map_image;
+						if ($map_image !== '') {
+							$map_image = CyberpunksShopVariantImagesStorage::expandImagePathFromStorage($map_image, $map_product_id);
 						}
 
 						if ($map_product_id !== (int)$product['product_id'] || $map_image === '' || $map_signature === '') {

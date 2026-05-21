@@ -19,5 +19,7 @@ $_['help_js_exclude']   = 'One full JS path per line to remove from head';
 $_['help_css_exclude']  = 'One full CSS path per line to remove from head';
 
 $_['button_add_rule']  = 'Add rule';
+$_['button_copy_rule'] = 'Duplicate rule';
+$_['button_remove']    = 'Remove rule';
 
 $_['error_permission'] = 'Warning: You do not have permission to modify this module!';
