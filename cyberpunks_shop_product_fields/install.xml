@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Product Fields</name>
 	<code>cyberpunks_shop_product_fields</code>
-	<version>1.0.1</version>
+	<version>1.0.2</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -81,6 +81,17 @@
 			}
 
 			$data['fields'] = array_merge($data['fields'], $cyberpunks_product_fields_map);
+
+			$this->registry->set('cyberpunks_product_fields', $cyberpunks_product_fields_map);
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/common/header.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['keywords'] = $this->document->getKeywords();]]></search>
+			<add position="after"><![CDATA[
+		$data['cyberpunks_product_fields'] = $this->registry->has('cyberpunks_product_fields') ? (array)$this->registry->get('cyberpunks_product_fields') : array();
 ]]></add>
 		</operation>
 	</file>
