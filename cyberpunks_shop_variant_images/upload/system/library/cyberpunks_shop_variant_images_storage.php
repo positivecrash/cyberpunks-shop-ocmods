@@ -147,6 +147,76 @@ class CyberpunksShopVariantImagesStorage {
 		return self::MEDIA_PREFIX . 'altruist-bundle/product-previews/' . $image;
 	}
 
+	/**
+	 * Pick the most specific variant mapping image for cart options.
+	 * Returns expanded image path or empty string.
+	 */
+	public static function resolveCartImage(array $variant_mappings, $product_id, array $options) {
+		$signature_ids = array();
+
+		foreach ($options as $option_item) {
+			if (!empty($option_item['product_option_value_id'])) {
+				$signature_ids[] = (int)$option_item['product_option_value_id'];
+			}
+		}
+
+		if (!$signature_ids) {
+			return '';
+		}
+
+		$signature_ids = array_values(array_unique($signature_ids));
+		sort($signature_ids, SORT_NUMERIC);
+		$current_ids_lookup = array_flip($signature_ids);
+		$matched_map_image = '';
+		$matched_map_size = -1;
+		$product_id = (int)$product_id;
+
+		foreach ($variant_mappings as $variant_mapping) {
+			if (!is_array($variant_mapping)) {
+				continue;
+			}
+
+			$map_status = isset($variant_mapping['status']) ? $variant_mapping['status'] : (isset($variant_mapping['t']) ? $variant_mapping['t'] : 1);
+			if (empty($map_status)) {
+				continue;
+			}
+
+			$map_product_id = isset($variant_mapping['product_id']) ? (int)$variant_mapping['product_id'] : (isset($variant_mapping['p']) ? (int)$variant_mapping['p'] : 0);
+			$map_signature = isset($variant_mapping['option_value_signature']) ? trim((string)$variant_mapping['option_value_signature']) : (isset($variant_mapping['s']) ? trim((string)$variant_mapping['s']) : '');
+			$map_image = isset($variant_mapping['image']) ? trim((string)$variant_mapping['image']) : (isset($variant_mapping['i']) ? trim((string)$variant_mapping['i']) : '');
+
+			if ($map_image !== '') {
+				$map_image = self::expandImagePathFromStorage($map_image, $map_product_id);
+			}
+
+			if ($map_product_id !== $product_id || $map_image === '' || $map_signature === '') {
+				continue;
+			}
+
+			$map_ids = array_filter(array_map('intval', explode('-', $map_signature)));
+			if (!$map_ids) {
+				continue;
+			}
+
+			$map_ids = array_values(array_unique($map_ids));
+			$is_subset = true;
+
+			foreach ($map_ids as $map_id) {
+				if (!isset($current_ids_lookup[$map_id])) {
+					$is_subset = false;
+					break;
+				}
+			}
+
+			if ($is_subset && count($map_ids) > $matched_map_size) {
+				$matched_map_size = count($map_ids);
+				$matched_map_image = $map_image;
+			}
+		}
+
+		return $matched_map_image;
+	}
+
 	private static function decodeRows($raw) {
 		if (is_array($raw)) {
 			return $raw;
