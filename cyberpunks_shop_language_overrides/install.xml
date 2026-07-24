@@ -2,9 +2,28 @@
 <modification>
 	<name>Cyberpunks Shop Language Overrides</name>
 	<code>cyberpunks_shop_language_overrides</code>
-	<version>1.3.2</version>
+	<version>1.4.0</version>
 	<author>positivecrash</author>
-	<description>Admin-managed language overrides for checkout cart strings.</description>
+	<description>Admin-managed language overrides for checkout strings and price thousand separator.</description>
+
+	<file path="catalog/controller/startup/startup.php">
+		<operation error="skip">
+			<search><![CDATA[		$this->registry->set('language', $language);]]></search>
+			<add position="after"><![CDATA[
+		$cp_thousand_point = $this->config->get('module_cyberpunks_language_overrides_thousand_point');
+		$cp_thousand_map = array(
+			'space' => ' ',
+			'comma' => ',',
+			'dot'   => '.',
+			'nbsp'  => "\xc2\xa0",
+			'none'  => ''
+		);
+		if (is_string($cp_thousand_point) && isset($cp_thousand_map[$cp_thousand_point])) {
+			$language->set('thousand_point', $cp_thousand_map[$cp_thousand_point]);
+		}
+]]></add>
+		</operation>
+	</file>
 
 	<file path="catalog/controller/checkout/cart.php">
 		<operation error="skip">

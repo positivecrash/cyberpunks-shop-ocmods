@@ -35,10 +35,19 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 				}
 			}
 
+			$thousand_point = isset($this->request->post['module_cyberpunks_language_overrides_thousand_point'])
+				? trim((string)$this->request->post['module_cyberpunks_language_overrides_thousand_point'])
+				: '';
+			$allowed_thousand = array('space', 'comma', 'dot', 'nbsp', 'none');
+			if (!in_array($thousand_point, $allowed_thousand, true)) {
+				$thousand_point = '';
+			}
+
 			$this->model_setting_setting->editSetting('module_cyberpunks_language_overrides', array(
 				'module_cyberpunks_language_overrides_status' => 1,
 				'module_cyberpunks_language_overrides_map' => $clean,
-				'module_cyberpunks_language_overrides_total_labels' => $clean_total_labels
+				'module_cyberpunks_language_overrides_total_labels' => $clean_total_labels,
+				'module_cyberpunks_language_overrides_thousand_point' => $thousand_point
 			));
 
 			$this->session->data['success'] = $this->language->get('text_success');
@@ -125,6 +134,20 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 				'has_override' => isset($overrides[$row['key']]) && $overrides[$row['key']] !== ''
 			);
 		}
+
+		$thousand_point = $this->config->get('module_cyberpunks_language_overrides_thousand_point');
+		if (!is_string($thousand_point)) {
+			$thousand_point = '';
+		}
+		$data['thousand_point'] = $thousand_point;
+		$data['thousand_point_options'] = array(
+			''      => $this->language->get('text_thousand_default'),
+			'space' => $this->language->get('text_thousand_space'),
+			'comma' => $this->language->get('text_thousand_comma'),
+			'dot'   => $this->language->get('text_thousand_dot'),
+			'nbsp'  => $this->language->get('text_thousand_nbsp'),
+			'none'  => $this->language->get('text_thousand_none')
+		);
 
 		$data['header'] = $this->load->controller('common/header');
 		$data['column_left'] = $this->load->controller('common/column_left');

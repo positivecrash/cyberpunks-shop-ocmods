@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Information Additional Fields</name>
 	<code>cyberpunks_shop_information_additional_fields</code>
-	<version>1.0.9</version>
+	<version>1.10.0</version>
 	<author>positivecrash</author>
 	<description>Information pages: noindex, optional shipping rates table, footer info links. After install: Extensions → Modifications → Refresh.</description>
 

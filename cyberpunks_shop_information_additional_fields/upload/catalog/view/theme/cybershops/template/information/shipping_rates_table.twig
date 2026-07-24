@@ -22,7 +22,7 @@
 						{% endif %}
 						<td>{{ method.name }}</td>
 						<td>{% if method.delivery_days %}{{ method.delivery_days }}{% else %}&mdash;{% endif %}</td>
-						<td>{{ method.price }}</td>
+						<td class="nowrap">{{ method.price }}</td>
 					</tr>
 					{% endfor %}
 				{% endfor %}

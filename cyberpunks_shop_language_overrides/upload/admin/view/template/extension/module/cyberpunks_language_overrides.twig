@@ -29,6 +29,21 @@
       <div class="panel-body">
         <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-language-overrides" class="form-horizontal">
           <fieldset style="margin-bottom: 20px;">
+            <legend>{{ text_price_format }}</legend>
+            <p class="help-block">{{ text_price_format_help }}</p>
+            <div class="form-group">
+              <label class="col-sm-3 control-label" for="input-thousand-point">{{ entry_thousand_point }}</label>
+              <div class="col-sm-9">
+                <select name="module_cyberpunks_language_overrides_thousand_point" id="input-thousand-point" class="form-control">
+                  {% for value, label in thousand_point_options %}
+                    <option value="{{ value }}"{% if thousand_point == value %} selected="selected"{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset style="margin-bottom: 20px;">
             <legend>{{ text_total_labels }}</legend>
             <p class="help-block">{{ text_total_labels_help }}</p>
             <div class="table-responsive">
