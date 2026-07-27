@@ -39,45 +39,13 @@ waitForjQuery()
     };
     const getHolderName = () => {
       const el = document.getElementById("revolut-card-holder");
-      const v = el && typeof el.value === "string" ? el.value.trim() : "";
-      if (v) return v;
-      const first = typeof billing_address.firstname === "string" ? billing_address.firstname : "";
-      const last = typeof billing_address.lastname === "string" ? billing_address.lastname : "";
-      return `${first} ${last}`.trim();
+      return el && typeof el.value === "string" ? el.value.trim() : "";
     };
     const getHolderNameForRevolut = () => {
       const el = document.getElementById("revolut-card-holder");
       const raw = el && typeof el.value === "string" ? el.value.trim() : "";
-      const fromInput = sanitizeLatinName(raw);
-      if (fromInput) return fromInput;
-
-      const first = typeof billing_address.firstname === "string" ? billing_address.firstname : "";
-      const last = typeof billing_address.lastname === "string" ? billing_address.lastname : "";
-      return sanitizeLatinName(`${first} ${last}`.trim());
+      return sanitizeLatinName(raw);
     };
-
-    // Prefill holder name from checkout first/last name (if user hasn't typed yet).
-    (function prefillHolderWithRetry() {
-      let tries = 0;
-      const maxTries = 20; // ~2s
-      const tick = () => {
-        tries += 1;
-        const el = document.getElementById("revolut-card-holder");
-        if (el && typeof el.value === "string" && el.value.trim()) return;
-
-        const first = typeof billing_address.firstname === "string" ? billing_address.firstname : "";
-        const last = typeof billing_address.lastname === "string" ? billing_address.lastname : "";
-        const fromBilling = sanitizeLatinName(`${first} ${last}`.trim());
-        // Only prefill when valid latin; otherwise keep empty.
-        if (el && fromBilling) {
-          el.value = fromBilling;
-          return;
-        }
-
-        if (tries < maxTries) setTimeout(tick, 100);
-      };
-      tick();
-    })();
     const payWithPopup = async (public_id) => {
       const RC = RevolutCheckout(public_id, params.mode);
 

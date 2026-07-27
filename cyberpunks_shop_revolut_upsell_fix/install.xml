@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Revolut Upsell Fix</name>
 	<code>cyberpunks_shop_revolut_upsell_fix</code>
-	<version>1.0.1</version>
+	<version>1.0.2</version>
 	<author>positivecrash</author>
 	<description>Fix truthy &quot;0&quot; upsell_banner_enabled in revolut_card.js by loading patched script.</description>
 
