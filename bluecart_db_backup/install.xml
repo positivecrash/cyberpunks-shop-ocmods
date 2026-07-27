@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+  <name>BlueCart DB Backup Manager - Universal Edition</name>
+  <code>bluecart_db_backup_universal</code>
+  <version>1.0</version>
+  <author>BlueCart DevTeam</author>
+  <link>https://bluecart.ro</link>
+  <file path="admin/controller/extension/module">
+    <name>bluecart_db_backup.php</name>
+  </file>
+  <file path="admin/view/template/extension/module">
+    <name>bluecart_db_backup.twig</name>
+  </file>
+  <file path="system/cron">
+    <name>bluecart_db_backup.php</name>
+    <name>bluecart_backup_scheduler.php</name>
+  </file>
+   <file path="admin/controller/common/dashboard.php">
+    <operation>
+      <search><![CDATA[$data['user_token'] = $this->session->data['user_token'];]]></search>
+      <add position="after"><![CDATA[
+        // === Embedded Multilang (Admin language correct detection) ===
+
+        $admin_lang = $this->config->get('config_admin_language');
+
+        // English default
+        $data['text_backup_last'] = 'Last backup:';
+        $data['text_backup_size'] = 'Size:';
+        $data['text_backup_next'] = 'Next:';
+        $data['text_backup_none'] = '—';
+
+        // Romanian override
+        if (strpos($admin_lang, 'ro') === 0) {
+            $data['text_backup_last'] = 'Ultimul backup:';
+            $data['text_backup_size'] = 'Dimensiune:';
+            $data['text_backup_next'] = 'Următorul:';
+            $data['text_backup_none'] = '—';
+        }
+
+        // Backup info logic (unchanged)
+        $storage = defined('DIR_STORAGE') ? DIR_STORAGE : dirname(DIR_SYSTEM) . '/storage/';
+        $path = $storage . 'backup/';
+
+        $files = glob($path . '*');
+
+        $data['last_backup_info'] = $data['text_backup_none'];
+        $data['last_backup_size'] = $data['text_backup_none'];
+        $data['next_backup_info'] = $data['text_backup_none'];
+
+        $freq = 'daily';
+
+        if ($files) {
+            rsort($files);
+            $file = $files[0];
+
+            $mtime = filemtime($file);
+            $data['last_backup_info'] = date("d.m.Y H:i", $mtime);
+            $data['last_backup_size'] = round(filesize($file)/1024/1024, 2) . ' MB';
+
+            if ($freq == 'daily') {
+                $data['next_backup_info'] = date("d.m.Y H:i", strtotime("+1 day", $mtime));
+            } elseif ($freq == 'weekly') {
+                $data['next_backup_info'] = date("d.m.Y H:i", strtotime("+1 week", $mtime));
+            } else {
+                $data['next_backup_info'] = date("d.m.Y H:i", strtotime("+1 month", $mtime));
+            }
+        }
+
+        $data['bluecart_backup_url'] = $this->url->link(
+            'extension/module/bluecart_db_backup',
+            'user_token=' . $this->session->data['user_token'],
+            true
+        );
+
+      ]]></add>
+    </operation>
+  </file>
+
+  <!-- BADGE inject in pull-right as before -->
+  <file path="admin/view/template/common/dashboard.twig">
+    <operation>
+      <search><![CDATA[<div class="pull-right">]]></search>
+      <add position="after"><![CDATA[
+        <span style="
+              margin-right: 10px;
+  background: #eef4ff;
+  padding: 5px 12px;
+  border-radius: ;
+  font-size: 14px;
+  color: #1a3c8e;
+  border: ;
+  display: inline-block;>
+          <a href="{{ bluecart_backup_url }}" style="color:#1a3c8e;text-decoration:none;">
+            <i class="fa fa-database"></i>&nbsp;&nbsp;
+            {{ text_backup_last }} {{ last_backup_info }}
+            &nbsp;|&nbsp;
+            {{ text_backup_size }} {{ last_backup_size }}
+            &nbsp;|&nbsp;
+            {{ text_backup_next }} {{ next_backup_info }}
+          </a>
+        </span>
+      ]]></add>
+    </operation>
+  </file>
+  
+</modification>
+
+
