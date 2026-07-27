@@ -2,11 +2,25 @@
 <modification>
 	<name>Cyberpunks Shop Language Overrides</name>
 	<code>cyberpunks_shop_language_overrides</code>
-	<version>1.4.0</version>
+	<version>1.5.2</version>
 	<author>positivecrash</author>
-	<description>Admin-managed language overrides for checkout strings and price thousand separator.</description>
+	<description>Admin-managed storefront language overrides (catalog language files), cart total labels, and price thousand separator.</description>
 
 	<file path="catalog/controller/startup/startup.php">
+		<operation error="skip">
+			<search><![CDATA[		$language->load($code);
+		
+		$this->registry->set('language', $language);]]></search>
+			<add position="replace"><![CDATA[		$language->load($code);
+
+		$cp_language_overrides_file = DIR_SYSTEM . 'library/cyberpunks_language_overrides.php';
+		if (is_file($cp_language_overrides_file)) {
+			require_once($cp_language_overrides_file);
+			CyberpunksLanguageOverrides::apply($language, $code, $this->config);
+		}
+
+		$this->registry->set('language', $language);]]></add>
+		</operation>
 		<operation error="skip">
 			<search><![CDATA[		$this->registry->set('language', $language);]]></search>
 			<add position="after"><![CDATA[
@@ -25,21 +39,22 @@
 		</operation>
 	</file>
 
-	<file path="catalog/controller/checkout/cart.php">
+	<file path="system/engine/loader.php">
 		<operation error="skip">
-			<search><![CDATA[$this->load->language('checkout/cart');]]></search>
+			<search><![CDATA[			$output = $this->registry->get('language')->load($route, $key);]]></search>
 			<add position="after"><![CDATA[
-		$cp_language_overrides = $this->config->get('module_cyberpunks_language_overrides_map');
-		if (is_array($cp_language_overrides)) {
-			foreach ($cp_language_overrides as $cp_language_key => $cp_language_value) {
-				if ($cp_language_value !== '') {
-					$this->language->set($cp_language_key, $cp_language_value);
+			if (!$key) {
+				$cp_language_overrides_file = DIR_SYSTEM . 'library/cyberpunks_language_overrides.php';
+				if (is_file($cp_language_overrides_file)) {
+					require_once($cp_language_overrides_file);
+					CyberpunksLanguageOverrides::apply($this->registry->get('language'), $route, $this->registry->get('config'));
 				}
 			}
-		}
-			]]></add>
+]]></add>
 		</operation>
+	</file>
 
+	<file path="catalog/controller/checkout/cart.php">
 		<operation error="skip">
 			<search><![CDATA[$data['totals'] = array();]]></search>
 			<add position="after"><![CDATA[
@@ -67,69 +82,7 @@
 		</operation>
 	</file>
 
-	<file path="catalog/controller/checkout/checkout.php">
-		<operation error="skip">
-			<search><![CDATA[$this->load->language('checkout/checkout');]]></search>
-			<add position="after"><![CDATA[
-		$cp_language_overrides = $this->config->get('module_cyberpunks_language_overrides_map');
-		if (is_array($cp_language_overrides)) {
-			foreach ($cp_language_overrides as $cp_language_key => $cp_language_value) {
-				if ($cp_language_value !== '') {
-					$this->language->set($cp_language_key, $cp_language_value);
-				}
-			}
-		}
-]]></add>
-		</operation>
-	</file>
-
-	<file path="catalog/controller/checkout/guest.php">
-		<operation error="skip">
-			<search><![CDATA[$this->load->language('checkout/checkout');]]></search>
-			<add position="after"><![CDATA[
-		$cp_language_overrides = $this->config->get('module_cyberpunks_language_overrides_map');
-		if (is_array($cp_language_overrides)) {
-			foreach ($cp_language_overrides as $cp_language_key => $cp_language_value) {
-				if ($cp_language_value !== '') {
-					$this->language->set($cp_language_key, $cp_language_value);
-				}
-			}
-		}
-]]></add>
-		</operation>
-	</file>
-
-	<file path="catalog/controller/checkout/payment_address.php">
-		<operation error="skip">
-			<search><![CDATA[$this->load->language('checkout/checkout');]]></search>
-			<add position="after"><![CDATA[
-		$cp_language_overrides = $this->config->get('module_cyberpunks_language_overrides_map');
-		if (is_array($cp_language_overrides)) {
-			foreach ($cp_language_overrides as $cp_language_key => $cp_language_value) {
-				if ($cp_language_value !== '') {
-					$this->language->set($cp_language_key, $cp_language_value);
-				}
-			}
-		}
-]]></add>
-		</operation>
-	</file>
-
 	<file path="catalog/controller/checkout/payment_method.php">
-		<operation error="skip">
-			<search><![CDATA[$this->load->language('checkout/checkout');]]></search>
-			<add position="after"><![CDATA[
-		$cp_language_overrides = $this->config->get('module_cyberpunks_language_overrides_map');
-		if (is_array($cp_language_overrides)) {
-			foreach ($cp_language_overrides as $cp_language_key => $cp_language_value) {
-				if ($cp_language_value !== '') {
-					$this->language->set($cp_language_key, $cp_language_value);
-				}
-			}
-		}
-]]></add>
-		</operation>
-
 		<operation error="skip">
 			<search><![CDATA[$data['text_agree'] = sprintf($this->language->get('text_agree'), $this->url->link('information/information/agree', 'information_id=' . $this->config->get('config_checkout_id'), true), $information_info['title']);]]></search>
 			<add position="replace"><![CDATA[

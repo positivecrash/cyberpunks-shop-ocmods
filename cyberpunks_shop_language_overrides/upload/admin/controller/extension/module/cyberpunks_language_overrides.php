@@ -80,25 +80,7 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 			$overrides = array();
 		}
 
-		$strings = $this->readCheckoutCartStrings();
-		usort($strings, function($a, $b) use ($overrides) {
-			$a_over = isset($overrides[$a['key']]) && $overrides[$a['key']] !== '' ? 1 : 0;
-			$b_over = isset($overrides[$b['key']]) && $overrides[$b['key']] !== '' ? 1 : 0;
-			if ($a_over !== $b_over) {
-				return $b_over - $a_over;
-			}
-			return strcmp($a['key'], $b['key']);
-		});
-
-		$data['strings'] = array();
-		foreach ($strings as $row) {
-			$data['strings'][] = array(
-				'key' => $row['key'],
-				'original' => $row['value'],
-				'override' => isset($overrides[$row['key']]) ? $overrides[$row['key']] : '',
-				'has_override' => isset($overrides[$row['key']]) && $overrides[$row['key']] !== ''
-			);
-		}
+		$data['language_groups'] = $this->buildLanguageGroups($overrides);
 
 		$total_label_defaults = $this->getCartTotalLabelDefaults();
 		$total_label_overrides = $this->config->get('module_cyberpunks_language_overrides_total_labels');
@@ -108,32 +90,22 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 
 		$data['total_labels'] = array();
 		foreach ($total_label_defaults as $total_code => $total_default_label) {
+			$override = isset($total_label_overrides[$total_code]) ? $total_label_overrides[$total_code] : '';
 			$data['total_labels'][] = array(
 				'code' => $total_code,
 				'default' => $total_default_label,
-				'override' => isset($total_label_overrides[$total_code]) ? $total_label_overrides[$total_code] : ''
+				'override' => $override,
+				'has_override' => $override !== ''
 			);
 		}
 
-		$checkout_strings = $this->readCheckoutStrings();
-		usort($checkout_strings, function($a, $b) use ($overrides) {
-			$a_over = isset($overrides[$a['key']]) && $overrides[$a['key']] !== '' ? 1 : 0;
-			$b_over = isset($overrides[$b['key']]) && $overrides[$b['key']] !== '' ? 1 : 0;
-			if ($a_over !== $b_over) {
-				return $b_over - $a_over;
+		usort($data['total_labels'], function($a, $b) {
+			if ($a['has_override'] !== $b['has_override']) {
+				return $b['has_override'] - $a['has_override'];
 			}
-			return strcmp($a['key'], $b['key']);
-		});
 
-		$data['checkout_strings'] = array();
-		foreach ($checkout_strings as $row) {
-			$data['checkout_strings'][] = array(
-				'key' => $row['key'],
-				'original' => $row['value'],
-				'override' => isset($overrides[$row['key']]) ? $overrides[$row['key']] : '',
-				'has_override' => isset($overrides[$row['key']]) && $overrides[$row['key']] !== ''
-			);
-		}
+			return strcmp($a['code'], $b['code']);
+		});
 
 		$thousand_point = $this->config->get('module_cyberpunks_language_overrides_thousand_point');
 		if (!is_string($thousand_point)) {
@@ -156,8 +128,98 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		$this->response->setOutput($this->load->view('extension/module/cyberpunks_language_overrides', $data));
 	}
 
-	private function readCheckoutCartStrings() {
-		$file = DIR_CATALOG . 'language/en-gb/checkout/cart.php';
+	private function getCatalogLanguageFiles() {
+		return array(
+			'checkout/cart' => 'Checkout — Cart',
+			'checkout/checkout' => 'Checkout',
+			'error/not_found' => 'Errors — Page not found',
+			'extension/module/cyberpunks_checkout_facade' => 'Checkout Facade module'
+		);
+	}
+
+	private function buildLanguageGroups($overrides) {
+		$groups = array();
+		$assigned_keys = array();
+
+		foreach ($this->getCatalogLanguageFiles() as $route => $title) {
+			$strings = $this->readLanguageFileStrings($route);
+			$rows = array();
+
+			foreach ($strings as $row) {
+				$map_key = $route . ':' . $row['key'];
+				$override = '';
+				$has_override = false;
+
+				if (isset($overrides[$map_key]) && $overrides[$map_key] !== '') {
+					$override = $overrides[$map_key];
+					$has_override = true;
+					$assigned_keys[$map_key] = true;
+				} elseif (isset($overrides[$row['key']]) && $overrides[$row['key']] !== '' && strpos($row['key'], ':') === false) {
+					$override = $overrides[$row['key']];
+					$has_override = true;
+					$assigned_keys[$row['key']] = true;
+				}
+
+				$rows[] = array(
+					'map_key' => $map_key,
+					'key' => $row['key'],
+					'original' => $row['value'],
+					'override' => $override,
+					'has_override' => $has_override
+				);
+			}
+
+			usort($rows, function($a, $b) {
+				if ($a['has_override'] !== $b['has_override']) {
+					return $b['has_override'] - $a['has_override'];
+				}
+
+				return strcmp($a['key'], $b['key']);
+			});
+
+			$groups[] = array(
+				'route' => $route,
+				'title' => $title,
+				'strings' => $rows
+			);
+		}
+
+		$legacy_rows = array();
+		foreach ($overrides as $key => $value) {
+			if ($value === '' || isset($assigned_keys[$key])) {
+				continue;
+			}
+
+			if (strpos($key, ':') !== false) {
+				continue;
+			}
+
+			$legacy_rows[] = array(
+				'map_key' => $key,
+				'key' => $key,
+				'original' => '',
+				'override' => $value,
+				'has_override' => true
+			);
+		}
+
+		if ($legacy_rows) {
+			usort($legacy_rows, function($a, $b) {
+				return strcmp($a['key'], $b['key']);
+			});
+
+			$groups[] = array(
+				'route' => '',
+				'title' => 'Legacy overrides (migrate to namespaced keys by re-saving)',
+				'strings' => $legacy_rows
+			);
+		}
+
+		return $groups;
+	}
+
+	private function readLanguageFileStrings($route) {
+		$file = DIR_CATALOG . 'language/en-gb/' . $route . '.php';
 		$result = array();
 
 		if (!is_file($file)) {
@@ -192,37 +254,6 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 			'tax'       => 'Tax',
 			'total'     => 'Total'
 		);
-	}
-
-	private function readCheckoutStrings() {
-		$file = DIR_CATALOG . 'language/en-gb/checkout/checkout.php';
-		$result = array();
-
-		if (!is_file($file)) {
-			return $result;
-		}
-
-		$lines = file($file);
-		if (!is_array($lines)) {
-			return $result;
-		}
-
-		foreach ($lines as $line) {
-			$matches = array();
-			if (preg_match('/^\$_\[\'([^\']+)\'\]\s*=\s*\'(.*)\';\s*$/', trim($line), $matches) === 1) {
-				$key = $matches[1];
-				if (strpos($key, 'entry_') !== 0 && $key !== 'text_agree') {
-					continue;
-				}
-
-				$result[] = array(
-					'key' => $key,
-					'value' => stripcslashes($matches[2])
-				);
-			}
-		}
-
-		return $result;
 	}
 
 	protected function validate() {
