@@ -30,6 +30,7 @@ class ControllerExtensionShippingCyberpunksZoneShipping extends Controller {
 
 				$this->model_setting_setting->editSetting('shipping_cyberpunks_zone_shipping', $payload);
 				$this->saveBackupPayload($payload);
+				$this->syncThemePreviewFile($payload);
 			}
 		}
 
@@ -45,6 +46,7 @@ class ControllerExtensionShippingCyberpunksZoneShipping extends Controller {
 
 			$this->model_setting_setting->editSetting('shipping_cyberpunks_zone_shipping', $post);
 			$this->saveBackupPayload($post);
+			$this->syncThemePreviewFile($post);
 			$this->session->data['success'] = $this->language->get('text_success');
 			$this->response->redirect($this->url->link('extension/shipping/cyberpunks_zone_shipping', 'user_token=' . $this->session->data['user_token'] . '&type=shipping', true));
 		}
@@ -177,6 +179,7 @@ class ControllerExtensionShippingCyberpunksZoneShipping extends Controller {
 
 		$this->model_setting_setting->editSetting('shipping_cyberpunks_zone_shipping', $payload);
 		$this->saveBackupPayload($payload);
+		$this->syncThemePreviewFile($payload);
 		$this->session->data['success'] = $this->language->get('text_import_success');
 
 		$this->response->redirect($this->url->link('extension/shipping/cyberpunks_zone_shipping', 'user_token=' . $this->session->data['user_token'] . '&type=shipping', true));
@@ -233,6 +236,15 @@ class ControllerExtensionShippingCyberpunksZoneShipping extends Controller {
 		$this->model_setting_setting->editSetting($this->backup_code, array(
 			$this->backup_key => $payload
 		));
+	}
+
+	private function syncThemePreviewFile(array $payload) {
+		if (!is_file(DIR_SYSTEM . 'library/cyberpunks_zone_shipping_preview.php')) {
+			return;
+		}
+
+		$this->load->library('cyberpunks_zone_shipping_preview');
+		$this->cyberpunks_zone_shipping_preview->writeThemeFileFromPayload($payload);
 	}
 
 	private function restoreFromBackupIfNeeded() {

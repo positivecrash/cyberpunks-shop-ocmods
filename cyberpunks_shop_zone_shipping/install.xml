@@ -2,9 +2,19 @@
 <modification>
 	<name>Cyberpunks Zone Shipping</name>
 	<code>cyberpunks_shop_zone_shipping</code>
-	<version>1.0.11</version>
+	<version>1.0.16</version>
 	<author>positivecrash</author>
 	<description>Custom shipping extension with zones, countries and delivery types.</description>
+
+	<file path="catalog/controller/common/header.php">
+		<operation error="skip">
+			<search><![CDATA[$data['title'] = $this->document->getTitle();]]></search>
+			<add position="before"><![CDATA[
+		$this->load->library('cyberpunks_zone_shipping_preview');
+		$data['cyberpunks_zone_shipping_preview_json'] = $this->cyberpunks_zone_shipping_preview->getPreviewJsonFromConfig();
+			]]></add>
+		</operation>
+	</file>
 
 	<file path="catalog/controller/extension/total/shipping.php">
 		<operation error="skip">

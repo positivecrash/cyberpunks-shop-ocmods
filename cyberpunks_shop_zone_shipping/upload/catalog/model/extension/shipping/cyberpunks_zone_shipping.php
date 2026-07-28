@@ -70,11 +70,12 @@ class ModelExtensionShippingCyberpunksZoneShipping extends Model {
 			}
 
 			$quote_data[$key] = array(
-				'code'         => 'cyberpunks_zone_shipping.' . $key,
-				'title'        => $title,
-				'cost'         => $cost,
-				'tax_class_id' => $tax_class_id,
-				'text'         => $this->currency->format($this->tax->calculate($cost, $tax_class_id, $this->config->get('config_tax')), $this->session->data['currency'])
+				'code'           => 'cyberpunks_zone_shipping.' . $key,
+				'title'          => $title,
+				'cost'           => $cost,
+				'tax_class_id'   => $tax_class_id,
+				'delivery_days'  => $delivery_days,
+				'text'           => $this->currency->format($this->tax->calculate($cost, $tax_class_id, $this->config->get('config_tax')), $this->session->data['currency'])
 			);
 		}
 
