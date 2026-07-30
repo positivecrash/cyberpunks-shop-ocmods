@@ -445,7 +445,7 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 			$json = array(
 				'enabled'              => true,
-				'facade_version'       => '1.3.8',
+				'facade_version'       => '1.3.9',
 				'public_token'         => $public_key,
 				'mode'                 => $this->config->get('payment_revolut_test') ? 'sandbox' : 'prod',
 				'embed_domain'         => $this->config->get('payment_revolut_test') ? 'sandbox-merchant' : 'merchant',
@@ -620,88 +620,174 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 	 * url=https://your.shop/index.php?route=extension/module/cyberpunks_checkout_facade/express_validate_address
 	 */
 	public function express_validate_address() {
-		$input = $this->getJsonInput();
-		$shipping_address = array();
+		try {
+			$input = $this->getJsonInput();
+			$shipping_address = $this->extractValidateAddressPayload($input);
 
-		if (isset($input['shipping_address']) && is_array($input['shipping_address'])) {
-			$shipping_address = $input['shipping_address'];
-		}
+			$token = '';
+			if (isset($input['metadata']) && is_array($input['metadata']) && isset($input['metadata']['cp_token'])) {
+				$token = (string)$input['metadata']['cp_token'];
+			}
 
-		$metadata = array();
-		if (isset($input['metadata']) && is_array($input['metadata'])) {
-			$metadata = $input['metadata'];
-		}
+			// Currency must exist before shipping quotes call currency->format().
+			if (empty($this->session->data['currency']) && $token !== '' && isset($this->cache)) {
+				$cached = $this->cache->get('cp_express_' . $token);
+				if (is_array($cached) && !empty($cached['currency'])) {
+					$this->session->data['currency'] = $cached['currency'];
+				}
+			}
 
-		$token = '';
-		if (isset($metadata['cp_token'])) {
-			$token = (string)$metadata['cp_token'];
-		}
+			if (empty($this->session->data['currency'])) {
+				$this->session->data['currency'] = $this->config->get('config_currency');
+			}
 
-		$wallet = array(
-			'address' => array(
-				'countryCode' => isset($shipping_address['country_code']) ? $shipping_address['country_code'] : '',
-				'region'      => isset($shipping_address['region']) ? $shipping_address['region'] : '',
-				'city'        => isset($shipping_address['city']) ? $shipping_address['city'] : '',
-				'postcode'    => isset($shipping_address['postcode']) ? $shipping_address['postcode'] : '',
-				'streetLine1' => isset($shipping_address['street_line_1']) ? $shipping_address['street_line_1'] : '',
-				'streetLine2' => isset($shipping_address['street_line_2']) ? $shipping_address['street_line_2'] : '',
-			),
-		);
+			$wallet = array(
+				'address' => array(
+					'countryCode' => $this->pickAddressField($shipping_address, array('country_code', 'countryCode', 'country')),
+					'region'      => $this->pickAddressField($shipping_address, array('region', 'administrativeArea', 'state')),
+					'city'        => $this->pickAddressField($shipping_address, array('city', 'locality')),
+					'postcode'    => $this->pickAddressField($shipping_address, array('postcode', 'postalCode', 'zip')),
+					'streetLine1' => $this->pickAddressField($shipping_address, array('street_line_1', 'streetLine1', 'line_1', 'address_line_1')),
+					'streetLine2' => $this->pickAddressField($shipping_address, array('street_line_2', 'streetLine2', 'line_2', 'address_line_2')),
+				),
+			);
 
-		if (!$this->seedExpressQuoteFromWalletAddress($wallet)) {
+			$this->logValidateAddress('incoming', array(
+				'order_id' => isset($input['order_id']) ? $input['order_id'] : null,
+				'address'  => $wallet['address'],
+				'raw_keys' => array_keys($shipping_address),
+			));
+
+			if (!$this->seedExpressQuoteFromWalletAddress($wallet)) {
+				$this->logValidateAddress('reject_country', $wallet['address']);
+				$this->json(array(
+					'valid'            => false,
+					'delivery_methods' => array(),
+				));
+				return;
+			}
+
+			$this->rebuildShippingMethodsSession();
+			$options = $this->buildExpressShippingOptions();
+
+			if (!$options) {
+				$this->logValidateAddress('reject_no_methods', array(
+					'country_id' => isset($this->session->data['shipping_address']['country_id']) ? $this->session->data['shipping_address']['country_id'] : null,
+					'methods'    => isset($this->session->data['shipping_methods']) ? array_keys($this->session->data['shipping_methods']) : array(),
+				));
+				$this->json(array(
+					'valid'            => false,
+					'delivery_methods' => array(),
+				));
+				return;
+			}
+
+			$delivery_methods = array();
+
+			foreach ($options as $index => $option) {
+				// Keep refs short/simple — some Revolut clients are picky about dotted ids.
+				$ref = 'ship_' . (int)$index;
+				if (!empty($option['id'])) {
+					$ref = substr(preg_replace('/[^a-zA-Z0-9_]+/', '_', (string)$option['id']), 0, 100);
+				}
+
+				$delivery_methods[] = array(
+					'ref'         => $ref,
+					'amount'      => (int)$option['amount'],
+					'label'       => substr((string)$option['label'], 0, 100),
+					'description' => isset($option['description']) ? substr((string)$option['description'], 0, 1024) : '',
+				);
+			}
+
+			if ($token !== '' && isset($this->cache)) {
+				$this->cache->set('cp_express_addr_' . $token, array(
+					'address'          => $wallet['address'],
+					'delivery_methods' => $delivery_methods,
+					'shipping_options' => $options,
+					'updated'          => time(),
+				));
+			}
+
+			// Also cache by Revolut order id when present (metadata may be empty pre-createOrder).
+			if (!empty($input['order_id']) && isset($this->cache)) {
+				$this->cache->set('cp_express_addr_order_' . (string)$input['order_id'], array(
+					'address'          => $wallet['address'],
+					'delivery_methods' => $delivery_methods,
+					'shipping_options' => $options,
+					'updated'          => time(),
+				));
+			}
+
+			$this->logValidateAddress('ok', array(
+				'count'   => count($delivery_methods),
+				'methods' => $delivery_methods,
+			));
+
+			$this->json(array(
+				'valid'            => true,
+				'delivery_methods' => $delivery_methods,
+			));
+		} catch (Throwable $e) {
+			$this->logValidateAddress('exception', array('error' => $e->getMessage()));
 			$this->json(array(
 				'valid'            => false,
 				'delivery_methods' => array(),
 			));
-			return;
+		}
+	}
+
+	private function extractValidateAddressPayload($input) {
+		if (isset($input['shipping_address']) && is_array($input['shipping_address'])) {
+			return $input['shipping_address'];
 		}
 
-		if (empty($this->session->data['currency']) && $token !== '' && isset($this->cache)) {
-			$cached = $this->cache->get('cp_express_' . $token);
-			if (is_array($cached) && !empty($cached['currency'])) {
-				$this->session->data['currency'] = $cached['currency'];
+		if (isset($input['shippingAddress']) && is_array($input['shippingAddress'])) {
+			return $input['shippingAddress'];
+		}
+
+		if (isset($input['address']) && is_array($input['address'])) {
+			return $input['address'];
+		}
+
+		return array();
+	}
+
+	private function pickAddressField($address, $keys) {
+		if (!is_array($address)) {
+			return '';
+		}
+
+		foreach ($keys as $key) {
+			if (!array_key_exists($key, $address)) {
+				continue;
+			}
+
+			$value = $address[$key];
+
+			if ($value === null) {
+				continue;
+			}
+
+			$value = trim((string)$value);
+
+			if ($value !== '') {
+				return $value;
 			}
 		}
 
-		if (empty($this->session->data['currency'])) {
-			$this->session->data['currency'] = $this->config->get('config_currency');
-		}
+		return '';
+	}
 
-		$this->rebuildShippingMethodsSession();
-		$options = $this->buildExpressShippingOptions();
+	private function logValidateAddress($stage, $data) {
+		$message = 'Revolut Fast checkout validate_address [' . $stage . ']: ' . json_encode($data);
 
-		if (!$options) {
-			$this->json(array(
-				'valid'            => false,
-				'delivery_methods' => array(),
-			));
+		if (isset($this->log) && is_object($this->log) && method_exists($this->log, 'write')) {
+			$this->log->write($message);
 			return;
 		}
 
-		$delivery_methods = array();
-
-		foreach ($options as $option) {
-			$delivery_methods[] = array(
-				'ref'         => (string)$option['id'],
-				'amount'      => (int)$option['amount'],
-				'label'       => (string)$option['label'],
-				'description' => isset($option['description']) ? (string)$option['description'] : '',
-			);
-		}
-
-		if ($token !== '' && isset($this->cache)) {
-			$this->cache->set('cp_express_addr_' . $token, array(
-				'address'          => $wallet['address'],
-				'delivery_methods' => $delivery_methods,
-				'shipping_options' => $options,
-				'updated'          => time(),
-			));
-		}
-
-		$this->json(array(
-			'valid'            => true,
-			'delivery_methods' => $delivery_methods,
-		));
+		$logger = new Log('revolut_fast_checkout.log');
+		$logger->write($message);
 	}
 
 	public function express_shipping() {
@@ -1537,13 +1623,33 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 	}
 
 	private function getCountryByIso2($iso_code_2) {
-		$iso_code_2 = strtoupper(trim((string)$iso_code_2));
+		$iso = strtoupper(trim((string)$iso_code_2));
 
-		if ($iso_code_2 === '') {
+		if ($iso === '') {
 			return null;
 		}
 
-		$query = $this->db->query("SELECT * FROM `" . DB_PREFIX . "country` WHERE iso_code_2 = '" . $this->db->escape($iso_code_2) . "' AND status = '1' LIMIT 1");
+		// Common aliases
+		if ($iso === 'UK') {
+			$iso = 'GB';
+		}
+
+		$query = $this->db->query("SELECT * FROM `" . DB_PREFIX . "country` WHERE iso_code_2 = '" . $this->db->escape($iso) . "' AND status = '1' LIMIT 1");
+
+		if ($query && $query->num_rows) {
+			return $query->row;
+		}
+
+		// Revolut occasionally sends ISO3 (e.g. CYP) or a country name.
+		if (strlen($iso) === 3) {
+			$query = $this->db->query("SELECT * FROM `" . DB_PREFIX . "country` WHERE iso_code_3 = '" . $this->db->escape($iso) . "' AND status = '1' LIMIT 1");
+
+			if ($query && $query->num_rows) {
+				return $query->row;
+			}
+		}
+
+		$query = $this->db->query("SELECT * FROM `" . DB_PREFIX . "country` WHERE LCASE(name) = '" . $this->db->escape(strtolower($iso_code_2)) . "' AND status = '1' LIMIT 1");
 
 		return ($query && $query->num_rows) ? $query->row : null;
 	}
