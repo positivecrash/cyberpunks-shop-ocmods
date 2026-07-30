@@ -65,6 +65,8 @@ class ControllerExtensionModuleCyberpunksShopProductFields extends Controller {
 		$data['text_text'] = $this->language->get('text_text');
 		$data['text_checkbox'] = $this->language->get('text_checkbox');
 		$data['text_select'] = $this->language->get('text_select');
+		$data['text_html'] = $this->language->get('text_html');
+		$data['text_textarea'] = $this->language->get('text_textarea');
 		$data['help_select_options'] = $this->language->get('help_select_options');
 		$data['help_admin_hint'] = $this->language->get('help_admin_hint');
 		$data['button_add'] = $this->language->get('button_add');

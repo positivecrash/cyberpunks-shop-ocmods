@@ -98,6 +98,7 @@ final class CyberpunksShopHeadIncludes {
 
 	private static function ruleMatchesView($template, $view_route) {
 		$t = trim((string)$template);
+		$view_route = self::normalizeRoute($view_route);
 
 		if ($t === '' || $t === '*') {
 			return false;
@@ -108,14 +109,11 @@ final class CyberpunksShopHeadIncludes {
 		}
 
 		if (stripos($t, 'view:') === 0) {
-			return trim(substr($t, 5)) === $view_route;
+			return self::normalizeRoute(substr($t, 5)) === $view_route;
 		}
 
-		if ($t === 'product/product') {
-			return false;
-		}
-
-		return $t === $view_route;
+		// Bare keys are controller/route matches only (avoid double-apply on product/product).
+		return false;
 	}
 
 	private static function mergeRules($registry, $rules, callable $matcher) {

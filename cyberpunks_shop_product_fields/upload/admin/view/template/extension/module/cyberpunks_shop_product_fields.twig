@@ -53,6 +53,8 @@
                     <option value="text" {% if field.field_type is not defined or field.field_type == 'text' %}selected="selected"{% endif %}>{{ text_text }}</option>
                     <option value="checkbox" {% if field.field_type is defined and field.field_type == 'checkbox' %}selected="selected"{% endif %}>{{ text_checkbox }}</option>
                     <option value="select" {% if field.field_type is defined and field.field_type == 'select' %}selected="selected"{% endif %}>{{ text_select }}</option>
+                    <option value="html" {% if field.field_type is defined and field.field_type == 'html' %}selected="selected"{% endif %}>{{ text_html }}</option>
+                    <option value="textarea" {% if field.field_type is defined and field.field_type == 'textarea' %}selected="selected"{% endif %}>{{ text_textarea }}</option>
                   </select>
                 </td>
                 <td class="text-left"><textarea name="cyberpunks_product_field_defs[{{ field_row }}][select_options]" rows="3" class="form-control" placeholder="{{ help_select_options }}">{{ field.select_options is defined ? field.select_options : '' }}</textarea></td>
@@ -89,7 +91,7 @@ function addProductField() {
   html += '<tr id="product-field-row-' + product_field_row + '">';
   html += '  <td class="text-left"><input type="hidden" name="cyberpunks_product_field_defs[' + product_field_row + '][field_id]" value="" /><input type="text" name="cyberpunks_product_field_defs[' + product_field_row + '][field_key]" value="" class="form-control" /></td>';
   html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + product_field_row + '][label]" value="" class="form-control" /></td>';
-  html += '  <td class="text-left"><select name="cyberpunks_product_field_defs[' + product_field_row + '][field_type]" class="form-control cyberpunks-product-field-type"><option value="text">{{ text_text }}</option><option value="checkbox">{{ text_checkbox }}</option><option value="select">{{ text_select }}</option></select></td>';
+  html += '  <td class="text-left"><select name="cyberpunks_product_field_defs[' + product_field_row + '][field_type]" class="form-control cyberpunks-product-field-type"><option value="text">{{ text_text }}</option><option value="checkbox">{{ text_checkbox }}</option><option value="select">{{ text_select }}</option><option value="html">{{ text_html }}</option><option value="textarea">{{ text_textarea }}</option></select></td>';
   html += '  <td class="text-left"><textarea name="cyberpunks_product_field_defs[' + product_field_row + '][select_options]" rows="3" class="form-control" placeholder="{{ help_select_options }}"></textarea></td>';
   html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + product_field_row + '][admin_hint]" value="" class="form-control" placeholder="{{ help_admin_hint }}" /></td>';
   html += '  <td class="text-right"><input type="text" name="cyberpunks_product_field_defs[' + product_field_row + '][sort_order]" value="0" class="form-control" /></td>';

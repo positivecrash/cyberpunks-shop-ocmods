@@ -15,7 +15,6 @@ Examples:
 ```bash
 ./build-ocmod.sh cyberpunks_shop_features
 ./build-ocmod.sh cyberpunks_shop_head_includes
-./build-ocmod.sh cyberpunks_shop_product_templates
 ```
 
 The script reads `<code>` and `<version>` from the target `install.xml` and creates:

@@ -19,10 +19,15 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		$this->db->query("CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "cyberpunks_product_field_value` (
 			`product_id` INT(11) NOT NULL,
 			`field_id` INT(11) NOT NULL,
-			`value` TEXT NOT NULL,
+			`value` MEDIUMTEXT NOT NULL,
 			`date_modified` DATETIME NOT NULL,
 			PRIMARY KEY (`product_id`,`field_id`)
 		) ENGINE=MyISAM DEFAULT CHARSET=utf8");
+
+		$col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_product_field_value` LIKE 'value'");
+		if ($col->num_rows && stripos($col->row['Type'], 'mediumtext') === false) {
+			$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_field_value` MODIFY `value` MEDIUMTEXT NOT NULL");
+		}
 	}
 
 	public function install() {
@@ -68,7 +73,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			}
 
 			$field_type = 'text';
-			if (isset($field['field_type']) && in_array($field['field_type'], array('checkbox', 'select'))) {
+			if (isset($field['field_type']) && in_array($field['field_type'], array('checkbox', 'select', 'html', 'textarea'), true)) {
 				$field_type = $field['field_type'];
 			}
 

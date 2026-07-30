@@ -12,7 +12,7 @@ $_['entry_css']        = 'CSS assets';
 $_['entry_js_exclude']  = 'JS exclude';
 $_['entry_css_exclude'] = 'CSS exclude';
 
-$_['help_template']    = 'Controller: product/product, route:…, or * (global). View path: product/product_bundle or view:… (use with Cyberpunks Shop Product Templates).';
+$_['help_template']    = 'Match key: product/product, checkout/cart, route:…, or *. Product assets (incl. product-oc.js) go on product/product.';
 $_['help_js']          = 'One full JS path per line';
 $_['help_css']         = 'One full CSS path per line';
 $_['help_js_exclude']   = 'One full JS path per line to remove from head';

@@ -16,6 +16,11 @@
         <option value="{{ option.value }}" {% if cyberpunks_product_field_values[field.field_id] is defined and cyberpunks_product_field_values[field.field_id] == option.value %}selected="selected"{% endif %}>{{ option.label }}</option>
         {% endfor %}
       </select>
+    {% elseif field.field_type == 'html' %}
+      <textarea name="cyberpunks_product_fields[{{ field.field_id }}]" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" data-toggle="summernote" data-lang="{{ summernote }}" class="form-control">{{ cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : '' }}</textarea>
+    {% elseif field.field_type == 'textarea' %}
+      <textarea name="cyberpunks_product_fields[{{ field.field_id }}]" rows="18" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" class="form-control" style="font-family:monospace;">{{ cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : '' }}</textarea>
+      <p class="help-block">HTML allowed. Icons: <code>[[icon:name]]</code> or <code>[[icon:name aria-hidden="false" data-foo="bar"]]</code></p>
     {% else %}
       <input type="text" name="cyberpunks_product_fields[{{ field.field_id }}]" value="{{ cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : '' }}" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" class="form-control" />
     {% endif %}

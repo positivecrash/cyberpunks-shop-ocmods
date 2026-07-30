@@ -1,30 +1,28 @@
 # Cyberpunks Shop Head Includes
 
-OpenCart 3.x OCMOD for managing CSS/JS includes in `<head>` by controller route or view path.
+CSS/JS in `<head>` by controller route.
 
-## What it does
+## Product pages
 
-1. Adds module `Extensions -> Modules -> Cyberpunks Shop Head Includes`.
-2. Supports include/exclude rules (one path per line).
-3. Applies controller-phase matching: `*`, `route:...`, or exact route.
-4. Applies view-phase matching (for custom product templates), for example `product/product_bundle`.
-5. Uses `system/library/cyberpunks_shop_head_includes.php`.
+One rule: match key **`product/product`**
 
-## Migration note
+```
+catalog/view/theme/cybershops/js/product.js
+catalog/view/theme/cybershops/js/product-oc.js
+```
 
-If you previously used old asset rules in `cyberpunks_shop_features`, move settings from:
+```
+catalog/view/theme/cybershops/css/product.css
+```
 
-- `cyberpunks_shop_features_rules`
-- to `cyberpunks_shop_head_includes_rules`
+`product-oc.js` drives delivery text, add-to-cart AJAX, Amazon visibility. Without it the delivery block stays hidden.
 
-## Build
+Disable old `product/altruist_*` rules — they are unused with the shared template.
 
-From repository root:
+## Build / install
 
 ```bash
 ./build-ocmod.sh cyberpunks_shop_head_includes
 ```
 
-## Install
-
-`Installer -> upload .ocmod.zip -> Modifications -> Refresh -> Modules -> Install -> Edit`
+Installer → upload zip → Modifications → **Refresh** (library under `upload/` is installed by the zip).
