@@ -20,6 +20,21 @@ Install **Cyberpunks Checkout Facade** and open its settings.
 - `extension/module/cyberpunks_checkout_facade/save_payment`
 - `extension/module/cyberpunks_checkout_facade/confirm`
 - `extension/module/cyberpunks_checkout_facade/payment` (payment review page)
+- `extension/module/cyberpunks_checkout_facade/express_params`
+- `extension/module/cyberpunks_checkout_facade/express_shipping`
+- `extension/module/cyberpunks_checkout_facade/express_shipping_option`
+- `extension/module/cyberpunks_checkout_facade/express_prepare_order`
+- `extension/module/cyberpunks_checkout_facade/express_validate_address` (Revolut Pay Fast checkout synchronous webhook)
+
+Checkout express UI (theme) uses Revolut **paymentRequest** (Apple Pay / Google Pay) + standalone **Revolut Pay** button. Card stays on the manual form → `/payment` path.
+
+The manual payment method list hides `revolut_prb` and `revolut_pay` (duplicates of top express). Card + COD remain.
+
+Revolut Pay Fast checkout needs a registered HTTPS synchronous webhook (`fast_checkout.validate_address`) pointing at `express_validate_address`.
+
+**Local note:** Revolut Pay QR / mobile app checkout cannot complete on `cyber.local` — Revolut’s servers and the phone app cannot reach localhost, and Fast checkout webhook requires public HTTPS. Test Revolut Pay on production.
+
+**Apple Pay:** On iPhone only Apple Pay is expected (not Google Pay). Register the domain once in admin: **Payments → Revolut Apple Pay / Google Pay → Save** (needs the `.well-known/...` file on the server). Do not run domain registration from `express_params` — it blocked checkout in 1.3.6–1.3.7.
 
 ## SEO Url alias route
 

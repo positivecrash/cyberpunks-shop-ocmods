@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Revolut Checkout</name>
+	<code>cyberpunks_shop_revolut_checkout</code>
+	<version>1.2.2</version>
+	<author>positivecrash</author>
+	<description>Card field on /payment, redirect_url for Revolut Pay, Apple Pay domain: reuse existing .well-known file and register via API.</description>
+
+	<file path="catalog/controller/extension/payment/revolut.php">
+		<operation>
+			<search><![CDATA[            'capture_mode' => $order_capture_mode
+        ]; ]]></search>
+			<add position="replace"><![CDATA[            'capture_mode' => $order_capture_mode,
+            'redirect_url' => $this->url->link('extension/payment/revolut/appRedirection', '', true)
+        ]; ]]></add>
+		</operation>
+	</file>
+</modification>
