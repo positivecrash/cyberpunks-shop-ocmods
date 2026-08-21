@@ -21,12 +21,163 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 
 			if ($field_type === 'html' || $field_type === 'textarea') {
 				$value = html_entity_decode($value, ENT_QUOTES, 'UTF-8');
+				$value = $this->expandIconShortcodes($value);
+				$value = $this->expandOptionShortcodes($value);
+			} elseif ($field_type === 'image') {
+				$value = $this->resolveImageFieldValue($value);
+			} elseif ($field_type === 'checkboxes') {
+				$value = $this->decodeCheckboxListValue($value);
 			}
 
-			$data[$row['field_key']] = $this->expandIconShortcodes($value);
+			$data[$row['field_key']] = $value;
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Categories that have products with checkbox field $flag_key = 1,
+	 * each with up to $limit newest items. Card keys (title/image/label) are not
+	 * interpreted here — templates read product.fields.<your_key>.
+	 */
+	public function getHomeFeaturedCategories($limit = 3, $flag_key = 'featured') {
+		$limit = max(1, (int)$limit);
+		$flag_key = preg_replace('/[^a-z0-9_]/', '', (string)$flag_key);
+
+		if ($flag_key === '') {
+			return array();
+		}
+
+		$table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_product_field") . "'");
+		$value_table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_product_field_value") . "'");
+
+		if (!$table->num_rows || !$value_table->num_rows) {
+			return array();
+		}
+
+		$flag_field = $this->db->query("SELECT field_id FROM `" . DB_PREFIX . "cyberpunks_product_field` WHERE field_key = '" . $this->db->escape($flag_key) . "' AND status = '1' LIMIT 1");
+
+		if (!$flag_field->num_rows) {
+			return array();
+		}
+
+		$flag_field_id = (int)$flag_field->row['field_id'];
+
+		$categories = $this->db->query("SELECT DISTINCT c.category_id, cd.name, c.sort_order
+			FROM `" . DB_PREFIX . "category` c
+			LEFT JOIN `" . DB_PREFIX . "category_description` cd ON (c.category_id = cd.category_id)
+			LEFT JOIN `" . DB_PREFIX . "category_to_store` c2s ON (c.category_id = c2s.category_id)
+			INNER JOIN `" . DB_PREFIX . "product_to_category` p2c ON (c.category_id = p2c.category_id)
+			INNER JOIN `" . DB_PREFIX . "product` p ON (p2c.product_id = p.product_id)
+			INNER JOIN `" . DB_PREFIX . "product_to_store` p2s ON (p.product_id = p2s.product_id)
+			INNER JOIN `" . DB_PREFIX . "cyberpunks_product_field_value` fv ON (fv.product_id = p.product_id AND fv.field_id = '" . $flag_field_id . "' AND fv.value = '1')
+			WHERE cd.language_id = '" . (int)$this->config->get('config_language_id') . "'
+				AND c2s.store_id = '" . (int)$this->config->get('config_store_id') . "'
+				AND p2s.store_id = '" . (int)$this->config->get('config_store_id') . "'
+				AND c.status = '1'
+				AND p.status = '1'
+				AND p.date_available <= NOW()
+			ORDER BY c.sort_order ASC, LCASE(cd.name) ASC")->rows;
+
+		if (!$categories) {
+			return array();
+		}
+
+		$this->load->model('tool/image');
+
+		$result = array();
+
+		foreach ($categories as $category) {
+			$category_id = (int)$category['category_id'];
+
+			$products_query = $this->db->query("SELECT p.product_id, pd.name, p.image, p.price, p.tax_class_id, p.date_added
+				FROM `" . DB_PREFIX . "product` p
+				LEFT JOIN `" . DB_PREFIX . "product_description` pd ON (p.product_id = pd.product_id)
+				LEFT JOIN `" . DB_PREFIX . "product_to_store` p2s ON (p.product_id = p2s.product_id)
+				INNER JOIN `" . DB_PREFIX . "product_to_category` p2c ON (p.product_id = p2c.product_id)
+				INNER JOIN `" . DB_PREFIX . "cyberpunks_product_field_value` fv ON (fv.product_id = p.product_id AND fv.field_id = '" . $flag_field_id . "' AND fv.value = '1')
+				WHERE p2c.category_id = '" . $category_id . "'
+					AND pd.language_id = '" . (int)$this->config->get('config_language_id') . "'
+					AND p2s.store_id = '" . (int)$this->config->get('config_store_id') . "'
+					AND p.status = '1'
+					AND p.date_available <= NOW()
+				ORDER BY p.date_added DESC
+				LIMIT " . (int)$limit);
+
+			if (!$products_query->num_rows) {
+				continue;
+			}
+
+			$products = array();
+
+			foreach ($products_query->rows as $product) {
+				$product_id = (int)$product['product_id'];
+
+				$products[] = array(
+					'product_id' => $product_id,
+					'name'       => $product['name'],
+					'href'       => $this->url->link('product/product', 'product_id=' . $product_id),
+					'image'      => $this->resolveImageFieldValue($product['image']),
+					'price'      => $this->currency->format($this->tax->calculate($product['price'], $product['tax_class_id'], $this->config->get('config_tax')), $this->session->data['currency']),
+					'fields'     => $this->getProductFieldsMap($product_id)
+				);
+			}
+
+			$result[] = array(
+				'category_id' => $category_id,
+				'name'        => $category['name'],
+				'href'        => $this->url->link('product/category', 'path=' . $category_id),
+				'products'    => $products
+			);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Attach generic fields map for listing templates (category, etc.).
+	 * Returns the product array (must assign — OC model Proxy breaks by-ref args).
+	 */
+	public function attachProductFields(array $product) {
+		$product['fields'] = $this->getProductFieldsMap((int)$product['product_id']);
+
+		if (empty($product['image']) && !empty($product['thumb'])) {
+			$product['image'] = $product['thumb'];
+		}
+
+		return $product;
+	}
+
+	private function resolveImageFieldValue($path) {
+		$path = trim((string)$path);
+
+		if ($path === '') {
+			return '';
+		}
+
+		if (strpos($path, 'catalog/view/') === 0 || strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0 || strpos($path, '//') === 0) {
+			return $path;
+		}
+
+		$this->load->model('tool/image');
+
+		if (!is_file(DIR_IMAGE . $path)) {
+			return '';
+		}
+
+		$theme = $this->config->get('config_theme');
+		$width = (int)$this->config->get('theme_' . $theme . '_image_product_width');
+		$height = (int)$this->config->get('theme_' . $theme . '_image_product_height');
+
+		if ($width < 1) {
+			$width = 400;
+		}
+
+		if ($height < 1) {
+			$height = 400;
+		}
+
+		return $this->model_tool_image->resize($path, $width, $height);
 	}
 
 	/**
@@ -61,5 +212,81 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			},
 			$text
 		);
+	}
+
+	/**
+	 * Expand [[option:key]] into Cyberpunks Shop Common Options values.
+	 * Text/url/image values are HTML-escaped; html/textarea values are inserted raw.
+	 */
+	private function expandOptionShortcodes($text) {
+		if ($text === '' || strpos($text, '[[option:') === false) {
+			return $text;
+		}
+
+		$options = array();
+		$html_keys = array();
+
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_common_options.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_common_options');
+			$options = $this->model_extension_module_cyberpunks_shop_common_options->getOptionsMap();
+			$html_keys = $this->model_extension_module_cyberpunks_shop_common_options->getHtmlFieldKeys();
+		}
+
+		return preg_replace_callback(
+			'/\[\[\s*option:([a-z0-9_]+)\s*\]\]/i',
+			function ($matches) use ($options, $html_keys) {
+				$key = strtolower($matches[1]);
+
+				if (!isset($options[$key])) {
+					return '';
+				}
+
+				$value = (string)$options[$key];
+
+				if (in_array($key, $html_keys, true)) {
+					return $value;
+				}
+
+				return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+			},
+			$text
+		);
+	}
+
+	private function decodeCheckboxListValue($raw) {
+		$raw = trim((string)$raw);
+
+		if ($raw === '') {
+			return array();
+		}
+
+		$decoded = json_decode($raw, true);
+
+		if (is_array($decoded)) {
+			$values = array();
+
+			foreach ($decoded as $item) {
+				$item = trim((string)$item);
+
+				if ($item !== '') {
+					$values[] = $item;
+				}
+			}
+
+			return $values;
+		}
+
+		$lines = preg_split('/\R/', $raw);
+		$values = array();
+
+		foreach ($lines as $line) {
+			$line = trim($line);
+
+			if ($line !== '') {
+				$values[] = $line;
+			}
+		}
+
+		return $values;
 	}
 }

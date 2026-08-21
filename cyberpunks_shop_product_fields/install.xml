@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Product Fields</name>
 	<code>cyberpunks_shop_product_fields</code>
-	<version>1.2.0</version>
+	<version>1.5.0</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -36,6 +36,7 @@
 			<search trim="false"><![CDATA[		if (isset($this->request->post['product_layout'])) {]]></search>
 			<add position="before"><![CDATA[		$this->load->model('extension/module/cyberpunks_shop_product_fields');
 		$this->model_extension_module_cyberpunks_shop_product_fields->install();
+		$data['cyberpunks_product_field_groups'] = $this->model_extension_module_cyberpunks_shop_product_fields->getFieldGroups(true);
 		$data['cyberpunks_product_fields'] = $this->model_extension_module_cyberpunks_shop_product_fields->getFields(true);
 
 		if (isset($this->request->post['cyberpunks_product_fields']) && is_array($this->request->post['cyberpunks_product_fields'])) {
@@ -44,6 +45,25 @@
 			$data['cyberpunks_product_field_values'] = $this->model_extension_module_cyberpunks_shop_product_fields->getProductFieldValues((int)$product_info['product_id']);
 		} else {
 			$data['cyberpunks_product_field_values'] = array();
+		}
+
+		$this->load->model('tool/image');
+		$data['placeholder'] = $this->model_tool_image->resize('no_image.png', 100, 100);
+		$data['cyberpunks_product_field_thumbs'] = array();
+
+		foreach ($data['cyberpunks_product_fields'] as $cyberpunks_field) {
+			if (empty($cyberpunks_field['field_type']) || $cyberpunks_field['field_type'] !== 'image') {
+				continue;
+			}
+
+			$cyberpunks_field_id = (int)$cyberpunks_field['field_id'];
+			$cyberpunks_image = isset($data['cyberpunks_product_field_values'][$cyberpunks_field_id]) ? $data['cyberpunks_product_field_values'][$cyberpunks_field_id] : '';
+
+			if ($cyberpunks_image && is_file(DIR_IMAGE . $cyberpunks_image)) {
+				$data['cyberpunks_product_field_thumbs'][$cyberpunks_field_id] = $this->model_tool_image->resize($cyberpunks_image, 100, 100);
+			} else {
+				$data['cyberpunks_product_field_thumbs'][$cyberpunks_field_id] = $data['placeholder'];
+			}
 		}
 
 		$data['cyberpunks_shop_product_fields_form'] = $this->load->view('extension/module/cyberpunks_shop_product_fields_product_form', $data);
@@ -92,6 +112,34 @@
 			<search trim="false"><![CDATA[		$data['keywords'] = $this->document->getKeywords();]]></search>
 			<add position="after"><![CDATA[
 		$data['cyberpunks_product_fields'] = $this->registry->has('cyberpunks_product_fields') ? (array)$this->registry->get('cyberpunks_product_fields') : array();
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/common/home.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['column_left'] = $this->load->controller('common/column_left');]]></search>
+			<add position="before"><![CDATA[		$data['featured_categories'] = array();
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_product_fields.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_product_fields');
+			$data['featured_categories'] = $this->model_extension_module_cyberpunks_shop_product_fields->getHomeFeaturedCategories(3);
+		}
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/product/category.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$data['column_left'] = $this->load->controller('common/column_left');]]></search>
+			<add position="before"><![CDATA[			if (!empty($data['products']) && is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_product_fields.php')) {
+				$this->load->model('extension/module/cyberpunks_shop_product_fields');
+
+				foreach ($data['products'] as $key => $product) {
+					$data['products'][$key] = $this->model_extension_module_cyberpunks_shop_product_fields->attachProductFields($product);
+				}
+			}
+
 ]]></add>
 		</operation>
 	</file>

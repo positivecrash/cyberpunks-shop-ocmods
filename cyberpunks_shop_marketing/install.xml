@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Marketing</name>
+	<code>cyberpunks_shop_marketing</code>
+	<version>1.2.0</version>
+	<author>positivecrash</author>
+	<link>https://github.com/positivecrash</link>
+
+	<file path="catalog/controller/common/header.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		return $this->load->view('common/header', $data);]]></search>
+			<add position="before"><![CDATA[
+		$data['cyberpunks_marketing_head'] = '';
+		$data['cyberpunks_marketing_body'] = '';
+
+		if (is_file(DIR_APPLICATION . 'model/extension/advertise/cyberpunks_shop_marketing.php')) {
+			$this->load->model('extension/advertise/cyberpunks_shop_marketing');
+			$data['cyberpunks_marketing_head'] = $this->model_extension_advertise_cyberpunks_shop_marketing->renderHeadSnippet();
+			$data['cyberpunks_marketing_body'] = $this->model_extension_advertise_cyberpunks_shop_marketing->renderBodySnippet();
+		}
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/view/theme/cybershops/template/common/header.twig">
+		<operation error="skip">
+			<search trim="false"><![CDATA[	<head>]]></search>
+			<add position="after"><![CDATA[
+		{% if cyberpunks_marketing_head %}{{ cyberpunks_marketing_head|raw }}{% endif %}]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[	<body>]]></search>
+			<add position="after"><![CDATA[
+		{% if cyberpunks_marketing_body %}{{ cyberpunks_marketing_body|raw }}{% endif %}]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/common/footer.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		return $this->load->view('common/footer', $data);]]></search>
+			<add position="before"><![CDATA[
+		$data['cyberpunks_consent_footer'] = '';
+
+		if (is_file(DIR_APPLICATION . 'model/extension/advertise/cyberpunks_shop_marketing.php')) {
+			$this->load->model('extension/advertise/cyberpunks_shop_marketing');
+			$data['cyberpunks_consent_footer'] = $this->model_extension_advertise_cyberpunks_shop_marketing->renderConsentFooterSnippet();
+		}
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/view/theme/cybershops/template/common/footer.twig">
+		<operation error="skip">
+			<search trim="false"><![CDATA[  {% include 'cybershops/template/common/partials/google_consent_banner.twig' %}]]></search>
+			<add position="replace"><![CDATA[  {% if cyberpunks_consent_footer %}{{ cyberpunks_consent_footer|raw }}{% endif %}]]></add>
+		</operation>
+	</file>
+</modification>

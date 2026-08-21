@@ -1,0 +1,191 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-cyberpunks-color-palettes" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+        <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+    <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> {{ success }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="help-block">{{ help_palettes }}</p>
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-cyberpunks-color-palettes">
+          <div id="palettes">
+            {% set palette_row = 0 %}
+            {% for palette in palettes %}
+            <div class="panel panel-default palette-item" id="palette-row-{{ palette_row }}">
+              <div class="panel-heading">
+                <h3 class="panel-title">{{ text_palette }} #{{ palette_row + 1 }}
+                  <button type="button" class="btn btn-danger btn-xs pull-right" onclick="$('#palette-row-{{ palette_row }}').remove();" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button>
+                </h3>
+              </div>
+              <div class="panel-body">
+                <input type="hidden" name="cyberpunks_color_palettes[{{ palette_row }}][palette_id]" value="{{ palette.palette_id is defined ? palette.palette_id : 0 }}" />
+                <div class="form-group">
+                  <label class="col-sm-2 control-label">{{ entry_name }}</label>
+                  <div class="col-sm-4">
+                    <input type="text" name="cyberpunks_color_palettes[{{ palette_row }}][name]" value="{{ palette.name is defined ? palette.name : '' }}" class="form-control" />
+                  </div>
+                  <label class="col-sm-2 control-label">{{ entry_sort_order }}</label>
+                  <div class="col-sm-1">
+                    <input type="text" name="cyberpunks_color_palettes[{{ palette_row }}][sort_order]" value="{{ palette.sort_order is defined ? palette.sort_order : 0 }}" class="form-control" />
+                  </div>
+                  <label class="col-sm-1 control-label">{{ entry_status }}</label>
+                  <div class="col-sm-2">
+                    <select name="cyberpunks_color_palettes[{{ palette_row }}][status]" class="form-control">
+                      <option value="1" {% if palette.status is not defined or palette.status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                      <option value="0" {% if palette.status is defined and not palette.status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                    </select>
+                  </div>
+                </div>
+                <table class="table table-bordered table-hover palette-colors">
+                  <thead>
+                    <tr>
+                      <td class="text-left">{{ entry_name }}</td>
+                      <td class="text-left">{{ entry_swatch_color }}</td>
+                      <td class="text-left">{{ entry_model_color }}</td>
+                      <td class="text-center">{{ entry_is_random }}</td>
+                      <td class="text-right">{{ entry_sort_order }}</td>
+                      <td></td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% set color_row = 0 %}
+                    {% for color in palette.colors %}
+                    <tr id="palette-{{ palette_row }}-color-{{ color_row }}">
+                      <td class="text-left">
+                        <input type="hidden" name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][color_id]" value="{{ color.color_id is defined ? color.color_id : 0 }}" />
+                        <input type="text" name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][name]" value="{{ color.name is defined ? color.name : '' }}" class="form-control" />
+                      </td>
+                      <td class="text-left"><input type="text" name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][swatch_color]" value="{{ color.swatch_color is defined ? color.swatch_color : '' }}" class="form-control palette-swatch-input" {% if color.is_random is defined and color.is_random %}disabled="disabled"{% endif %} /></td>
+                      <td class="text-left"><input type="text" name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][model_color]" value="{{ color.model_color is defined ? color.model_color : '' }}" class="form-control palette-model-input" {% if color.is_random is defined and color.is_random %}disabled="disabled"{% endif %} /></td>
+                      <td class="text-center"><input type="checkbox" name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][is_random]" value="1" class="palette-random-toggle" {% if color.is_random is defined and color.is_random %}checked="checked"{% endif %} /></td>
+                      <td class="text-right"><input type="text" name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][sort_order]" value="{{ color.sort_order is defined ? color.sort_order : 0 }}" class="form-control" /></td>
+                      <td class="text-right"><button type="button" onclick="$('#palette-{{ palette_row }}-color-{{ color_row }}').remove();" class="btn btn-danger" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button></td>
+                    </tr>
+                    {% set color_row = color_row + 1 %}
+                    {% endfor %}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colspan="5"></td>
+                      <td class="text-right"><button type="button" onclick="addPaletteColor({{ palette_row }});" class="btn btn-primary" title="{{ button_add }}"><i class="fa fa-plus-circle"></i></button></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+            {% set palette_row = palette_row + 1 %}
+            {% endfor %}
+          </div>
+          <div class="text-right" style="margin-top:12px;">
+            <button type="button" onclick="addPalette();" class="btn btn-primary"><i class="fa fa-plus-circle"></i> {{ button_add_palette }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript"><!--
+var palette_row = {{ palette_row }};
+var palette_color_rows = {};
+
+function bindRandomToggle($row) {
+  $row.find('.palette-random-toggle').on('change', function() {
+    var checked = $(this).is(':checked');
+    var $inputs = $(this).closest('tr').find('.palette-swatch-input, .palette-model-input');
+    $inputs.prop('disabled', checked);
+    if (checked) {
+      $inputs.val('random');
+    } else {
+      $inputs.val('');
+    }
+  });
+}
+
+function addPaletteColor(paletteRow, preset) {
+  if (!palette_color_rows[paletteRow]) {
+    palette_color_rows[paletteRow] = 0;
+  }
+
+  var colorRow = palette_color_rows[paletteRow];
+  var html = '';
+  html += '<tr id="palette-' + paletteRow + '-color-' + colorRow + '">';
+  html += '  <td class="text-left"><input type="hidden" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][color_id]" value="0" />';
+  html += '  <input type="text" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][name]" value="" class="form-control" /></td>';
+  html += '  <td class="text-left"><input type="text" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][swatch_color]" value="" class="form-control palette-swatch-input" /></td>';
+  html += '  <td class="text-left"><input type="text" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][model_color]" value="" class="form-control palette-model-input" /></td>';
+  html += '  <td class="text-center"><input type="checkbox" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][is_random]" value="1" class="palette-random-toggle" /></td>';
+  html += '  <td class="text-right"><input type="text" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][sort_order]" value="0" class="form-control" /></td>';
+  html += '  <td class="text-right"><button type="button" onclick="$(\'#palette-' + paletteRow + '-color-' + colorRow + '\').remove();" class="btn btn-danger" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button></td>';
+  html += '</tr>';
+
+  $('#palette-row-' + paletteRow + ' .palette-colors tbody').append(html);
+  bindRandomToggle($('#palette-' + paletteRow + '-color-' + colorRow));
+  palette_color_rows[paletteRow]++;
+}
+
+function addPalette() {
+  var html = '';
+  html += '<div class="panel panel-default palette-item" id="palette-row-' + palette_row + '">';
+  html += '  <div class="panel-heading"><h3 class="panel-title">{{ text_palette }} #' + (palette_row + 1);
+  html += '    <button type="button" class="btn btn-danger btn-xs pull-right" onclick="$(\'#palette-row-' + palette_row + '\').remove();" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button>';
+  html += '  </h3></div>';
+  html += '  <div class="panel-body">';
+  html += '    <input type="hidden" name="cyberpunks_color_palettes[' + palette_row + '][palette_id]" value="0" />';
+  html += '    <div class="form-group">';
+  html += '      <label class="col-sm-2 control-label">{{ entry_name }}</label>';
+  html += '      <div class="col-sm-4"><input type="text" name="cyberpunks_color_palettes[' + palette_row + '][name]" value="" class="form-control" /></div>';
+  html += '      <label class="col-sm-2 control-label">{{ entry_sort_order }}</label>';
+  html += '      <div class="col-sm-1"><input type="text" name="cyberpunks_color_palettes[' + palette_row + '][sort_order]" value="0" class="form-control" /></div>';
+  html += '      <label class="col-sm-1 control-label">{{ entry_status }}</label>';
+  html += '      <div class="col-sm-2"><select name="cyberpunks_color_palettes[' + palette_row + '][status]" class="form-control"><option value="1" selected="selected">{{ text_enabled }}</option><option value="0">{{ text_disabled }}</option></select></div>';
+  html += '    </div>';
+  html += '    <table class="table table-bordered table-hover palette-colors"><thead><tr>';
+  html += '      <td class="text-left">{{ entry_name }}</td>';
+  html += '      <td class="text-left">{{ entry_swatch_color }}</td>';
+  html += '      <td class="text-left">{{ entry_model_color }}</td>';
+  html += '      <td class="text-center">{{ entry_is_random }}</td>';
+  html += '      <td class="text-right">{{ entry_sort_order }}</td><td></td>';
+  html += '    </tr></thead><tbody></tbody>';
+  html += '    <tfoot><tr><td colspan="5"></td><td class="text-right"><button type="button" onclick="addPaletteColor(' + palette_row + ');" class="btn btn-primary" title="{{ button_add }}"><i class="fa fa-plus-circle"></i></button></td></tr></tfoot>';
+  html += '    </table>';
+  html += '  </div>';
+  html += '</div>';
+
+  $('#palettes').append(html);
+  palette_color_rows[palette_row] = 0;
+  palette_row++;
+}
+
+$('.palette-item').each(function() {
+  var id = $(this).attr('id').replace('palette-row-', '');
+  palette_color_rows[id] = $(this).find('.palette-colors tbody tr').length;
+  $(this).find('tbody tr').each(function() {
+    bindRandomToggle($(this));
+  });
+});
+//--></script>
+{{ footer }}

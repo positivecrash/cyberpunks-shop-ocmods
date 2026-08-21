@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<modification>
-	<name>Cyberpunks Shop Matomo Analytics</name>
-	<code>cyberpunks_shop_matomo_analytics</code>
-	<version>1.0.0</version>
-	<author>positivecrash</author>
-	<description>Matomo analytics extension (deploy files from upload/ via Extension Installer or manual copy). No core patches.</description>
-</modification>

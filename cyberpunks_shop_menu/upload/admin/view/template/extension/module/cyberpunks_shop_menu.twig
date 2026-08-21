@@ -1,0 +1,246 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-cyberpunks-shop-menu" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+        <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+    <div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}</div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success"><i class="fa fa-check-circle"></i> {{ success }}</div>
+    {% endif %}
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3></div>
+      <div class="panel-body">
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-cyberpunks-shop-menu" class="form-horizontal">
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-status">{{ entry_status }}</label>
+            <div class="col-sm-10">
+              <select name="module_cyberpunks_shop_menu_status" id="input-status" class="form-control">
+                {% if module_cyberpunks_shop_menu_status %}
+                <option value="1" selected="selected">{{ text_enabled }}</option>
+                <option value="0">{{ text_disabled }}</option>
+                {% else %}
+                <option value="1">{{ text_enabled }}</option>
+                <option value="0" selected="selected">{{ text_disabled }}</option>
+                {% endif %}
+              </select>
+            </div>
+          </div>
+
+          <div id="menu-items">
+            {% set item_row = 0 %}
+            {% for item in items %}
+            <div class="panel panel-default menu-item" data-item-row="{{ item_row }}">
+              <div class="panel-heading">
+                <h3 class="panel-title">{{ text_item }} #{{ item_row + 1 }}
+                  <button type="button" class="btn btn-danger btn-xs pull-right" onclick="$(this).closest('.menu-item').remove();" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button>
+                </h3>
+              </div>
+              <div class="panel-body">
+                <div class="form-group">
+                  <label class="col-sm-2 control-label">{{ entry_name }}</label>
+                  <div class="col-sm-4">
+                    <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][name]" value="{{ item.name }}" class="form-control" />
+                  </div>
+                  <label class="col-sm-2 control-label">{{ entry_href }}</label>
+                  <div class="col-sm-4">
+                    <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][href]" value="{{ item.href }}" class="form-control" placeholder="/category" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="col-sm-2 control-label">{{ entry_panel }}</label>
+                  <div class="col-sm-4">
+                    <select name="module_cyberpunks_shop_menu_items[{{ item_row }}][panel]" class="form-control menu-panel-type" data-item-row="{{ item_row }}">
+                      <option value="none"{% if item.panel == 'none' or not item.panel %} selected="selected"{% endif %}>{{ text_panel_none }}</option>
+                      <option value="products"{% if item.panel == 'products' %} selected="selected"{% endif %}>{{ text_panel_products }}</option>
+                      <option value="links"{% if item.panel == 'links' %} selected="selected"{% endif %}>{{ text_panel_links }}</option>
+                    </select>
+                  </div>
+                  <label class="col-sm-2 control-label">{{ entry_sort_order }}</label>
+                  <div class="col-sm-2">
+                    <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][sort_order]" value="{{ item.sort_order }}" class="form-control" />
+                  </div>
+                  <div class="col-sm-2">
+                    <label class="checkbox-inline">
+                      <input type="checkbox" name="module_cyberpunks_shop_menu_items[{{ item_row }}][status]" value="1"{% if item.status is not defined or item.status %} checked="checked"{% endif %} /> {{ entry_item_status }}
+                    </label>
+                  </div>
+                </div>
+
+                <div class="menu-panel-products"{% if item.panel != 'products' %} style="display:none;"{% endif %}>
+                  <div class="form-group">
+                    <label class="col-sm-2 control-label">{{ entry_category }}</label>
+                    <div class="col-sm-10">
+                      <select name="module_cyberpunks_shop_menu_items[{{ item_row }}][category_id]" class="form-control menu-category-select">
+                        <option value="0">{{ text_none }}</option>
+                        {% for category in categories %}
+                        <option value="{{ category.category_id }}"{% if item.category_id == category.category_id %} selected="selected"{% endif %}>{{ category.name }}</option>
+                        {% endfor %}
+                      </select>
+                      <p class="help-block">{{ help_products }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="menu-panel-links"{% if item.panel != 'links' %} style="display:none;"{% endif %}>
+                  <p><strong>{{ text_links }}</strong></p>
+                  <table class="table table-bordered">
+                    <thead>
+                      <tr>
+                        <td>{{ entry_name }}</td>
+                        <td>{{ entry_href }}</td>
+                        <td style="width:1%;"></td>
+                      </tr>
+                    </thead>
+                    <tbody class="menu-links-body">
+                      {% set link_row = 0 %}
+                      {% if item.links %}
+                      {% for link in item.links %}
+                      <tr>
+                        <td><input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][links][{{ link_row }}][name]" value="{{ link.name }}" class="form-control" /></td>
+                        <td><input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][links][{{ link_row }}][href]" value="{{ link.href }}" class="form-control" /></td>
+                        <td class="text-center"><button type="button" class="btn btn-danger" onclick="$(this).closest('tr').remove();"><i class="fa fa-minus-circle"></i></button></td>
+                      </tr>
+                      {% set link_row = link_row + 1 %}
+                      {% endfor %}
+                      {% endif %}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colspan="3" class="text-right">
+                          <button type="button" class="btn btn-primary btn-add-link" data-item-row="{{ item_row }}" data-link-row="{{ link_row }}"><i class="fa fa-plus-circle"></i> {{ button_add_link }}</button>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+            {% set item_row = item_row + 1 %}
+            {% endfor %}
+          </div>
+
+          <button type="button" id="button-add-item" class="btn btn-primary"><i class="fa fa-plus-circle"></i> {{ button_add_item }}</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript"><!--
+var item_row = {{ items|length }};
+var menuCategories = {{ categories_json|raw }};
+
+function menuCategoryById(id) {
+  id = String(id);
+  for (var i = 0; i < menuCategories.length; i++) {
+    if (String(menuCategories[i].category_id) === id) {
+      return menuCategories[i];
+    }
+  }
+  return null;
+}
+
+function applyCategoryToItem($item, categoryId) {
+  var cat = menuCategoryById(categoryId);
+  if (!cat) {
+    return;
+  }
+  $item.find('input[name*="[name]"]').first().val(cat.title);
+  $item.find('input[name*="[href]"]').first().val(cat.href);
+}
+
+function toggleMenuPanels($item) {
+  var panel = $item.find('.menu-panel-type').val();
+  $item.find('.menu-panel-products').toggle(panel === 'products');
+  $item.find('.menu-panel-links').toggle(panel === 'links');
+}
+
+$('#menu-items').on('change', '.menu-panel-type', function() {
+  var $item = $(this).closest('.menu-item');
+  toggleMenuPanels($item);
+  if ($(this).val() === 'products') {
+    var categoryId = $item.find('.menu-category-select').val();
+    if (categoryId && categoryId !== '0') {
+      applyCategoryToItem($item, categoryId);
+    }
+  }
+});
+
+$('#menu-items').on('change', '.menu-category-select', function() {
+  applyCategoryToItem($(this).closest('.menu-item'), $(this).val());
+});
+
+$('#menu-items').on('click', '.btn-add-link', function() {
+  var $btn = $(this);
+  var i = $btn.data('item-row');
+  var l = parseInt($btn.attr('data-link-row'), 10) || 0;
+  var html = '<tr>';
+  html += '<td><input type="text" name="module_cyberpunks_shop_menu_items[' + i + '][links][' + l + '][name]" value="" class="form-control" /></td>';
+  html += '<td><input type="text" name="module_cyberpunks_shop_menu_items[' + i + '][links][' + l + '][href]" value="" class="form-control" /></td>';
+  html += '<td class="text-center"><button type="button" class="btn btn-danger" onclick="$(this).closest(\'tr\').remove();"><i class="fa fa-minus-circle"></i></button></td>';
+  html += '</tr>';
+  $btn.closest('table').find('.menu-links-body').append(html);
+  $btn.attr('data-link-row', l + 1);
+});
+
+$('#button-add-item').on('click', function() {
+  var categories = '';
+  for (var c = 0; c < menuCategories.length; c++) {
+    categories += '<option value="' + menuCategories[c].category_id + '">' + $('<div>').text(menuCategories[c].name).html() + '</option>';
+  }
+
+  var html = '';
+  html += '<div class="panel panel-default menu-item" data-item-row="' + item_row + '">';
+  html += '  <div class="panel-heading"><h3 class="panel-title">{{ text_item|e('js') }} #' + (item_row + 1);
+  html += '    <button type="button" class="btn btn-danger btn-xs pull-right" onclick="$(this).closest(\'.menu-item\').remove();"><i class="fa fa-minus-circle"></i></button>';
+  html += '  </h3></div><div class="panel-body">';
+  html += '  <div class="form-group">';
+  html += '    <label class="col-sm-2 control-label">{{ entry_name|e('js') }}</label>';
+  html += '    <div class="col-sm-4"><input type="text" name="module_cyberpunks_shop_menu_items[' + item_row + '][name]" value="" class="form-control" /></div>';
+  html += '    <label class="col-sm-2 control-label">{{ entry_href|e('js') }}</label>';
+  html += '    <div class="col-sm-4"><input type="text" name="module_cyberpunks_shop_menu_items[' + item_row + '][href]" value="" class="form-control" /></div>';
+  html += '  </div>';
+  html += '  <div class="form-group">';
+  html += '    <label class="col-sm-2 control-label">{{ entry_panel|e('js') }}</label>';
+  html += '    <div class="col-sm-4"><select name="module_cyberpunks_shop_menu_items[' + item_row + '][panel]" class="form-control menu-panel-type" data-item-row="' + item_row + '">';
+  html += '      <option value="none">{{ text_panel_none|e('js') }}</option>';
+  html += '      <option value="products">{{ text_panel_products|e('js') }}</option>';
+  html += '      <option value="links">{{ text_panel_links|e('js') }}</option>';
+  html += '    </select></div>';
+  html += '    <label class="col-sm-2 control-label">{{ entry_sort_order|e('js') }}</label>';
+  html += '    <div class="col-sm-2"><input type="text" name="module_cyberpunks_shop_menu_items[' + item_row + '][sort_order]" value="' + item_row + '" class="form-control" /></div>';
+  html += '    <div class="col-sm-2"><label class="checkbox-inline"><input type="checkbox" name="module_cyberpunks_shop_menu_items[' + item_row + '][status]" value="1" checked="checked" /> {{ entry_item_status|e('js') }}</label></div>';
+  html += '  </div>';
+  html += '  <div class="menu-panel-products" style="display:none;">';
+  html += '    <div class="form-group"><label class="col-sm-2 control-label">{{ entry_category|e('js') }}</label><div class="col-sm-10">';
+  html += '      <select name="module_cyberpunks_shop_menu_items[' + item_row + '][category_id]" class="form-control menu-category-select"><option value="0">{{ text_none|e('js') }}</option>' + categories + '</select>';
+  html += '      <p class="help-block">{{ help_products|e('js') }}</p>';
+  html += '    </div></div>';
+  html += '  </div>';
+  html += '  <div class="menu-panel-links" style="display:none;">';
+  html += '    <p><strong>{{ text_links|e('js') }}</strong></p>';
+  html += '    <table class="table table-bordered"><thead><tr><td>{{ entry_name|e('js') }}</td><td>{{ entry_href|e('js') }}</td><td></td></tr></thead>';
+  html += '    <tbody class="menu-links-body"></tbody>';
+  html += '    <tfoot><tr><td colspan="3" class="text-right"><button type="button" class="btn btn-primary btn-add-link" data-item-row="' + item_row + '" data-link-row="0"><i class="fa fa-plus-circle"></i> {{ button_add_link|e('js') }}</button></td></tr></tfoot>';
+  html += '    </table>';
+  html += '  </div>';
+  html += '</div></div>';
+
+  $('#menu-items').append(html);
+  item_row++;
+});
+//--></script>
+{{ footer }}

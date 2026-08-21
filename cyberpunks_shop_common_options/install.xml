@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Common Options</name>
+	<code>cyberpunks_shop_common_options</code>
+	<version>1.0.2</version>
+	<author>positivecrash</author>
+	<link>https://github.com/positivecrash</link>
+
+	<file path="catalog/controller/common/header.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['keywords'] = $this->document->getKeywords();]]></search>
+			<add position="after"><![CDATA[
+		$data['common_options'] = array();
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_common_options.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_common_options');
+			$data['common_options'] = $this->model_extension_module_cyberpunks_shop_common_options->getOptionsMap();
+		}
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/common/footer.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['scripts'] = $this->document->getScripts('footer');]]></search>
+			<add position="before"><![CDATA[
+		$data['common_options'] = array();
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_common_options.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_common_options');
+			$data['common_options'] = $this->model_extension_module_cyberpunks_shop_common_options->getOptionsMap();
+		}
+
+]]></add>
+		</operation>
+	</file>
+</modification>

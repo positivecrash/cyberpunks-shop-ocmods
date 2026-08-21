@@ -1,0 +1,58 @@
+{% macro value_input(field, values, value_thumbs, placeholder, summernote, help_admin_hint) %}
+<div class="form-group">
+  <label class="col-sm-2 control-label" for="input-common-option-{{ field.field_id }}"{% if field.admin_hint %} data-toggle="tooltip" title="{{ field.admin_hint }}"{% endif %}>{{ field.label }} <small class="text-muted">({{ field.field_key }})</small></label>
+  <div class="col-sm-10">
+    {% if field.field_type == 'checkbox' %}
+      <input type="hidden" name="cyberpunks_common_option_values[{{ field.field_id }}]" value="0" />
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" name="cyberpunks_common_option_values[{{ field.field_id }}]" value="1" id="input-common-option-{{ field.field_id }}" {% if values[field.field_id] is defined and values[field.field_id] %}checked="checked"{% endif %}/>
+        </label>
+      </div>
+    {% elseif field.field_type == 'select' %}
+      <select name="cyberpunks_common_option_values[{{ field.field_id }}]" id="input-common-option-{{ field.field_id }}" class="form-control">
+        <option value=""></option>
+        {% for option in field.options %}
+        <option value="{{ option.value }}" {% if values[field.field_id] is defined and values[field.field_id] == option.value %}selected="selected"{% endif %}>{{ option.label }}</option>
+        {% endfor %}
+      </select>
+    {% elseif field.field_type == 'html' %}
+      <textarea name="cyberpunks_common_option_values[{{ field.field_id }}]" placeholder="{{ field.label }}" id="input-common-option-{{ field.field_id }}" data-toggle="summernote" data-lang="{{ summernote }}" class="form-control">{{ values[field.field_id] is defined ? values[field.field_id] : '' }}</textarea>
+    {% elseif field.field_type == 'textarea' %}
+      <textarea name="cyberpunks_common_option_values[{{ field.field_id }}]" rows="12" placeholder="{{ field.label }}" id="input-common-option-{{ field.field_id }}" class="form-control" style="font-family:monospace;">{{ values[field.field_id] is defined ? values[field.field_id] : '' }}</textarea>
+      <p class="help-block">HTML allowed. Icons: <code>[[icon:name]]</code></p>
+    {% elseif field.field_type == 'image' %}
+      <a href="" id="thumb-common-option-{{ field.field_id }}" data-toggle="image" class="img-thumbnail">
+        <img src="{{ value_thumbs[field.field_id] is defined ? value_thumbs[field.field_id] : placeholder }}" alt="" title="" data-placeholder="{{ placeholder }}"/>
+      </a>
+      <input type="hidden" name="cyberpunks_common_option_values[{{ field.field_id }}]" value="{{ values[field.field_id] is defined ? values[field.field_id] : '' }}" id="input-common-option-{{ field.field_id }}"/>
+    {% else %}
+      <input type="text" name="cyberpunks_common_option_values[{{ field.field_id }}]" value="{{ values[field.field_id] is defined ? values[field.field_id] : '' }}" placeholder="{{ field.label }}" id="input-common-option-{{ field.field_id }}" class="form-control" />
+    {% endif %}
+    {% if field.admin_hint %}
+    <p class="help-block">{{ field.admin_hint }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% import _self as common_option_values %}
+
+{% for field in value_groups.ungrouped_fields %}
+{{ common_option_values.value_input(field, values, value_thumbs, placeholder, summernote, help_admin_hint) }}
+{% endfor %}
+
+{% for section in value_groups.sections %}
+{% if section.fields|length %}
+<fieldset>
+  <legend>{{ section.title }}</legend>
+  {% for field in section.fields %}
+  {{ common_option_values.value_input(field, values, value_thumbs, placeholder, summernote, help_admin_hint) }}
+  {% endfor %}
+</fieldset>
+{% endif %}
+{% endfor %}
+
+<script type="text/javascript"><!--
+$('textarea[data-toggle=\'summernote\']').summernote({height: 300});
+//--></script>

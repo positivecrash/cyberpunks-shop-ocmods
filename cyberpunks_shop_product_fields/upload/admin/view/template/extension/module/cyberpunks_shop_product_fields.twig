@@ -1,3 +1,37 @@
+{% macro field_row(field, field_row, section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_enabled, text_disabled, help_select_options, help_admin_hint, button_remove) %}
+<tr id="product-field-row-{{ field_row }}" class="product-field-row" data-section-row="{{ section_row }}">
+  <td class="text-left">
+    <input type="hidden" name="cyberpunks_product_field_defs[{{ field_row }}][field_id]" value="{{ field.field_id is defined ? field.field_id : '' }}" />
+    <input type="hidden" name="cyberpunks_product_field_defs[{{ field_row }}][section_row]" value="{{ section_row }}" class="cyberpunks-product-field-section-row" />
+    <input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][field_key]" value="{{ field.field_key is defined ? field.field_key : '' }}" class="form-control" />
+  </td>
+  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][label]" value="{{ field.label is defined ? field.label : '' }}" class="form-control" /></td>
+  <td class="text-left">
+    <select name="cyberpunks_product_field_defs[{{ field_row }}][field_type]" class="form-control cyberpunks-product-field-type">
+      <option value="text" {% if field.field_type is not defined or field.field_type == 'text' %}selected="selected"{% endif %}>{{ text_text }}</option>
+      <option value="checkbox" {% if field.field_type is defined and field.field_type == 'checkbox' %}selected="selected"{% endif %}>{{ text_checkbox }}</option>
+      <option value="checkboxes" {% if field.field_type is defined and field.field_type == 'checkboxes' %}selected="selected"{% endif %}>{{ text_checkboxes }}</option>
+      <option value="select" {% if field.field_type is defined and field.field_type == 'select' %}selected="selected"{% endif %}>{{ text_select }}</option>
+      <option value="html" {% if field.field_type is defined and field.field_type == 'html' %}selected="selected"{% endif %}>{{ text_html }}</option>
+      <option value="textarea" {% if field.field_type is defined and field.field_type == 'textarea' %}selected="selected"{% endif %}>{{ text_textarea }}</option>
+      <option value="image" {% if field.field_type is defined and field.field_type == 'image' %}selected="selected"{% endif %}>{{ text_image }}</option>
+    </select>
+  </td>
+  <td class="text-left"><textarea name="cyberpunks_product_field_defs[{{ field_row }}][select_options]" rows="3" class="form-control" placeholder="{{ help_select_options }}">{{ field.select_options is defined ? field.select_options : '' }}</textarea></td>
+  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][admin_hint]" value="{{ field.admin_hint is defined ? field.admin_hint : '' }}" class="form-control" placeholder="{{ help_admin_hint }}" /></td>
+  <td class="text-right"><input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][sort_order]" value="{{ field.sort_order is defined ? field.sort_order : 0 }}" class="form-control" /></td>
+  <td class="text-left">
+    <select name="cyberpunks_product_field_defs[{{ field_row }}][status]" class="form-control">
+      <option value="1" {% if field.status is not defined or field.status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+      <option value="0" {% if field.status is defined and not field.status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+    </select>
+  </td>
+  <td class="text-right"><button type="button" onclick="$('#product-field-row-{{ field_row }}').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>
+</tr>
+{% endmacro %}
+
+{% import _self as product_fields %}
+
 {{ header }}{{ column_left }}
 <div id="content">
   <div class="page-header">
@@ -25,59 +59,97 @@
         <h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3>
       </div>
       <div class="panel-body">
+        <p class="help-block">{{ help_sections }}</p>
         <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-cyberpunks-product-fields" class="form-horizontal">
-          <table id="cyberpunks-product-fields" class="table table-striped table-bordered table-hover">
-            <thead>
-              <tr>
-                <td class="text-left">{{ entry_key }}</td>
-                <td class="text-left">{{ entry_label }}</td>
-                <td class="text-left">{{ entry_type }}</td>
-                <td class="text-left">{{ entry_select_options }}</td>
-                <td class="text-left">{{ entry_admin_hint }}</td>
-                <td class="text-right">{{ entry_sort_order }}</td>
-                <td class="text-left">{{ entry_status }}</td>
-                <td></td>
-              </tr>
-            </thead>
-            <tbody>
-              {% set field_row = 0 %}
-              {% for field in fields %}
-              <tr id="product-field-row-{{ field_row }}">
-                <td class="text-left">
-                  <input type="hidden" name="cyberpunks_product_field_defs[{{ field_row }}][field_id]" value="{{ field.field_id is defined ? field.field_id : '' }}" />
-                  <input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][field_key]" value="{{ field.field_key is defined ? field.field_key : '' }}" class="form-control" />
-                </td>
-                <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][label]" value="{{ field.label is defined ? field.label : '' }}" class="form-control" /></td>
-                <td class="text-left">
-                  <select name="cyberpunks_product_field_defs[{{ field_row }}][field_type]" class="form-control cyberpunks-product-field-type">
-                    <option value="text" {% if field.field_type is not defined or field.field_type == 'text' %}selected="selected"{% endif %}>{{ text_text }}</option>
-                    <option value="checkbox" {% if field.field_type is defined and field.field_type == 'checkbox' %}selected="selected"{% endif %}>{{ text_checkbox }}</option>
-                    <option value="select" {% if field.field_type is defined and field.field_type == 'select' %}selected="selected"{% endif %}>{{ text_select }}</option>
-                    <option value="html" {% if field.field_type is defined and field.field_type == 'html' %}selected="selected"{% endif %}>{{ text_html }}</option>
-                    <option value="textarea" {% if field.field_type is defined and field.field_type == 'textarea' %}selected="selected"{% endif %}>{{ text_textarea }}</option>
-                  </select>
-                </td>
-                <td class="text-left"><textarea name="cyberpunks_product_field_defs[{{ field_row }}][select_options]" rows="3" class="form-control" placeholder="{{ help_select_options }}">{{ field.select_options is defined ? field.select_options : '' }}</textarea></td>
-                <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][admin_hint]" value="{{ field.admin_hint is defined ? field.admin_hint : '' }}" class="form-control" placeholder="{{ help_admin_hint }}" /></td>
-                <td class="text-right"><input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][sort_order]" value="{{ field.sort_order is defined ? field.sort_order : 0 }}" class="form-control" /></td>
-                <td class="text-left">
-                  <select name="cyberpunks_product_field_defs[{{ field_row }}][status]" class="form-control">
-                    <option value="1" {% if field.status is not defined or field.status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
-                    <option value="0" {% if field.status is defined and not field.status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
-                  </select>
-                </td>
-                <td class="text-right"><button type="button" onclick="$('#product-field-row-{{ field_row }}').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>
-              </tr>
-              {% set field_row = field_row + 1 %}
-              {% endfor %}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="7"></td>
-                <td class="text-right"><button type="button" onclick="addProductField();" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td>
-              </tr>
-            </tfoot>
-          </table>
+          {% set field_row = 0 %}
+
+          <div class="panel panel-default" id="product-field-section-ungrouped">
+            <div class="panel-heading">
+              <strong>{{ text_ungrouped }}</strong>
+            </div>
+            <div class="panel-body">
+              <table class="table table-striped table-bordered table-hover cyberpunks-product-fields-table" data-section-row="-1">
+                <thead>
+                  <tr>
+                    <td class="text-left">{{ entry_key }}</td>
+                    <td class="text-left">{{ entry_label }}</td>
+                    <td class="text-left">{{ entry_type }}</td>
+                    <td class="text-left">{{ entry_select_options }}</td>
+                    <td class="text-left">{{ entry_admin_hint }}</td>
+                    <td class="text-right">{{ entry_sort_order }}</td>
+                    <td class="text-left">{{ entry_status }}</td>
+                    <td></td>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for field in layout.ungrouped_fields %}
+                  {{ product_fields.field_row(field, field_row, -1, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_enabled, text_disabled, help_select_options, help_admin_hint, button_remove) }}
+                  {% set field_row = field_row + 1 %}
+                  {% endfor %}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="7"></td>
+                    <td class="text-right"><button type="button" onclick="addProductField(-1);" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div id="cyberpunks-product-field-sections">
+            {% for section in layout.sections %}
+            {% set current_section_row = section.section_row is defined ? section.section_row : loop.index0 %}
+            <div class="panel panel-default product-field-section-panel" id="product-field-section-{{ current_section_row }}" data-section-row="{{ current_section_row }}">
+              <div class="panel-heading">
+                <div class="row">
+                  <div class="col-sm-5">
+                    <input type="hidden" name="cyberpunks_product_field_sections[{{ current_section_row }}][section_id]" value="{{ section.section_id is defined ? section.section_id : '' }}" />
+                    <input type="text" name="cyberpunks_product_field_sections[{{ current_section_row }}][title]" value="{{ section.title is defined ? section.title : '' }}" class="form-control" placeholder="{{ entry_section_title }}" />
+                  </div>
+                  <div class="col-sm-2">
+                    <input type="text" name="cyberpunks_product_field_sections[{{ current_section_row }}][sort_order]" value="{{ section.sort_order is defined ? section.sort_order : 0 }}" class="form-control" placeholder="{{ entry_sort_order }}" />
+                  </div>
+                  <div class="col-sm-5 text-right">
+                    <button type="button" onclick="removeProductFieldSection({{ current_section_row }});" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button>
+                  </div>
+                </div>
+              </div>
+              <div class="panel-body">
+                <table class="table table-striped table-bordered table-hover cyberpunks-product-fields-table" data-section-row="{{ current_section_row }}">
+                  <thead>
+                    <tr>
+                      <td class="text-left">{{ entry_key }}</td>
+                      <td class="text-left">{{ entry_label }}</td>
+                      <td class="text-left">{{ entry_type }}</td>
+                      <td class="text-left">{{ entry_select_options }}</td>
+                      <td class="text-left">{{ entry_admin_hint }}</td>
+                      <td class="text-right">{{ entry_sort_order }}</td>
+                      <td class="text-left">{{ entry_status }}</td>
+                      <td></td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for field in section.fields %}
+                    {{ product_fields.field_row(field, field_row, current_section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_enabled, text_disabled, help_select_options, help_admin_hint, button_remove) }}
+                    {% set field_row = field_row + 1 %}
+                    {% endfor %}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colspan="7"></td>
+                      <td class="text-right"><button type="button" onclick="addProductField({{ current_section_row }});" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="text-right" style="margin-top:15px;">
+            <button type="button" onclick="addProductFieldSection();" class="btn btn-default"><i class="fa fa-plus-circle"></i> {{ button_add_section }}</button>
+          </div>
         </form>
       </div>
     </div>
@@ -85,22 +157,103 @@
 </div>
 <script type="text/javascript"><!--
 var product_field_row = {{ field_row }};
+var product_field_section_row = {{ next_section_row }};
 
-function addProductField() {
+function nextProductFieldSortOrder(sectionRow) {
+  var selector = sectionRow === -1
+    ? '#product-field-section-ungrouped .cyberpunks-product-fields-table tbody input[name$="[sort_order]"]'
+    : '#product-field-section-' + sectionRow + ' .cyberpunks-product-fields-table tbody input[name$="[sort_order]"]';
+  var max = -1;
+
+  $(selector).each(function() {
+    var n = parseInt($(this).val(), 10);
+
+    if (!isNaN(n) && n > max) {
+      max = n;
+    }
+  });
+
+  return max + 1;
+}
+
+function nextProductFieldSectionSortOrder() {
+  var max = -1;
+
+  $('#cyberpunks-product-field-sections .product-field-section-panel > .panel-heading input[name$="[sort_order]"]').each(function() {
+    var n = parseInt($(this).val(), 10);
+
+    if (!isNaN(n) && n > max) {
+      max = n;
+    }
+  });
+
+  return max + 1;
+}
+
+function buildProductFieldRow(fieldRow, sectionRow, sortOrder) {
   var html = '';
-  html += '<tr id="product-field-row-' + product_field_row + '">';
-  html += '  <td class="text-left"><input type="hidden" name="cyberpunks_product_field_defs[' + product_field_row + '][field_id]" value="" /><input type="text" name="cyberpunks_product_field_defs[' + product_field_row + '][field_key]" value="" class="form-control" /></td>';
-  html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + product_field_row + '][label]" value="" class="form-control" /></td>';
-  html += '  <td class="text-left"><select name="cyberpunks_product_field_defs[' + product_field_row + '][field_type]" class="form-control cyberpunks-product-field-type"><option value="text">{{ text_text }}</option><option value="checkbox">{{ text_checkbox }}</option><option value="select">{{ text_select }}</option><option value="html">{{ text_html }}</option><option value="textarea">{{ text_textarea }}</option></select></td>';
-  html += '  <td class="text-left"><textarea name="cyberpunks_product_field_defs[' + product_field_row + '][select_options]" rows="3" class="form-control" placeholder="{{ help_select_options }}"></textarea></td>';
-  html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + product_field_row + '][admin_hint]" value="" class="form-control" placeholder="{{ help_admin_hint }}" /></td>';
-  html += '  <td class="text-right"><input type="text" name="cyberpunks_product_field_defs[' + product_field_row + '][sort_order]" value="0" class="form-control" /></td>';
-  html += '  <td class="text-left"><select name="cyberpunks_product_field_defs[' + product_field_row + '][status]" class="form-control"><option value="1">{{ text_enabled }}</option><option value="0">{{ text_disabled }}</option></select></td>';
-  html += '  <td class="text-right"><button type="button" onclick="$(\'#product-field-row-' + product_field_row + '\').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>';
+  html += '<tr id="product-field-row-' + fieldRow + '" class="product-field-row" data-section-row="' + sectionRow + '">';
+  html += '  <td class="text-left"><input type="hidden" name="cyberpunks_product_field_defs[' + fieldRow + '][field_id]" value="" /><input type="hidden" name="cyberpunks_product_field_defs[' + fieldRow + '][section_row]" value="' + sectionRow + '" class="cyberpunks-product-field-section-row" /><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][field_key]" value="" class="form-control" /></td>';
+  html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][label]" value="" class="form-control" /></td>';
+  html += '  <td class="text-left"><select name="cyberpunks_product_field_defs[' + fieldRow + '][field_type]" class="form-control cyberpunks-product-field-type"><option value="text">{{ text_text }}</option><option value="checkbox">{{ text_checkbox }}</option><option value="checkboxes">{{ text_checkboxes }}</option><option value="select">{{ text_select }}</option><option value="html">{{ text_html }}</option><option value="textarea">{{ text_textarea }}</option><option value="image">{{ text_image }}</option></select></td>';
+  html += '  <td class="text-left"><textarea name="cyberpunks_product_field_defs[' + fieldRow + '][select_options]" rows="3" class="form-control" placeholder="{{ help_select_options }}"></textarea></td>';
+  html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][admin_hint]" value="" class="form-control" placeholder="{{ help_admin_hint }}" /></td>';
+  html += '  <td class="text-right"><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][sort_order]" value="' + sortOrder + '" class="form-control" /></td>';
+  html += '  <td class="text-left"><select name="cyberpunks_product_field_defs[' + fieldRow + '][status]" class="form-control"><option value="1">{{ text_enabled }}</option><option value="0">{{ text_disabled }}</option></select></td>';
+  html += '  <td class="text-right"><button type="button" onclick="$(\'#product-field-row-' + fieldRow + '\').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>';
   html += '</tr>';
+  return html;
+}
 
-  $('#cyberpunks-product-fields tbody').append(html);
+function addProductField(sectionRow) {
+  var selector = sectionRow === -1
+    ? '#product-field-section-ungrouped .cyberpunks-product-fields-table tbody'
+    : '#product-field-section-' + sectionRow + ' .cyberpunks-product-fields-table tbody';
+  var sortOrder = nextProductFieldSortOrder(sectionRow);
+
+  $(selector).append(buildProductFieldRow(product_field_row, sectionRow, sortOrder));
   product_field_row++;
+}
+
+function buildProductFieldSectionPanel(sectionRow, sortOrder) {
+  var html = '';
+  html += '<div class="panel panel-default product-field-section-panel" id="product-field-section-' + sectionRow + '" data-section-row="' + sectionRow + '">';
+  html += '  <div class="panel-heading">';
+  html += '    <div class="row">';
+  html += '      <div class="col-sm-5"><input type="hidden" name="cyberpunks_product_field_sections[' + sectionRow + '][section_id]" value="" /><input type="text" name="cyberpunks_product_field_sections[' + sectionRow + '][title]" value="" class="form-control" placeholder="{{ entry_section_title }}" /></div>';
+  html += '      <div class="col-sm-2"><input type="text" name="cyberpunks_product_field_sections[' + sectionRow + '][sort_order]" value="' + sortOrder + '" class="form-control" placeholder="{{ entry_sort_order }}" /></div>';
+  html += '      <div class="col-sm-5 text-right"><button type="button" onclick="removeProductFieldSection(' + sectionRow + ');" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></div>';
+  html += '    </div>';
+  html += '  </div>';
+  html += '  <div class="panel-body">';
+  html += '    <table class="table table-striped table-bordered table-hover cyberpunks-product-fields-table" data-section-row="' + sectionRow + '">';
+  html += '      <thead><tr>';
+  html += '        <td class="text-left">{{ entry_key }}</td>';
+  html += '        <td class="text-left">{{ entry_label }}</td>';
+  html += '        <td class="text-left">{{ entry_type }}</td>';
+  html += '        <td class="text-left">{{ entry_select_options }}</td>';
+  html += '        <td class="text-left">{{ entry_admin_hint }}</td>';
+  html += '        <td class="text-right">{{ entry_sort_order }}</td>';
+  html += '        <td class="text-left">{{ entry_status }}</td>';
+  html += '        <td></td>';
+  html += '      </tr></thead>';
+  html += '      <tbody></tbody>';
+  html += '      <tfoot><tr><td colspan="7"></td><td class="text-right"><button type="button" onclick="addProductField(' + sectionRow + ');" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td></tr></tfoot>';
+  html += '    </table>';
+  html += '  </div>';
+  html += '</div>';
+  return html;
+}
+
+function addProductFieldSection() {
+  var sortOrder = nextProductFieldSectionSortOrder();
+
+  $('#cyberpunks-product-field-sections').append(buildProductFieldSectionPanel(product_field_section_row, sortOrder));
+  product_field_section_row++;
+}
+
+function removeProductFieldSection(sectionRow) {
+  $('#product-field-section-' + sectionRow).remove();
 }
 //--></script>
 {{ footer }}

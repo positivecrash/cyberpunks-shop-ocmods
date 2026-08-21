@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Menu</name>
+	<code>cyberpunks_shop_menu</code>
+	<version>1.0.1</version>
+	<author>positivecrash</author>
+	<link>https://github.com/positivecrash</link>
+	<description>Header mega menu: items (name+href) with optional panel — featured products by category, or links list. Data only; markup in theme.</description>
+
+	<file path="catalog/controller/common/header.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['menu'] = $this->load->controller('common/menu');]]></search>
+			<add position="before"><![CDATA[		$data['main_menu'] = array();
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_menu.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_menu');
+			$data['main_menu'] = $this->model_extension_module_cyberpunks_shop_menu->getMenuItems();
+		}
+
+]]></add>
+		</operation>
+	</file>
+</modification>
