@@ -73,6 +73,12 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 
 		foreach ($rows as $index => $row) {
 			$rows[$index]['options'] = $this->parseSelectOptions($row['select_options']);
+
+			if (isset($row['field_type']) && $row['field_type'] === 'repeater') {
+				$rows[$index]['repeater_schema'] = $this->parseRepeaterSchema($row['select_options']);
+			} else {
+				$rows[$index]['repeater_schema'] = array();
+			}
 		}
 
 		return $rows;
@@ -255,7 +261,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			}
 
 			$field_type = 'text';
-			if (isset($field['field_type']) && in_array($field['field_type'], array('checkbox', 'checkboxes', 'select', 'html', 'textarea', 'image'), true)) {
+			if (isset($field['field_type']) && in_array($field['field_type'], array('checkbox', 'checkboxes', 'select', 'html', 'textarea', 'image', 'repeater'), true)) {
 				$field_type = $field['field_type'];
 			}
 
@@ -337,6 +343,8 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 
 			if (isset($row['field_type']) && $row['field_type'] === 'checkboxes') {
 				$value = $this->decodeCheckboxListValue($value);
+			} elseif (isset($row['field_type']) && $row['field_type'] === 'repeater') {
+				$value = $this->decodeRepeaterValue($value);
 			}
 
 			$data[$field_id] = $value;
@@ -354,6 +362,13 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			return;
 		}
 
+		$field_types = array();
+		$field_type_query = $this->db->query("SELECT field_id, field_type FROM `" . DB_PREFIX . "cyberpunks_product_field`");
+
+		foreach ($field_type_query->rows as $field_type_row) {
+			$field_types[(int)$field_type_row['field_id']] = isset($field_type_row['field_type']) ? $field_type_row['field_type'] : 'text';
+		}
+
 		foreach ($values as $field_id => $value) {
 			$field_id = (int)$field_id;
 			if ($field_id <= 0) {
@@ -361,17 +376,21 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			}
 
 			if (is_array($value)) {
-				$clean = array();
+				if (isset($field_types[$field_id]) && $field_types[$field_id] === 'repeater') {
+					$value = $this->encodeRepeaterValue($value);
+				} else {
+					$clean = array();
 
-				foreach ($value as $item) {
-					$item = trim((string)$item);
+					foreach ($value as $item) {
+						$item = trim((string)$item);
 
-					if ($item !== '') {
-						$clean[] = $item;
+						if ($item !== '') {
+							$clean[] = $item;
+						}
 					}
-				}
 
-				$value = $clean ? json_encode(array_values($clean)) : '';
+					$value = $clean ? json_encode(array_values($clean)) : '';
+				}
 			}
 
 			$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_product_field_value` SET product_id = '" . (int)$product_id . "', field_id = '" . (int)$field_id . "', value = '" . $this->db->escape((string)$value) . "', date_modified = NOW()");
@@ -402,6 +421,182 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 	private function normalizeFieldKey($field_key) {
 		$field_key = strtolower(trim((string)$field_key));
 		return preg_replace('/[^a-z0-9_]/', '_', $field_key);
+	}
+
+	public function parseRepeaterSchema($raw) {
+		$fields = array();
+		$lines = preg_split('/\R/', (string)$raw);
+
+		foreach ($lines as $line) {
+			$line = trim($line);
+
+			if ($line === '' || strpos($line, '#') === 0) {
+				continue;
+			}
+
+			$parts = explode('|', $line);
+			$key = isset($parts[0]) ? trim($parts[0]) : '';
+			$type = isset($parts[1]) ? trim(strtolower($parts[1])) : 'text';
+			$label = isset($parts[2]) ? trim($parts[2]) : $key;
+
+			if ($key === '') {
+				continue;
+			}
+
+			if (!in_array($type, array('text', 'textarea', 'select', 'checkbox', 'checkboxes', 'image'), true)) {
+				$type = 'text';
+			}
+
+			$field = array(
+				'key' => $key,
+				'type' => $type,
+				'label' => $label !== '' ? $label : $key,
+				'options' => array()
+			);
+
+			if (isset($parts[3]) && trim($parts[3]) !== '' && in_array($type, array('select', 'checkboxes'), true)) {
+				foreach (explode(',', $parts[3]) as $option_part) {
+					$option_part = trim($option_part);
+
+					if ($option_part === '') {
+						continue;
+					}
+
+					if (strpos($option_part, ':') !== false) {
+						list($option_value, $option_label) = explode(':', $option_part, 2);
+						$option_value = trim($option_value);
+						$option_label = trim($option_label);
+					} else {
+						$option_value = $option_part;
+						$option_label = $option_part;
+					}
+
+					if ($option_value === '') {
+						continue;
+					}
+
+					$field['options'][] = array(
+						'value' => $option_value,
+						'label' => $option_label !== '' ? $option_label : $option_value
+					);
+				}
+			}
+
+			$fields[] = $field;
+		}
+
+		return $fields;
+	}
+
+	private function encodeRepeaterValue($value) {
+		if (!is_array($value)) {
+			return '';
+		}
+
+		$rows = array();
+
+		foreach ($value as $row) {
+			if (!is_array($row)) {
+				continue;
+			}
+
+			$clean_row = array();
+			$has_content = false;
+
+			foreach ($row as $sub_key => $sub_value) {
+				$sub_key = trim((string)$sub_key);
+
+				if ($sub_key === '') {
+					continue;
+				}
+
+				if (is_array($sub_value)) {
+					$clean_list = array();
+
+					foreach ($sub_value as $item) {
+						$item = trim((string)$item);
+
+						if ($item !== '') {
+							$clean_list[] = $item;
+							$has_content = true;
+						}
+					}
+
+					if ($clean_list) {
+						$clean_row[$sub_key] = array_values($clean_list);
+					}
+
+					continue;
+				}
+
+				$sub_value = trim((string)$sub_value);
+
+				if ($sub_value !== '') {
+					$clean_row[$sub_key] = $sub_value;
+					$has_content = true;
+				}
+			}
+
+			if ($has_content) {
+				$rows[] = $clean_row;
+			}
+		}
+
+		return $rows ? json_encode(array_values($rows), JSON_UNESCAPED_UNICODE) : '';
+	}
+
+	private function decodeRepeaterValue($raw) {
+		$raw = trim((string)$raw);
+
+		if ($raw === '') {
+			return array();
+		}
+
+		$decoded = json_decode($raw, true);
+
+		if (!is_array($decoded)) {
+			return array();
+		}
+
+		$rows = array();
+
+		foreach ($decoded as $row) {
+			if (!is_array($row)) {
+				continue;
+			}
+
+			$clean_row = array();
+
+			foreach ($row as $sub_key => $sub_value) {
+				$sub_key = trim((string)$sub_key);
+
+				if ($sub_key === '') {
+					continue;
+				}
+
+				if (is_array($sub_value)) {
+					$clean_list = array();
+
+					foreach ($sub_value as $item) {
+						$item = trim((string)$item);
+
+						if ($item !== '') {
+							$clean_list[] = $item;
+						}
+					}
+
+					$clean_row[$sub_key] = $clean_list;
+				} else {
+					$clean_row[$sub_key] = (string)$sub_value;
+				}
+			}
+
+			if ($clean_row) {
+				$rows[] = $clean_row;
+			}
+		}
+
+		return $rows;
 	}
 
 	private function parseSelectOptions($raw) {

@@ -1,4 +1,4 @@
-{% macro field_row(field, field_row, section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_enabled, text_disabled, help_select_options, help_admin_hint, button_remove) %}
+{% macro field_row(field, field_row, section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_repeater, text_enabled, text_disabled, help_select_options, help_repeater_schema, help_admin_hint, button_remove) %}
 <tr id="product-field-row-{{ field_row }}" class="product-field-row" data-section-row="{{ section_row }}">
   <td class="text-left">
     <input type="hidden" name="cyberpunks_product_field_defs[{{ field_row }}][field_id]" value="{{ field.field_id is defined ? field.field_id : '' }}" />
@@ -15,9 +15,10 @@
       <option value="html" {% if field.field_type is defined and field.field_type == 'html' %}selected="selected"{% endif %}>{{ text_html }}</option>
       <option value="textarea" {% if field.field_type is defined and field.field_type == 'textarea' %}selected="selected"{% endif %}>{{ text_textarea }}</option>
       <option value="image" {% if field.field_type is defined and field.field_type == 'image' %}selected="selected"{% endif %}>{{ text_image }}</option>
+      <option value="repeater" {% if field.field_type is defined and field.field_type == 'repeater' %}selected="selected"{% endif %}>{{ text_repeater }}</option>
     </select>
   </td>
-  <td class="text-left"><textarea name="cyberpunks_product_field_defs[{{ field_row }}][select_options]" rows="3" class="form-control" placeholder="{{ help_select_options }}">{{ field.select_options is defined ? field.select_options : '' }}</textarea></td>
+  <td class="text-left"><textarea name="cyberpunks_product_field_defs[{{ field_row }}][select_options]" rows="3" class="form-control" placeholder="{% if field.field_type is defined and field.field_type == 'repeater' %}{{ help_repeater_schema }}{% else %}{{ help_select_options }}{% endif %}">{{ field.select_options is defined ? field.select_options : '' }}</textarea></td>
   <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][admin_hint]" value="{{ field.admin_hint is defined ? field.admin_hint : '' }}" class="form-control" placeholder="{{ help_admin_hint }}" /></td>
   <td class="text-right"><input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][sort_order]" value="{{ field.sort_order is defined ? field.sort_order : 0 }}" class="form-control" /></td>
   <td class="text-left">
@@ -83,7 +84,7 @@
                 </thead>
                 <tbody>
                   {% for field in layout.ungrouped_fields %}
-                  {{ product_fields.field_row(field, field_row, -1, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_enabled, text_disabled, help_select_options, help_admin_hint, button_remove) }}
+                  {{ product_fields.field_row(field, field_row, -1, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_repeater, text_enabled, text_disabled, help_select_options, help_repeater_schema, help_admin_hint, button_remove) }}
                   {% set field_row = field_row + 1 %}
                   {% endfor %}
                 </tbody>
@@ -131,7 +132,7 @@
                   </thead>
                   <tbody>
                     {% for field in section.fields %}
-                    {{ product_fields.field_row(field, field_row, current_section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_enabled, text_disabled, help_select_options, help_admin_hint, button_remove) }}
+                    {{ product_fields.field_row(field, field_row, current_section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_repeater, text_enabled, text_disabled, help_select_options, help_repeater_schema, help_admin_hint, button_remove) }}
                     {% set field_row = field_row + 1 %}
                     {% endfor %}
                   </tbody>
@@ -195,7 +196,7 @@ function buildProductFieldRow(fieldRow, sectionRow, sortOrder) {
   html += '<tr id="product-field-row-' + fieldRow + '" class="product-field-row" data-section-row="' + sectionRow + '">';
   html += '  <td class="text-left"><input type="hidden" name="cyberpunks_product_field_defs[' + fieldRow + '][field_id]" value="" /><input type="hidden" name="cyberpunks_product_field_defs[' + fieldRow + '][section_row]" value="' + sectionRow + '" class="cyberpunks-product-field-section-row" /><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][field_key]" value="" class="form-control" /></td>';
   html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][label]" value="" class="form-control" /></td>';
-  html += '  <td class="text-left"><select name="cyberpunks_product_field_defs[' + fieldRow + '][field_type]" class="form-control cyberpunks-product-field-type"><option value="text">{{ text_text }}</option><option value="checkbox">{{ text_checkbox }}</option><option value="checkboxes">{{ text_checkboxes }}</option><option value="select">{{ text_select }}</option><option value="html">{{ text_html }}</option><option value="textarea">{{ text_textarea }}</option><option value="image">{{ text_image }}</option></select></td>';
+  html += '  <td class="text-left"><select name="cyberpunks_product_field_defs[' + fieldRow + '][field_type]" class="form-control cyberpunks-product-field-type"><option value="text">{{ text_text }}</option><option value="checkbox">{{ text_checkbox }}</option><option value="checkboxes">{{ text_checkboxes }}</option><option value="select">{{ text_select }}</option><option value="html">{{ text_html }}</option><option value="textarea">{{ text_textarea }}</option><option value="image">{{ text_image }}</option><option value="repeater">{{ text_repeater }}</option></select></td>';
   html += '  <td class="text-left"><textarea name="cyberpunks_product_field_defs[' + fieldRow + '][select_options]" rows="3" class="form-control" placeholder="{{ help_select_options }}"></textarea></td>';
   html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][admin_hint]" value="" class="form-control" placeholder="{{ help_admin_hint }}" /></td>';
   html += '  <td class="text-right"><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][sort_order]" value="' + sortOrder + '" class="form-control" /></td>';

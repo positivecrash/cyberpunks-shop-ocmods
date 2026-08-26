@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Checkout</name>
+	<code>cyberpunks_shop_checkout</code>
+	<version>1.0.1</version>
+	<author>positivecrash</author>
+	<description>Unified checkout: facade API, hardening, review data for checkout and success pages.</description>
+
+	<file path="catalog/controller/checkout/shipping_method.php">
+		<operation error="skip">
+			<search><![CDATA[$this->session->data['comment'] = strip_tags($this->request->post['comment']);]]></search>
+			<add position="replace"><![CDATA[$this->session->data['comment'] = strip_tags(isset($this->request->post['comment']) ? $this->request->post['comment'] : '');]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/checkout/payment_method.php">
+		<operation error="skip">
+			<search><![CDATA[$this->session->data['comment'] = strip_tags($this->request->post['comment']);]]></search>
+			<add position="replace"><![CDATA[$this->session->data['comment'] = strip_tags(isset($this->request->post['comment']) ? $this->request->post['comment'] : '');]]></add>
+		</operation>
+	</file>
+	<file path="catalog/controller/checkout/checkout.php">
+		<operation error="skip">
+			<search trim="true"><![CDATA[$data['shipping_required'] = $this->cart->hasShipping();]]></search>
+			<add position="after"><![CDATA[
+		// Review order (right column): expose cart products and totals to the checkout template.
+		$this->load->model('tool/image');
+
+		$data['products'] = array();
+
+		foreach ($this->cart->getProducts() as $product) {
+			$option_data = array();
+
+			foreach ($product['option'] as $option) {
+				$cp_display_name = '';
+
+				if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php') && isset($option['option_id'])) {
+					$this->load->model('extension/module/cyberpunks_shop_option_fields');
+					$cp_display_name = $this->model_extension_module_cyberpunks_shop_option_fields->resolveDisplayName((int)$product['product_id'], (int)$option['option_id']);
+				}
+
+				if ($cp_display_name === '') {
+					$cp_display_name = isset($option['display_name']) ? (string)$option['display_name'] : '';
+				}
+
+				if ($cp_display_name === '') {
+					// Fall back to a nicer label when option names are stored as slugs (e.g. urban-emotion).
+					$cp_display_name = str_replace(array('-', '_'), ' ', (string)$option['name']);
+					$cp_display_name = ucwords($cp_display_name);
+				}
+
+				$option_data[] = array(
+					// Some checkout templates prefer a curated display name (see cart.twig usage).
+					'display_name' => $cp_display_name,
+					'name'         => $option['name'],
+					'value'        => (utf8_strlen($option['value']) > 60) ? utf8_substr($option['value'], 0, 60) . '..' : $option['value']
+				);
+			}
+
+			// Default product thumb + optional variant_image / fields — theme picks priority.
+			$thumb = '';
+			$variant_image = '';
+			$cart_image = isset($product['image']) ? ltrim((string)$product['image'], '/') : '';
+
+			if ($cart_image !== '' && strpos($cart_image, 'catalog/view/theme/') === 0) {
+				$thumb = '/' . $cart_image;
+			} elseif ($cart_image !== '' && is_file(DIR_IMAGE . $cart_image)) {
+				$thumb = $this->model_tool_image->resize($cart_image, 80, 80);
+			}
+
+			if ($thumb === '') {
+				$thumb = '/catalog/view/theme/cybershops/media/altruist-bundle/Banner-1.webp';
+			}
+
+			if (is_file(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php')) {
+				require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+
+				if (method_exists('CyberpunksShopVariantImagesStorage', 'resolveCartImage')) {
+					$variant_mappings = $this->config->get('module_cyberpunks_variant_images_mappings');
+					if (!is_array($variant_mappings)) {
+						$variant_mappings = array();
+					}
+
+					$resolved_image = CyberpunksShopVariantImagesStorage::resolveCartImage(
+						$variant_mappings,
+						(int)$product['product_id'],
+						isset($product['option']) && is_array($product['option']) ? $product['option'] : array()
+					);
+
+					if ($resolved_image !== '') {
+						$variant_image = CyberpunksShopVariantImagesStorage::pathToUrl($resolved_image, $this->model_tool_image, 80, 80);
+					}
+				}
+			}
+
+			$product_row = array(
+				'product_id'    => $product['product_id'],
+				'name'          => $product['name'],
+				'thumb'         => $thumb,
+				'variant_image' => $variant_image,
+				'quantity'      => $product['quantity'],
+				'total'         => $this->currency->format($product['total'], $this->session->data['currency']),
+				'option'        => $option_data,
+				'href'          => $this->url->link('product/product', 'product_id=' . $product['product_id'])
+			);
+
+			if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_product_fields.php')) {
+				$this->load->model('extension/module/cyberpunks_shop_product_fields');
+				$product_row = $this->model_extension_module_cyberpunks_shop_product_fields->attachProductFields($product_row);
+			}
+
+			$data['products'][] = $product_row;
+		}
+
+		// Totals: re-use the same computation style as checkout/confirm.
+		$this->load->model('setting/extension');
+
+		$cp_total_label_overrides = $this->config->get('module_cyberpunks_language_overrides_total_labels');
+		if (!is_array($cp_total_label_overrides)) {
+			$cp_total_label_overrides = array();
+		}
+
+		$totals = array();
+		$taxes = $this->cart->getTaxes();
+		$total = 0;
+
+		$total_data = array(
+			'totals' => &$totals,
+			'taxes'  => &$taxes,
+			'total'  => &$total
+		);
+
+		$sort_order = array();
+		$results = $this->model_setting_extension->getExtensions('total');
+
+		foreach ($results as $key => $value) {
+			$sort_order[$key] = (int)$this->config->get('total_' . $value['code'] . '_sort_order');
+		}
+
+		array_multisort($sort_order, SORT_ASC, $results);
+
+		foreach ($results as $result) {
+			if ($this->config->get('total_' . $result['code'] . '_status')) {
+				$this->load->model('extension/total/' . $result['code']);
+				$this->{'model_extension_total_' . $result['code']}->getTotal($total_data);
+			}
+		}
+
+		$sort_order = array();
+		foreach ($totals as $key => $value) {
+			$sort_order[$key] = $value['sort_order'];
+		}
+		array_multisort($sort_order, SORT_ASC, $totals);
+
+		$data['totals'] = array();
+		foreach ($totals as $total_row) {
+			$cp_total_code = isset($total_row['code']) ? (string)$total_row['code'] : '';
+			$cp_total_title = $total_row['title'];
+			if ($cp_total_code !== '' && !empty($cp_total_label_overrides[$cp_total_code])) {
+				$cp_total_title = $cp_total_label_overrides[$cp_total_code];
+			}
+
+			$data['totals'][] = array(
+				'code'  => isset($total_row['code']) ? $total_row['code'] : '',
+				'title' => $cp_total_title,
+				'text'  => $this->currency->format($total_row['value'], $this->session->data['currency'])
+			);
+		}
+
+		// Coupon code for "Discount" row label (if any).
+		$data['coupon_code'] = isset($this->session->data['coupon']) ? (string)$this->session->data['coupon'] : '';
+]]></add>
+		</operation>
+	</file>
+	<file path="catalog/controller/checkout/success.php">
+		<!-- Capture orderId early (query param or session) -->
+		<operation error="skip">
+			<search><![CDATA[$this->load->language('checkout/success');]]></search>
+			<add position="after"><![CDATA[
+		$order_id = 0;
+		if (isset($this->request->get['orderId'])) {
+			$order_id = (int)$this->request->get['orderId'];
+		}
+]]></add>
+		</operation>
+
+		<!-- If session contains order_id, prefer it before we clear session -->
+		<operation error="skip">
+			<search><![CDATA[if (isset($this->session->data['order_id'])) {]]></search>
+			<add position="after"><![CDATA[
+			$order_id = (int)$this->session->data['order_id'];
+]]></add>
+		</operation>
+
+		<!-- Populate template data before rendering -->
+		<operation error="skip">
+			<search><![CDATA[$data['continue'] = $this->url->link('common/home');]]></search>
+			<add position="before"><![CDATA[
+
+		// Order review data (for cybershops/common/success.twig)
+		$data['order_id'] = (int)$order_id;
+		$data['firstname'] = '';
+		$data['email'] = '';
+		$data['shipping_method_text'] = '';
+		$data['arrives_by_text'] = '';
+		$data['shipping_address_text'] = '';
+		$data['products'] = array();
+		$data['totals'] = array();
+
+		if ($order_id) {
+			$this->load->model('tool/image');
+			$this->load->model('catalog/product');
+			$this->load->model('checkout/order');
+
+			$order_info = $this->model_checkout_order->getOrder($order_id);
+			if ($order_info) {
+				$data['firstname'] = isset($order_info['firstname']) ? (string)$order_info['firstname'] : '';
+				$data['email'] = isset($order_info['email']) ? (string)$order_info['email'] : '';
+				$raw_shipping_method = isset($order_info['shipping_method']) ? (string)$order_info['shipping_method'] : '';
+				$data['shipping_method_text'] = $raw_shipping_method;
+
+				// Normalize shipping method days: "Standard (7-4)" -> "Standard (7-4 business days)"
+				$max_days = 0;
+				if ($raw_shipping_method && preg_match('/\((\d+)\s*-\s*(\d+)\)/', $raw_shipping_method, $m)) {
+					$min_days = (int)$m[1];
+					$max_days = (int)$m[2];
+					if ($min_days > 0 && $max_days > 0) {
+						$days_text = $min_days . '-' . $max_days . ' business days';
+						$data['shipping_method_text'] = preg_replace('/\(\s*\d+\s*-\s*\d+\s*\)/', '(' . $days_text . ')', $raw_shipping_method, 1);
+					}
+				}
+
+				// Arrives approx. by: today + max days (business days).
+				// Skip weekends and holiday range 25 Dec – 10 Jan.
+				if ($max_days > 0) {
+					try {
+						$cp_is_business_day = function(\DateTime $d) {
+							$weekday = (int)$d->format('N'); // 1..7 (Mon..Sun)
+							if ($weekday >= 6) {
+								return false;
+							}
+
+							$month = (int)$d->format('n');
+							$day = (int)$d->format('j');
+							// 25 Dec - 31 Dec
+							if ($month === 12 && $day >= 25) {
+								return false;
+							}
+							// 1 Jan - 10 Jan
+							if ($month === 1 && $day <= 10) {
+								return false;
+							}
+
+							return true;
+						};
+
+						$dt = new \DateTime('now');
+						$remaining = (int)$max_days;
+						while ($remaining > 0) {
+							$dt->modify('+1 day');
+							if ($cp_is_business_day($dt)) {
+								$remaining -= 1;
+							}
+						}
+
+						$data['arrives_by_text'] = $dt->format('j F, Y');
+					} catch (\Exception $e) {
+						$data['arrives_by_text'] = '';
+					}
+				}
+
+				// Address order: zip, country, region, city, address 1, address 2
+				$shipping_parts = array();
+				if (!empty($order_info['shipping_postcode'])) $shipping_parts[] = (string)$order_info['shipping_postcode'];
+				if (!empty($order_info['shipping_country'])) $shipping_parts[] = (string)$order_info['shipping_country'];
+				if (!empty($order_info['shipping_zone'])) $shipping_parts[] = (string)$order_info['shipping_zone'];
+				if (!empty($order_info['shipping_city'])) $shipping_parts[] = (string)$order_info['shipping_city'];
+				if (!empty($order_info['shipping_address_1'])) $shipping_parts[] = (string)$order_info['shipping_address_1'];
+				if (!empty($order_info['shipping_address_2'])) $shipping_parts[] = (string)$order_info['shipping_address_2'];
+				$data['shipping_address_text'] = implode(', ', array_filter($shipping_parts));
+
+				$currency_code = isset($order_info['currency_code']) ? (string)$order_info['currency_code'] : '';
+				$currency_value = isset($order_info['currency_value']) ? (float)$order_info['currency_value'] : 1;
+
+				$products = $this->model_checkout_order->getOrderProducts($order_id);
+				foreach ($products as $order_product) {
+					$option_data = array();
+					$signature_ids = array();
+
+					$order_options = $this->model_checkout_order->getOrderOptions($order_id, (int)$order_product['order_product_id']);
+					if (is_array($order_options)) {
+						foreach ($order_options as $order_option) {
+							$option_data[] = array(
+								'display_name' => isset($order_option['name']) ? (string)$order_option['name'] : '',
+								'value'        => isset($order_option['value']) ? (string)$order_option['value'] : ''
+							);
+							if (!empty($order_option['product_option_value_id'])) {
+								$signature_ids[] = (int)$order_option['product_option_value_id'];
+							}
+						}
+					}
+
+					$thumb = '';
+					$variant_image = '';
+					$product_id = isset($order_product['product_id']) ? (int)$order_product['product_id'] : 0;
+
+					// Default product thumb (theme picks among variant_image / fields / thumb).
+					if ($product_id) {
+						$product_info = $this->model_catalog_product->getProduct($product_id);
+						$image = ($product_info && !empty($product_info['image'])) ? ltrim((string)$product_info['image'], '/') : '';
+						if ($image !== '' && strpos($image, 'catalog/view/theme/') === 0) {
+							$thumb = '/' . $image;
+						} elseif ($image !== '' && is_file(DIR_IMAGE . $image)) {
+							$thumb = $this->model_tool_image->resize($image, 80, 80);
+						}
+					}
+
+					if ($product_id && $signature_ids && is_file(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php')) {
+						require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+
+						if (method_exists('CyberpunksShopVariantImagesStorage', 'resolveCartImage')) {
+							$option_for_resolve = array();
+							foreach ($signature_ids as $pov_id) {
+								$option_for_resolve[] = array('product_option_value_id' => (int)$pov_id);
+							}
+
+							$variant_mappings = $this->config->get('module_cyberpunks_variant_images_mappings');
+							$resolved_image = CyberpunksShopVariantImagesStorage::resolveCartImage(
+								is_array($variant_mappings) ? $variant_mappings : array(),
+								$product_id,
+								$option_for_resolve
+							);
+
+							if ($resolved_image !== '') {
+								$variant_image = CyberpunksShopVariantImagesStorage::pathToUrl($resolved_image, $this->model_tool_image, 80, 80);
+							}
+						}
+					}
+
+					if ($thumb === '') {
+						$thumb = '/catalog/view/theme/cybershops/media/altruist-bundle/Banner-1.webp';
+					}
+
+					$product_row = array(
+						'product_id'    => $product_id,
+						'name'          => isset($order_product['name']) ? (string)$order_product['name'] : '',
+						'thumb'         => $thumb,
+						'variant_image' => $variant_image,
+						'quantity'      => isset($order_product['quantity']) ? (int)$order_product['quantity'] : 0,
+						'total'         => $this->currency->format((float)(isset($order_product['total']) ? $order_product['total'] : 0), $currency_code, $currency_value),
+						'option'        => $option_data
+					);
+
+					if ($product_id && is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_product_fields.php')) {
+						$this->load->model('extension/module/cyberpunks_shop_product_fields');
+						$product_row = $this->model_extension_module_cyberpunks_shop_product_fields->attachProductFields($product_row);
+					}
+
+					$data['products'][] = $product_row;
+				}
+
+				$cp_total_label_overrides = $this->config->get('module_cyberpunks_language_overrides_total_labels');
+				if (!is_array($cp_total_label_overrides)) {
+					$cp_total_label_overrides = array();
+				}
+
+				$order_totals = $this->model_checkout_order->getOrderTotals($order_id);
+				foreach ($order_totals as $order_total) {
+					$code = isset($order_total['code']) ? (string)$order_total['code'] : '';
+					$title = isset($order_total['title']) ? (string)$order_total['title'] : '';
+
+					if ($code !== '' && !empty($cp_total_label_overrides[$code])) {
+						$title = $cp_total_label_overrides[$code];
+					}
+
+					$data['totals'][] = array(
+						'code'  => $code,
+						'title' => $title,
+						'text'  => $this->currency->format((float)(isset($order_total['value']) ? $order_total['value'] : 0), $currency_code, $currency_value)
+					);
+				}
+			}
+		}
+
+]]></add>
+		</operation>
+	</file>
+</modification>

@@ -16,13 +16,11 @@
 				{% for zone in shipping_rates %}
 					{% for method in zone.methods %}
 					<tr>
-						{% if loop.first %}
-						<th scope="rowgroup" rowspan="{{ zone.methods|length }}">{{ zone.name }}</th>
-						<td rowspan="{{ zone.methods|length }}">{{ zone.countries_text }}</td>
-						{% endif %}
-						<td>{{ method.name }}</td>
-						<td>{% if method.delivery_days %}{{ method.delivery_days }}{% else %}&mdash;{% endif %}</td>
-						<td class="nowrap">{{ method.price }}</td>
+						<td data-label="{{ column_zone }}">{{ zone.name }}</td>
+						<td data-label="{{ column_countries }}">{{ zone.countries_text }}</td>
+						<td data-label="{{ column_service }}">{{ method.name }}</td>
+						<td data-label="{{ column_delivery }}">{% if method.delivery_days %}{{ method.delivery_days }}{% else %}&mdash;{% endif %}</td>
+						<td class="nowrap" data-label="{{ column_price }}">{{ method.price }}</td>
 					</tr>
 					{% endfor %}
 				{% endfor %}

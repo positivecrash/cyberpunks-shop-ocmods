@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Product Fields</name>
 	<code>cyberpunks_shop_product_fields</code>
-	<version>1.5.0</version>
+	<version>1.5.9</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -36,8 +36,11 @@
 			<search trim="false"><![CDATA[		if (isset($this->request->post['product_layout'])) {]]></search>
 			<add position="before"><![CDATA[		$this->load->model('extension/module/cyberpunks_shop_product_fields');
 		$this->model_extension_module_cyberpunks_shop_product_fields->install();
+		$this->load->language('extension/module/cyberpunks_shop_product_fields');
 		$data['cyberpunks_product_field_groups'] = $this->model_extension_module_cyberpunks_shop_product_fields->getFieldGroups(true);
 		$data['cyberpunks_product_fields'] = $this->model_extension_module_cyberpunks_shop_product_fields->getFields(true);
+		$data['button_repeater_add'] = $this->language->get('button_repeater_add');
+		$data['button_repeater_remove'] = $this->language->get('button_repeater_remove');
 
 		if (isset($this->request->post['cyberpunks_product_fields']) && is_array($this->request->post['cyberpunks_product_fields'])) {
 			$data['cyberpunks_product_field_values'] = $this->request->post['cyberpunks_product_fields'];
@@ -50,19 +53,52 @@
 		$this->load->model('tool/image');
 		$data['placeholder'] = $this->model_tool_image->resize('no_image.png', 100, 100);
 		$data['cyberpunks_product_field_thumbs'] = array();
+		$data['cyberpunks_product_field_repeater_thumbs'] = array();
 
 		foreach ($data['cyberpunks_product_fields'] as $cyberpunks_field) {
-			if (empty($cyberpunks_field['field_type']) || $cyberpunks_field['field_type'] !== 'image') {
+			$cyberpunks_field_id = (int)$cyberpunks_field['field_id'];
+
+			if (!empty($cyberpunks_field['field_type']) && $cyberpunks_field['field_type'] === 'image') {
+				$cyberpunks_image = isset($data['cyberpunks_product_field_values'][$cyberpunks_field_id]) ? $data['cyberpunks_product_field_values'][$cyberpunks_field_id] : '';
+
+				if ($cyberpunks_image && is_file(DIR_IMAGE . $cyberpunks_image)) {
+					$data['cyberpunks_product_field_thumbs'][$cyberpunks_field_id] = $this->model_tool_image->resize($cyberpunks_image, 100, 100);
+				} else {
+					$data['cyberpunks_product_field_thumbs'][$cyberpunks_field_id] = $data['placeholder'];
+				}
+
 				continue;
 			}
 
-			$cyberpunks_field_id = (int)$cyberpunks_field['field_id'];
-			$cyberpunks_image = isset($data['cyberpunks_product_field_values'][$cyberpunks_field_id]) ? $data['cyberpunks_product_field_values'][$cyberpunks_field_id] : '';
+			if (empty($cyberpunks_field['field_type']) || $cyberpunks_field['field_type'] !== 'repeater') {
+				continue;
+			}
 
-			if ($cyberpunks_image && is_file(DIR_IMAGE . $cyberpunks_image)) {
-				$data['cyberpunks_product_field_thumbs'][$cyberpunks_field_id] = $this->model_tool_image->resize($cyberpunks_image, 100, 100);
-			} else {
-				$data['cyberpunks_product_field_thumbs'][$cyberpunks_field_id] = $data['placeholder'];
+			$repeater_rows = isset($data['cyberpunks_product_field_values'][$cyberpunks_field_id]) ? $data['cyberpunks_product_field_values'][$cyberpunks_field_id] : array();
+
+			if (!is_array($repeater_rows)) {
+				continue;
+			}
+
+			foreach ($repeater_rows as $row_index => $row) {
+				if (!is_array($row)) {
+					continue;
+				}
+
+				foreach ($cyberpunks_field['repeater_schema'] as $subfield) {
+					if (empty($subfield['type']) || $subfield['type'] !== 'image') {
+						continue;
+					}
+
+					$sub_key = isset($subfield['key']) ? $subfield['key'] : '';
+					$image_path = ($sub_key !== '' && isset($row[$sub_key])) ? $row[$sub_key] : '';
+
+					if ($image_path && is_file(DIR_IMAGE . $image_path)) {
+						$data['cyberpunks_product_field_repeater_thumbs'][$cyberpunks_field_id][$row_index][$sub_key] = $this->model_tool_image->resize($image_path, 100, 100);
+					} else {
+						$data['cyberpunks_product_field_repeater_thumbs'][$cyberpunks_field_id][$row_index][$sub_key] = $data['placeholder'];
+					}
+				}
 			}
 		}
 
@@ -103,6 +139,7 @@
 			$data['fields'] = array_merge($data['fields'], $cyberpunks_product_fields_map);
 
 			$this->registry->set('cyberpunks_product_fields', $cyberpunks_product_fields_map);
+			$this->model_extension_module_cyberpunks_shop_product_fields->registerProductScripts($this->document, $cyberpunks_product_fields_map);
 ]]></add>
 		</operation>
 	</file>
@@ -133,6 +170,29 @@
 		<operation error="skip">
 			<search trim="false"><![CDATA[			$data['column_left'] = $this->load->controller('common/column_left');]]></search>
 			<add position="before"><![CDATA[			if (!empty($data['products']) && is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_product_fields.php')) {
+				$this->load->model('extension/module/cyberpunks_shop_product_fields');
+
+				foreach ($data['products'] as $key => $product) {
+					$data['products'][$key] = $this->model_extension_module_cyberpunks_shop_product_fields->attachProductFields($product);
+				}
+			}
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/checkout/cart.php">
+		<!-- Expose product_id so attachProductFields can load Custom tab values for cart.twig -->
+		<operation error="skip">
+			<search><![CDATA['cart_id'   => $product['cart_id'],]]></search>
+			<add position="after"><![CDATA[
+					'product_id'=> $product['product_id'],]]></add>
+		</operation>
+		<!-- Single-line search: multiline Gift Voucher match was skipped on refresh -->
+		<operation error="skip">
+			<search><![CDATA[$data['vouchers'] = array();]]></search>
+			<add position="before"><![CDATA[
+			if (!empty($data['products']) && is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_product_fields.php')) {
 				$this->load->model('extension/module/cyberpunks_shop_product_fields');
 
 				foreach ($data['products'] as $key => $product) {

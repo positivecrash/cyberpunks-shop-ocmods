@@ -1,0 +1,85 @@
+<section class="content-narrow section" aria-labelledby="contact-us-heading" data-contact-form>
+	<h2 id="contact-us-heading" class="text-center">Contact us</h2>
+	<form id="information-contact-form" action="{{ contact_form_action }}" method="post" novalidate>
+		<input type="hidden" name="name" value="Support request" />
+		<div class="form-rows">
+			<div class="form-row-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
+				<label>Website<input type="text" name="website" value="" tabindex="-1" autocomplete="off" /></label>
+			</div>
+			<div class="form-row-1">
+				<label class="input-floating" data-label="{{ entry_email }}">
+					<input type="email" name="email" placeholder="{{ entry_email }}" required autocomplete="email" />
+				</label>
+			</div>
+			<div class="form-row-1">
+				<select class="select-placeholder" name="reason" id="information-contact-reason" required aria-label="Reason">
+					<option value="" disabled selected hidden>Reason</option>
+					<option value="Order">Order</option>
+					<option value="Delivery">Delivery</option>
+					<option value="Returns">Returns</option>
+					<option value="Warranty">Warranty</option>
+					<option value="Product help">Product help</option>
+					<option value="Other">Other</option>
+				</select>
+			</div>
+			<div class="form-row-1">
+				<textarea name="enquiry" id="information-contact-enquiry" placeholder="Your message" rows="6" required aria-label="Your message"></textarea>
+			</div>
+			<p class="text-center" data-contact-status hidden role="status" aria-live="polite"></p>
+			<button type="submit" data-contact-submit>Send a message</button>
+		</div>
+	</form>
+</section>
+<script>
+(function () {
+	var form = document.getElementById('information-contact-form');
+	if (!form) return;
+	var reason = document.getElementById('information-contact-reason');
+	var enquiry = document.getElementById('information-contact-enquiry');
+	var statusEl = form.querySelector('[data-contact-status]');
+	var submitBtn = form.querySelector('[data-contact-submit]');
+	var action = form.getAttribute('action');
+
+	function setStatus(text, isError) {
+		if (!statusEl) return;
+		statusEl.hidden = !text;
+		statusEl.textContent = text || '';
+		if (isError) statusEl.style.color = '#c00';
+		else statusEl.style.color = '';
+	}
+
+	form.addEventListener('submit', function (e) {
+		e.preventDefault();
+		setStatus('', false);
+		if (typeof form.reportValidity === 'function' && !form.reportValidity()) return;
+
+		var label = reason && reason.value ? reason.options[reason.selectedIndex].text : '';
+		var body = (enquiry.value || '').replace(/^\s*Reason:\s*.+\n\n/, '');
+		if (label) enquiry.value = 'Reason: ' + label + '\n\n' + body;
+
+		var fd = new FormData(form);
+		if (submitBtn) submitBtn.disabled = true;
+
+		fetch(action, {
+			method: 'POST',
+			body: fd,
+			credentials: 'same-origin',
+			headers: { 'X-Requested-With': 'XMLHttpRequest' }
+		}).then(function (res) {
+			return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+		}).then(function (result) {
+			var data = result.data || {};
+			if (data.success) {
+				setStatus(data.success, false);
+				form.reset();
+			} else {
+				setStatus(data.error || 'Could not send your message.', true);
+			}
+		}).catch(function () {
+			setStatus('Could not send your message. Please try again later.', true);
+		}).finally(function () {
+			if (submitBtn) submitBtn.disabled = false;
+		});
+	});
+})();
+</script>

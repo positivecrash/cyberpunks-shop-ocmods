@@ -1,20 +1,23 @@
 # Cyberpunks Variant Images
 
-Resolve cart item image by selected option combination.
+Resolve cart item variant image by selected option combination.
 
 ## What it does
 
-- Adds a universal resolver: `option_value_id` combination -> image.
-- Applies only in cart item thumbnail rendering.
+- Adds a universal resolver: `option_value_id` combination → image.
+- Sets cart `product.thumb` from the matched variant (keeps themes that only read `thumb` working).
+- Also exposes `product.variant_image` for theme-side priority:
+  `variant_image` → `fields.category_image` → `thumb`
+- Supports **named** signatures (`n:urban-color=green|urban-emotion=deadly|...`) and legacy numeric id signatures.
 - Falls back to default product image if no mapping found.
 - Provides admin UI to manage mappings.
 
 ## Install
 
-1. Upload archive in `Extensions -> Installer`.
-2. Open `Extensions -> Modifications` and click `Refresh`.
+1. Upload archive in `Extensions → Installer`.
+2. Open `Extensions → Modifications` and click `Refresh`.
 3. Clear theme cache.
-4. Open module settings in `Extensions -> Extensions -> Modules -> Cyberpunks Variant Images`.
+4. Open module settings in `Extensions → Extensions → Modules → Cyberpunks Variant Images`.
 
 ## Storage (v1.3.14+)
 

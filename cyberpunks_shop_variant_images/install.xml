@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Variant Images</name>
 	<code>cyberpunks_shop_variant_images</code>
-	<version>1.3.24</version>
+	<version>1.3.28</version>
 	<author>positivecrash</author>
 	<description>Resolve cart image by selected option combination with admin mappings UI.</description>
 
@@ -17,9 +17,14 @@
 	</file>
 
 	<file path="catalog/controller/checkout/cart.php">
+		<!--
+			Resolve variant match into $cart_image (drives product.thumb — required while live theme still uses thumb)
+			and product.variant_image (for theme priority: variant → category_image → thumb).
+		-->
 		<operation error="skip">
 			<search><![CDATA[if ($product['image']) {]]></search>
-			<add position="before"><![CDATA[$cart_image = $product['image'];
+			<add position="before"><![CDATA[$variant_image = '';
+				$cart_image = isset($product['image']) ? (string)$product['image'] : '';
 
 				$variant_mappings = $this->config->get('module_cyberpunks_variant_images_mappings');
 				$matched_map_image = CyberpunksShopVariantImagesStorage::resolveCartImage(
@@ -37,13 +42,22 @@
 			<search><![CDATA[$image = $this->model_tool_image->resize($product['image'], $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_height'));]]></search>
 			<add position="replace"><![CDATA[$cart_image = ltrim((string)$cart_image, '/');
 
-					// Support direct theme asset path (outside DIR_IMAGE), e.g. catalog/view/theme/...
+					// Theme asset path (outside DIR_IMAGE), e.g. catalog/view/theme/...
 					if (strpos($cart_image, 'catalog/view/theme/') === 0) {
 						$image = '/' . $cart_image;
 					} else {
 						$image = $this->model_tool_image->resize($cart_image, $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_height'));
+					}
+
+					// Same URL for theme-side priority picker (variant_image → category_image → thumb).
+					if ($matched_map_image !== '') {
+						$variant_image = $image;
 					}]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA['thumb'     => $image,]]></search>
+			<add position="after"><![CDATA[
+					'variant_image' => isset($variant_image) ? $variant_image : '',]]></add>
 		</operation>
 	</file>
 </modification>
-

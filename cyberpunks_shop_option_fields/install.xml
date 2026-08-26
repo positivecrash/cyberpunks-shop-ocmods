@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Option Fields</name>
 	<code>cyberpunks_shop_option_fields</code>
-	<version>1.3.0</version>
+	<version>1.6.1</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -13,7 +13,8 @@
 			$this->model_extension_module_cyberpunks_shop_option_fields->install();
 			$option_id = $this->model_catalog_option->addOption($this->request->post);
 			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionMode($option_id, $this->request->post);
-			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionFieldValues($option_id, isset($this->request->post['cyberpunks_option_custom_fields']) ? $this->request->post['cyberpunks_option_custom_fields'] : array());]]></add>
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionFieldValues($option_id, isset($this->request->post['cyberpunks_option_custom_fields']) ? $this->request->post['cyberpunks_option_custom_fields'] : array());
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionPalettes($option_id, isset($this->request->post['cyberpunks_option_color_palettes']) ? $this->request->post['cyberpunks_option_color_palettes'] : array());]]></add>
 		</operation>
 
 		<operation error="skip">
@@ -22,7 +23,9 @@
 			$this->model_extension_module_cyberpunks_shop_option_fields->install();
 			$this->model_catalog_option->editOption($this->request->get['option_id'], $this->request->post);
 			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionMode((int)$this->request->get['option_id'], $this->request->post);
-			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionFieldValues((int)$this->request->get['option_id'], isset($this->request->post['cyberpunks_option_custom_fields']) ? $this->request->post['cyberpunks_option_custom_fields'] : array());]]></add>
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionFieldValues((int)$this->request->get['option_id'], isset($this->request->post['cyberpunks_option_custom_fields']) ? $this->request->post['cyberpunks_option_custom_fields'] : array());
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionPalettes((int)$this->request->get['option_id'], isset($this->request->post['cyberpunks_option_color_palettes']) ? $this->request->post['cyberpunks_option_color_palettes'] : array());
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionValuePaletteColorsFromPost((int)$this->request->get['option_id'], $this->request->post);]]></add>
 		</operation>
 
 		<operation error="skip">
@@ -54,7 +57,15 @@
 		} elseif (!empty($option_info) && isset($option_info['option_id'])) {
 			$data['cyberpunks_option_mode'] = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionMode((int)$option_info['option_id']);
 		} else {
-			$data['cyberpunks_option_mode'] = array('show_image' => 1, 'enabled_field_ids' => array());
+			$data['cyberpunks_option_mode'] = array('show_image' => 0, 'enabled_field_ids' => array(), 'values_mode' => 'default', 'filament_type' => '');
+		}
+
+		if (empty($data['cyberpunks_option_mode']['values_mode'])) {
+			$data['cyberpunks_option_mode']['values_mode'] = 'default';
+		}
+
+		if (empty($data['cyberpunks_option_mode']['filament_type'])) {
+			$data['cyberpunks_option_mode']['filament_type'] = '';
 		}
 
 		$data['cyberpunks_option_value_custom_fields'] = array();
@@ -74,9 +85,49 @@
 			$data['cyberpunks_option_custom_field_values'] = array();
 		}
 
+		$data['cyberpunks_color_palettes'] = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionFormPalettes(true);
+		$data['cyberpunks_option_color_palettes'] = array();
+		$data['cyberpunks_option_value_palette_colors'] = array();
+
+		if (isset($this->request->post['cyberpunks_option_color_palettes']) && is_array($this->request->post['cyberpunks_option_color_palettes'])) {
+			$data['cyberpunks_option_color_palettes'] = array_map('intval', $this->request->post['cyberpunks_option_color_palettes']);
+		} elseif (!empty($option_info) && isset($option_info['option_id'])) {
+			$data['cyberpunks_option_color_palettes'] = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionPaletteIds((int)$option_info['option_id']);
+		}
+
+		if (isset($this->request->post['option_value']) && is_array($this->request->post['option_value'])) {
+			foreach ($this->request->post['option_value'] as $cyberpunks_palette_row => $cyberpunks_palette_option_value) {
+				$data['cyberpunks_option_value_palette_colors'][(int)$cyberpunks_palette_row] = isset($cyberpunks_palette_option_value['palette_color_id']) ? (int)$cyberpunks_palette_option_value['palette_color_id'] : 0;
+			}
+		} elseif (!empty($option_info) && isset($option_info['option_id'])) {
+			$data['cyberpunks_option_value_palette_colors'] = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionValuePaletteColors((int)$option_info['option_id']);
+		}
+
+		if (empty($this->request->post['cyberpunks_option_mode']) && $data['cyberpunks_option_mode']['values_mode'] === 'default' && !empty($data['cyberpunks_option_color_palettes'])) {
+			$data['cyberpunks_option_mode']['values_mode'] = 'color_palette';
+		}
+
+		$data['cyberpunks_color_palettes_json'] = json_encode($data['cyberpunks_color_palettes'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
+
 		$data['entry_cyberpunks_show_image'] = $this->language->get('entry_cyberpunks_show_image');
 		$data['entry_cyberpunks_custom_fields'] = $this->language->get('entry_cyberpunks_custom_fields');
 		$data['entry_cyberpunks_option_fields'] = $this->language->get('entry_cyberpunks_option_fields');
+		$data['entry_cyberpunks_color_palettes'] = $this->language->get('entry_cyberpunks_color_palettes');
+		$data['entry_cyberpunks_values_settings'] = $this->language->get('entry_cyberpunks_values_settings');
+		$data['entry_cyberpunks_values_mode'] = $this->language->get('entry_cyberpunks_values_mode');
+		$data['entry_cyberpunks_values_fields'] = $this->language->get('entry_cyberpunks_values_fields');
+		$data['entry_cyberpunks_filament_type'] = $this->language->get('entry_cyberpunks_filament_type');
+		$data['entry_cyberpunks_sync_palettes'] = $this->language->get('entry_cyberpunks_sync_palettes');
+		$data['text_cyberpunks_values_mode_default'] = $this->language->get('text_cyberpunks_values_mode_default');
+		$data['text_cyberpunks_values_mode_palette'] = $this->language->get('text_cyberpunks_values_mode_palette');
+		$data['text_cyberpunks_filament_none'] = $this->language->get('text_cyberpunks_filament_none');
+		$data['help_cyberpunks_color_palettes'] = $this->language->get('help_cyberpunks_color_palettes');
+		$data['button_cyberpunks_sync_products'] = $this->language->get('button_cyberpunks_sync_products');
+		$data['help_cyberpunks_sync_products'] = $this->language->get('help_cyberpunks_sync_products');
+		$data['text_cyberpunks_sync_products_confirm'] = $this->language->get('text_cyberpunks_sync_products_confirm');
+		$data['text_cyberpunks_sync_products_save_first'] = $this->language->get('text_cyberpunks_sync_products_save_first');
+		$data['cyberpunks_option_id'] = (!empty($this->request->get['option_id'])) ? (int)$this->request->get['option_id'] : 0;
+		$data['entry_type'] = $this->language->get('entry_cyberpunks_display_type');
 ]]></add>
 		</operation>
 
@@ -89,6 +140,26 @@
 
 	<file path="admin/model/catalog/option.php">
 		<operation error="skip">
+			<search trim="false"><![CDATA[	public function addOption($data) {]]></search>
+			<add position="after"><![CDATA[
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_option_fields');
+			$this->model_extension_module_cyberpunks_shop_option_fields->applyPaletteNamesToPost($data);
+		}
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function editOption($option_id, $data) {]]></search>
+			<add position="after"><![CDATA[
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_option_fields');
+			$this->model_extension_module_cyberpunks_shop_option_fields->applyPaletteNamesToPost($data);
+		}
+]]></add>
+		</operation>
+
+		<operation error="skip">
 			<search trim="false" index="0"><![CDATA[				$option_value_id = $this->db->getLastId();]]></search>
 			<add position="after"><![CDATA[
 				$cyberpunks_custom_fields = isset($option_value['cyberpunks_custom_fields']) && is_array($option_value['cyberpunks_custom_fields']) ? $option_value['cyberpunks_custom_fields'] : array();
@@ -98,6 +169,13 @@
 						continue;
 					}
 					$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_option_custom_field_value` SET option_id = '" . (int)$option_id . "', option_value_id = '" . (int)$option_value_id . "', field_id = '" . $field_id . "', value = '" . $this->db->escape((string)$field_value) . "', date_modified = NOW()");
+				}
+
+				if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php')) {
+					$this->load->model('extension/module/cyberpunks_shop_option_fields');
+					$this->model_extension_module_cyberpunks_shop_option_fields->install();
+					$palette_color_id = isset($option_value['palette_color_id']) ? (int)$option_value['palette_color_id'] : 0;
+					$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionValuePaletteColor((int)$option_id, (int)$option_value_id, $palette_color_id);
 				}
 ]]></add>
 		</operation>
@@ -118,37 +196,35 @@
 					}
 					$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_option_custom_field_value` SET option_id = '" . (int)$option_id . "', option_value_id = '" . (int)$option_value_id . "', field_id = '" . $field_id . "', value = '" . $this->db->escape((string)$field_value) . "', date_modified = NOW()");
 				}
+
+				if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php')) {
+					$this->load->model('extension/module/cyberpunks_shop_option_fields');
+					$this->model_extension_module_cyberpunks_shop_option_fields->install();
+					$palette_color_id = isset($option_value['palette_color_id']) ? (int)$option_value['palette_color_id'] : 0;
+					$this->model_extension_module_cyberpunks_shop_option_fields->saveOptionValuePaletteColor((int)$option_id, (int)$option_value_id, $palette_color_id);
+				}
 ]]></add>
 		</operation>
 	</file>
 
 	<file path="admin/view/template/catalog/option_form.twig">
 		<operation error="skip">
-			<search trim="false"><![CDATA[              <label class="col-sm-2 control-label" for="input-type">{{ entry_type }}</label>]]></search>
-			<add position="before"><![CDATA[
-            <div class="form-group">
-              <label class="col-sm-2 control-label">{{ entry_cyberpunks_show_image }}</label>
-              <div class="col-sm-10">
-                <label class="checkbox-inline">
-                  <input type="checkbox" id="input-cyberpunks-show-image" name="cyberpunks_option_mode[show_image]" value="1" {% if cyberpunks_option_mode.show_image %}checked="checked"{% endif %}/>
-                  {{ entry_image }}
-                </label>
-                {% for field in cyberpunks_option_value_custom_field_defs %}
-                <label class="checkbox-inline">
-                  <input type="checkbox" id="input-cyberpunks-show-field-{{ field.field_id }}" name="cyberpunks_option_mode[enabled_field_ids][]" value="{{ field.field_id }}" {% if cyberpunks_option_mode.enabled_field_ids is defined and field.field_id in cyberpunks_option_mode.enabled_field_ids %}checked="checked"{% endif %}/>
-                  {{ field.label }}
-                </label>
-                {% endfor %}
-              </div>
-            </div>
-]]></add>
+			<search trim="false"><![CDATA[                <td class="text-center"><input type="hidden" name="option_value[{{ option_value_row }}][option_value_id]" value="{{ option_value.option_value_id }}" />]]></search>
+			<add position="replace"><![CDATA[                <td class="text-center"><input type="hidden" name="option_value[{{ option_value_row }}][option_value_id]" value="{{ option_value.option_value_id }}" />
+                  {% set palette_color_id = 0 %}
+                  {% if option_value.option_value_id is defined and cyberpunks_option_value_palette_colors[option_value.option_value_id] is defined %}
+                  {% set palette_color_id = cyberpunks_option_value_palette_colors[option_value.option_value_id] %}
+                  {% elseif cyberpunks_option_value_palette_colors[option_value_row] is defined %}
+                  {% set palette_color_id = cyberpunks_option_value_palette_colors[option_value_row] %}
+                  {% endif %}
+                  <input type="hidden" class="cyberpunks-palette-color-id" name="option_value[{{ option_value_row }}][palette_color_id]" value="{{ palette_color_id }}" />]]></add>
 		</operation>
 
 		<operation error="skip">
 			<search trim="false"><![CDATA[                  <td class="text-center">{{ entry_image }}</td>]]></search>
 			<add position="replace"><![CDATA[                  <td class="text-center cyberpunks-image-column">{{ entry_image }}</td>
                   {% for field in cyberpunks_option_value_custom_field_defs %}
-                  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}">{{ field.label }}</td>
+                  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}" data-field-key="{{ field.field_key }}">{{ field.label }}</td>
                   {% endfor %}]]></add>
 		</operation>
 
@@ -157,7 +233,7 @@
 			<add position="replace"><![CDATA[                <td class="text-left cyberpunks-image-column"><a href="" id="thumb-image{{ option_value_row }}" data-toggle="image" class="img-thumbnail"><img src="{{ option_value.thumb }}" alt="" title="" data-placeholder="{{ placeholder }}" /></a>
                   <input type="hidden" name="option_value[{{ option_value_row }}][image]" value="{{ option_value.image }}" id="input-image{{ option_value_row }}" /></td>
                 {% for field in cyberpunks_option_value_custom_field_defs %}
-                <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}">
+                <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}" data-field-key="{{ field.field_key }}">
                   {% if field.field_type == 'textarea' %}
                   <textarea name="option_value[{{ option_value_row }}][cyberpunks_custom_fields][{{ field.field_id }}]" rows="2" class="form-control">{{ option_value.cyberpunks_custom_fields[field.field_id] is defined ? option_value.cyberpunks_custom_fields[field.field_id] : '' }}</textarea>
                   {% elseif field.field_type == 'boolean' %}
@@ -171,15 +247,20 @@
 		</operation>
 
 		<operation error="skip">
+			<search trim="false"><![CDATA[    html += '  <td class="text-left"><input type="hidden" name="option_value[' + option_value_row + '][option_value_id]" value="" />';]]></search>
+			<add position="replace"><![CDATA[    html += '  <td class="text-left"><input type="hidden" name="option_value[' + option_value_row + '][option_value_id]" value="" /><input type="hidden" class="cyberpunks-palette-color-id" name="option_value[' + option_value_row + '][palette_color_id]" value="0" />';]]></add>
+		</operation>
+
+		<operation error="skip">
 			<search trim="false"><![CDATA[    html += '  <td class="text-center"><a href="" id="thumb-image' + option_value_row + '" data-toggle="image" class="img-thumbnail"><img src="{{ placeholder }}" alt="" title="" data-placeholder="{{ placeholder }}" /></a><input type="hidden" name="option_value[' + option_value_row + '][image]" value="" id="input-image' + option_value_row + '" /></td>';]]></search>
 			<add position="replace"><![CDATA[    html += '  <td class="text-center cyberpunks-image-column"><a href="" id="thumb-image' + option_value_row + '" data-toggle="image" class="img-thumbnail"><img src="{{ placeholder }}" alt="" title="" data-placeholder="{{ placeholder }}" /></a><input type="hidden" name="option_value[' + option_value_row + '][image]" value="" id="input-image' + option_value_row + '" /></td>';
 	{% for field in cyberpunks_option_value_custom_field_defs %}
 	{% if field.field_type == 'textarea' %}
-    html += '  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}"><textarea name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" rows="2" class="form-control"></textarea></td>';
+    html += '  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}" data-field-key="{{ field.field_key }}"><textarea name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" rows="2" class="form-control"></textarea></td>';
 	{% elseif field.field_type == 'boolean' %}
-    html += '  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}"><input type="hidden" name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" value="0" /><input type="checkbox" name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" value="1" /></td>';
+    html += '  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}" data-field-key="{{ field.field_key }}"><input type="hidden" name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" value="0" /><input type="checkbox" name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" value="1" /></td>';
 	{% else %}
-    html += '  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}"><input type="text" name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" value="" class="form-control" /></td>';
+    html += '  <td class="text-left cyberpunks-custom-field-column cyberpunks-custom-field-column-{{ field.field_id }}" data-field-key="{{ field.field_key }}"><input type="text" name="option_value[' + option_value_row + '][cyberpunks_custom_fields][{{ field.field_id }}]" value="" class="form-control" /></td>';
 	{% endif %}
 	{% endfor %}]]></add>
 		</operation>
@@ -192,39 +273,13 @@
 
 		<operation error="skip">
 			<search trim="false"><![CDATA[                  <td colspan="3"></td>]]></search>
-			<add position="replace"><![CDATA[                  <td colspan="{{ 3 + (cyberpunks_option_value_custom_field_defs|length) }}"></td>]]></add>
+			<add position="replace"><![CDATA[                  <td colspan="{{ 3 + (cyberpunks_option_value_custom_field_defs|length) }}" class="cyberpunks-option-value-footer-spacer"></td>]]></add>
 		</operation>
 
+		<!-- OC modification engine matches search per single line only; use offset to replace the sort_order form-group body. -->
 		<operation error="skip">
-			<search trim="false"><![CDATA[$('select[name=\'type\']').trigger('change');]]></search>
-			<add position="after"><![CDATA[
-function cyberpunksToggleColumns() {
-	var showImage = $('#input-cyberpunks-show-image').is(':checked');
-	$('.cyberpunks-image-column').toggle(showImage);
-
-	{% for field in cyberpunks_option_value_custom_field_defs %}
-	var showField{{ field.field_id }} = $('#input-cyberpunks-show-field-{{ field.field_id }}').is(':checked');
-	$('.cyberpunks-custom-field-column-{{ field.field_id }}').toggle(showField{{ field.field_id }});
-	{% endfor %}
-}
-
-$('#input-cyberpunks-show-image').on('change', cyberpunksToggleColumns);
-{% for field in cyberpunks_option_value_custom_field_defs %}
-$('#input-cyberpunks-show-field-{{ field.field_id }}').on('change', cyberpunksToggleColumns);
-{% endfor %}
-{% for field in cyberpunks_option_custom_fields %}
-$('#input-cyberpunks-show-option-field-{{ field.field_id }}').on('change', function() {
-	$('.cyberpunks-option-field-input-{{ field.field_id }}').toggle($(this).is(':checked'));
-});
-$('.cyberpunks-option-field-input-{{ field.field_id }}').toggle($('#input-cyberpunks-show-option-field-{{ field.field_id }}').is(':checked'));
-{% endfor %}
-cyberpunksToggleColumns();
-]]></add>
-		</operation>
-
-		<operation error="skip">
-			<search trim="false"><![CDATA[              <label class="col-sm-2 control-label" for="input-sort-order">{{ entry_sort_order }}</label>]]></search>
-			<add position="before"><![CDATA[
+			<search><![CDATA[<label class="col-sm-2 control-label" for="input-sort-order">{{ entry_sort_order }}</label>]]></search>
+			<add position="replace" offset="3"><![CDATA[              <input type="hidden" name="sort_order" value="{{ sort_order }}" id="input-sort-order" />
             {% if cyberpunks_option_custom_fields %}
             <div class="form-group">
               <label class="col-sm-2 control-label">{{ entry_cyberpunks_option_fields }}</label>
@@ -232,7 +287,7 @@ cyberpunksToggleColumns();
                 {% for field in cyberpunks_option_custom_fields %}
                 <div class="form-group cyberpunks-option-field-row cyberpunks-option-field-row-{{ field.field_id }}" style="margin-left:0;margin-right:0;">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                    <input type="checkbox" id="input-cyberpunks-show-option-field-{{ field.field_id }}" name="cyberpunks_option_mode[enabled_field_ids][]" value="{{ field.field_id }}" {% if cyberpunks_option_mode.enabled_field_ids is defined and field.field_id in cyberpunks_option_mode.enabled_field_ids %}checked="checked"{% endif %} />
+                    <input type="checkbox" id="input-cyberpunks-show-option-field-{{ field.field_id }}" name="cyberpunks_option_mode[enabled_field_ids][]" value="{{ field.field_id }}" class="cyberpunks-option-scope-toggle" {% if cyberpunks_option_mode.enabled_field_ids is defined and field.field_id in cyberpunks_option_mode.enabled_field_ids %}checked="checked"{% endif %} />
                     <span style="font-weight:600;">{{ field.label }}</span>
                   </div>
                   <div class="cyberpunks-option-field-input cyberpunks-option-field-input-{{ field.field_id }}">
@@ -246,12 +301,329 @@ cyberpunksToggleColumns();
                   {% else %}
                   <input type="text" name="cyberpunks_option_custom_fields[{{ field.field_id }}]" value="{{ cyberpunks_option_custom_field_values[field.field_id] is defined ? cyberpunks_option_custom_field_values[field.field_id] : '' }}" class="form-control" />
                   {% endif %}
+                  {% if field.field_key == 'pick_display_name' %}
+                  <p class="help-block" style="text-align:left;margin:6px 0 0;">Default on the product page. Override per product on Catalog → Products → Option (next to Required).</p>
+                  {% elseif field.field_key == 'display_name' %}
+                  <p class="help-block" style="text-align:left;margin:6px 0 0;">Default for cart and checkout. Override per product on Catalog → Products → Option (next to Required).</p>
+                  {% endif %}
                   </div>
                 </div>
                 {% endfor %}
               </div>
             </div>
             {% endif %}
+            <div class="form-group">
+              <label class="col-sm-2 control-label">{{ entry_cyberpunks_values_settings }}</label>
+              <div class="col-sm-10">
+                <div class="cyberpunks-values-setting-block" style="margin-bottom:22px;">
+                  <div style="font-weight:600;margin-bottom:6px;text-align:left;">{{ entry_cyberpunks_values_mode }}</div>
+                  <label class="radio-inline">
+                    <input type="radio" name="cyberpunks_option_mode[values_mode]" value="default" id="input-cyberpunks-values-mode-default" {% if cyberpunks_option_mode.values_mode is not defined or cyberpunks_option_mode.values_mode != 'color_palette' %}checked="checked"{% endif %} />
+                    {{ text_cyberpunks_values_mode_default }}
+                  </label>
+                  <label class="radio-inline">
+                    <input type="radio" name="cyberpunks_option_mode[values_mode]" value="color_palette" id="input-cyberpunks-values-mode-palette" {% if cyberpunks_option_mode.values_mode is defined and cyberpunks_option_mode.values_mode == 'color_palette' %}checked="checked"{% endif %} />
+                    {{ text_cyberpunks_values_mode_palette }}
+                  </label>
+                </div>
+                <div class="cyberpunks-values-setting-block" style="margin-bottom:22px;">
+                  <div style="font-weight:600;margin-bottom:6px;text-align:left;">{{ entry_cyberpunks_values_fields }}</div>
+                  <label class="checkbox-inline cyberpunks-values-field-toggle" data-mode="default">
+                    <input type="checkbox" id="input-cyberpunks-show-image" name="cyberpunks_option_mode[show_image]" value="1" data-field-key="image" {% if cyberpunks_option_mode.show_image %}checked="checked"{% endif %}/>
+                    {{ entry_image }}
+                  </label>
+                  {% for field in cyberpunks_option_value_custom_field_defs %}
+                  <label class="checkbox-inline cyberpunks-values-field-toggle" data-field-key="{{ field.field_key }}" data-modes="{% if field.field_key in ['swatch_color','model_color'] %}color_palette{% else %}default{% endif %}">
+                    <input type="checkbox" id="input-cyberpunks-show-field-{{ field.field_id }}" name="cyberpunks_option_mode[enabled_field_ids][]" value="{{ field.field_id }}" data-field-key="{{ field.field_key }}" {% if cyberpunks_option_mode.enabled_field_ids is defined and field.field_id in cyberpunks_option_mode.enabled_field_ids %}checked="checked"{% endif %}/>
+                    {{ field.label }}
+                  </label>
+                  {% endfor %}
+                </div>
+                <div id="cyberpunks-palette-settings" style="{% if cyberpunks_option_mode.values_mode is not defined or cyberpunks_option_mode.values_mode != 'color_palette' %}display:none;{% endif %}">
+                  <div class="cyberpunks-values-setting-block" style="margin-bottom:22px;">
+                    <div style="font-weight:600;margin-bottom:6px;text-align:left;">{{ entry_cyberpunks_color_palettes }}</div>
+                    <p class="help-block" style="text-align:left;">{{ help_cyberpunks_color_palettes }}</p>
+                    {% if cyberpunks_color_palettes %}
+                    {% for palette in cyberpunks_color_palettes %}
+                    <label class="checkbox-inline">
+                      <input type="checkbox" class="cyberpunks-option-palette-toggle" name="cyberpunks_option_color_palettes[]" value="{{ palette.palette_id }}" {% if palette.palette_id in cyberpunks_option_color_palettes %}checked="checked"{% endif %} />
+                      {{ palette.name }}
+                    </label>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted" style="text-align:left;">No palettes defined yet. Add them in Modules → Cyberpunks Shop Option Fields → Color palettes.</p>
+                    {% endif %}
+                  </div>
+                  <div class="cyberpunks-values-setting-block" style="margin-bottom:22px;">
+                    <div style="font-weight:600;margin-bottom:6px;text-align:left;">{{ entry_cyberpunks_filament_type }}</div>
+                    <select name="cyberpunks_option_mode[filament_type]" id="input-cyberpunks-filament-type" class="form-control" style="max-width:220px;">
+                      <option value="">{{ text_cyberpunks_filament_none }}</option>
+                      <option value="PLA" {% if cyberpunks_option_mode.filament_type is defined and cyberpunks_option_mode.filament_type == 'PLA' %}selected="selected"{% endif %}>PLA</option>
+                      <option value="ASA" {% if cyberpunks_option_mode.filament_type is defined and cyberpunks_option_mode.filament_type == 'ASA' %}selected="selected"{% endif %}>ASA</option>
+                      <option value="ABS" {% if cyberpunks_option_mode.filament_type is defined and cyberpunks_option_mode.filament_type == 'ABS' %}selected="selected"{% endif %}>ABS</option>
+                    </select>
+                  </div>
+                  <div class="cyberpunks-values-setting-block" style="margin-bottom:0;">
+                    <div style="font-weight:600;margin-bottom:6px;text-align:left;">{{ entry_cyberpunks_sync_palettes }}</div>
+                    <p class="help-block" style="text-align:left;margin:0 0 10px;">{{ help_cyberpunks_sync_products }}</p>
+                    <button type="button" id="button-cyberpunks-sync-products" class="btn btn-warning"{% if not cyberpunks_option_id %} disabled="disabled"{% endif %}>{{ button_cyberpunks_sync_products }}</button>
+                    <div id="cyberpunks-sync-products-alert" style="display:none;margin-top:10px;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+]]></add>
+		</operation>
+
+		<!-- Must run AFTER var option_value_row / addOptionValue(), or sync creates rows with id "undefined". -->
+		<operation error="skip">
+			<search><![CDATA[	option_value_row++;]]></search>
+			<add position="after" offset="1"><![CDATA[
+
+var cyberpunksColorPalettes = {{ cyberpunks_color_palettes_json|raw }};
+var cyberpunksOptionValueFieldKeys = {
+{% for field in cyberpunks_option_value_custom_field_defs %}
+  '{{ field.field_key }}': {{ field.field_id }}{% if not loop.last %},{% endif %}
+{% endfor %}
+};
+var cyberpunksDefaultModeKeys = ['image', 'icon', 'color'];
+var cyberpunksPaletteModeKeys = ['swatch_color', 'model_color'];
+
+function cyberpunksGetValuesMode() {
+  return $('input[name="cyberpunks_option_mode[values_mode]"]:checked').val() === 'color_palette' ? 'color_palette' : 'default';
+}
+
+function cyberpunksToggleColumns() {
+  var mode = cyberpunksGetValuesMode();
+  var showImage = mode === 'default' && $('#input-cyberpunks-show-image').is(':checked');
+  $('.cyberpunks-image-column').toggle(showImage);
+
+  {% for field in cyberpunks_option_value_custom_field_defs %}
+  (function(fieldId, fieldKey) {
+    var allowed = mode === 'color_palette' ? (cyberpunksPaletteModeKeys.indexOf(fieldKey) !== -1) : (cyberpunksDefaultModeKeys.indexOf(fieldKey) !== -1);
+    var checked = $('#input-cyberpunks-show-field-' + fieldId).is(':checked');
+    $('.cyberpunks-custom-field-column-' + fieldId).toggle(allowed && checked);
+  })({{ field.field_id }}, '{{ field.field_key }}');
+  {% endfor %}
+
+  var hideAdd = mode === 'color_palette';
+  $('#option-value tfoot .btn-primary').toggle(!hideAdd);
+}
+
+function cyberpunksApplyValuesModeUi(syncPalettes) {
+  var mode = cyberpunksGetValuesMode();
+  $('#cyberpunks-palette-settings').toggle(mode === 'color_palette');
+
+  $('.cyberpunks-values-field-toggle').each(function() {
+    var $label = $(this);
+    var key = $label.data('field-key') || ($label.find('input').data('field-key') || '');
+    var modes = $label.attr('data-modes') || $label.data('modes') || '';
+    var allowed;
+
+    if ($label.find('#input-cyberpunks-show-image').length) {
+      allowed = mode === 'default';
+    } else if (modes) {
+      allowed = modes.split(',').indexOf(mode) !== -1;
+    } else {
+      allowed = mode === 'default' ? (cyberpunksDefaultModeKeys.indexOf(key) !== -1) : (cyberpunksPaletteModeKeys.indexOf(key) !== -1);
+    }
+
+    $label.toggle(allowed);
+
+    if (!allowed) {
+      $label.find('input[type="checkbox"]').prop('checked', false);
+    }
+  });
+
+  if (mode === 'color_palette') {
+    {% for field in cyberpunks_option_value_custom_field_defs %}
+    {% if field.field_key in ['swatch_color', 'model_color'] %}
+    $('#input-cyberpunks-show-field-{{ field.field_id }}').prop('checked', true);
+    {% endif %}
+    {% endfor %}
+    $('#input-cyberpunks-show-image').prop('checked', false);
+
+    if (syncPalettes) {
+      cyberpunksSyncPaletteOptionValues();
+    }
+  }
+
+  cyberpunksToggleColumns();
+}
+
+function cyberpunksSetOptionValueCustomField(row, fieldKey, value) {
+  var fieldId = cyberpunksOptionValueFieldKeys[fieldKey];
+  if (!fieldId) {
+    return;
+  }
+
+  var $row = $('#option-value-row' + row);
+  var $input = $row.find('[name="option_value[' + row + '][cyberpunks_custom_fields][' + fieldId + ']"]');
+  if (!$input.length) {
+    return;
+  }
+
+  if ($input.is(':checkbox')) {
+    $input.filter(':checkbox').prop('checked', !!value && value !== '0');
+  } else {
+    $input.val(value);
+  }
+}
+
+function cyberpunksUpdateOptionValueRow(row, color) {
+  var $row = $('#option-value-row' + row);
+  if (!$row.length || row === undefined || row === null || row === '') {
+    return;
+  }
+
+  {% for language in languages %}
+  $row.find('input[name="option_value[' + row + '][option_value_description][{{ language.language_id }}][name]"]').val(color.name || '');
+  {% endfor %}
+  $row.find('input[name="option_value[' + row + '][sort_order]"]').val(color.sort_order != null ? color.sort_order : 0);
+  $row.find('input.cyberpunks-palette-color-id').val(String(color.color_id));
+  cyberpunksSetOptionValueCustomField(row, 'swatch_color', color.swatch_color || '');
+  cyberpunksSetOptionValueCustomField(row, 'model_color', color.model_color || color.swatch_color || '');
+}
+
+function cyberpunksSyncPaletteOptionValues() {
+  if (cyberpunksGetValuesMode() !== 'color_palette') {
+    return;
+  }
+
+  if (typeof option_value_row === 'undefined' || typeof addOptionValue !== 'function') {
+    return;
+  }
+
+  var type = $('select[name=\'type\']').val();
+  if (type != 'select' && type != 'radio' && type != 'checkbox' && type != 'image') {
+    $('select[name=\'type\']').val('select').trigger('change');
+  } else {
+    $('select[name=\'type\']').trigger('change');
+  }
+
+  var selectedPaletteIds = $('.cyberpunks-option-palette-toggle:checked').map(function() {
+    return parseInt($(this).val(), 10);
+  }).get();
+
+  var wanted = [];
+  var wantedMap = {};
+
+  cyberpunksColorPalettes.forEach(function(palette) {
+    if (selectedPaletteIds.indexOf(parseInt(palette.palette_id, 10)) === -1) {
+      return;
+    }
+
+    (palette.colors || []).forEach(function(color) {
+      var colorId = parseInt(color.color_id, 10);
+      if (!colorId || !color.name || wantedMap[colorId]) {
+        return;
+      }
+      wanted.push(color);
+      wantedMap[colorId] = true;
+    });
+  });
+
+  var existingByColor = {};
+
+  $('#option-value tbody tr').each(function() {
+    var $row = $(this);
+    var rowId = ($row.attr('id') || '').replace('option-value-row', '');
+    var colorId = parseInt($row.find('input.cyberpunks-palette-color-id').val(), 10) || 0;
+
+    if (colorId > 0 && wantedMap[colorId]) {
+      if (existingByColor[colorId] !== undefined) {
+        $row.remove();
+        return;
+      }
+      existingByColor[colorId] = rowId;
+    } else {
+      // Palette mode: drop unlinked rows and colors no longer in selected palettes.
+      $row.remove();
+    }
+  });
+
+  wanted.forEach(function(color) {
+    var colorId = parseInt(color.color_id, 10);
+    if (existingByColor[colorId] !== undefined) {
+      cyberpunksUpdateOptionValueRow(existingByColor[colorId], color);
+      return;
+    }
+
+    var row = option_value_row;
+    addOptionValue();
+    cyberpunksUpdateOptionValueRow(row, color);
+  });
+
+  cyberpunksToggleColumns();
+}
+
+$('#input-cyberpunks-show-image').on('change', cyberpunksToggleColumns);
+{% for field in cyberpunks_option_value_custom_field_defs %}
+$('#input-cyberpunks-show-field-{{ field.field_id }}').on('change', cyberpunksToggleColumns);
+{% endfor %}
+{% for field in cyberpunks_option_custom_fields %}
+$('#input-cyberpunks-show-option-field-{{ field.field_id }}').on('change', function() {
+  $('.cyberpunks-option-field-input-{{ field.field_id }}').toggle($(this).is(':checked'));
+});
+$('.cyberpunks-option-field-input-{{ field.field_id }}').toggle($('#input-cyberpunks-show-option-field-{{ field.field_id }}').is(':checked'));
+{% endfor %}
+
+$('input[name="cyberpunks_option_mode[values_mode]"]').on('change', function() {
+  cyberpunksApplyValuesModeUi(true);
+});
+
+$(document).on('change', '.cyberpunks-option-palette-toggle', function() {
+  if (cyberpunksGetValuesMode() === 'color_palette') {
+    cyberpunksSyncPaletteOptionValues();
+  }
+});
+
+cyberpunksApplyValuesModeUi(cyberpunksGetValuesMode() === 'color_palette');
+
+$('#button-cyberpunks-sync-products').on('click', function() {
+  var optionId = {{ cyberpunks_option_id|default(0) }};
+  var $btn = $(this);
+  var $alert = $('#cyberpunks-sync-products-alert');
+
+  if (!optionId) {
+    alert('{{ text_cyberpunks_sync_products_save_first|e('js') }}');
+    return;
+  }
+
+  if (!confirm('{{ text_cyberpunks_sync_products_confirm|e('js') }}')) {
+    return;
+  }
+
+  $btn.prop('disabled', true);
+  $alert.hide().removeClass('alert-success alert-danger').empty();
+
+  $.ajax({
+    url: 'index.php?route=extension/module/cyberpunks_shop_option_fields/syncProducts&user_token={{ user_token }}&option_id=' + optionId,
+    type: 'get',
+    dataType: 'json',
+    success: function(json) {
+      if (json['error']) {
+        $alert.addClass('alert alert-danger').text(json['error']).show();
+        $btn.prop('disabled', false);
+      } else if (json['success']) {
+        $alert.addClass('alert alert-success').text(json['success']).show();
+        if (json['reload']) {
+          setTimeout(function() {
+            window.location.reload();
+          }, 700);
+        } else {
+          $btn.prop('disabled', false);
+        }
+      } else {
+        $btn.prop('disabled', false);
+      }
+    },
+    error: function(xhr, status, error) {
+      $alert.addClass('alert alert-danger').text(error || status).show();
+      $btn.prop('disabled', false);
+    }
+  });
+});
 ]]></add>
 		</operation>
 	</file>
@@ -260,9 +632,24 @@ cyberpunksToggleColumns();
 		<operation error="skip">
 			<search trim="false"><![CDATA[$_['entry_sort_order']   = 'Sort Order';]]></search>
 			<add position="after"><![CDATA[
+$_['entry_cyberpunks_display_type'] = 'Display Type';
 $_['entry_cyberpunks_show_image'] = 'Display mode';
 $_['entry_cyberpunks_custom_fields'] = 'Custom option value fields';
 $_['entry_cyberpunks_option_fields'] = 'Custom option fields';
+$_['entry_cyberpunks_values_settings'] = 'Option Values Settings';
+$_['entry_cyberpunks_values_mode'] = 'Mode';
+$_['entry_cyberpunks_values_fields'] = 'Fields in Options Values';
+$_['entry_cyberpunks_filament_type'] = 'Filament type';
+$_['entry_cyberpunks_sync_palettes'] = 'Sync palettes';
+$_['entry_cyberpunks_color_palettes'] = 'Color palettes';
+$_['text_cyberpunks_values_mode_default'] = 'Default';
+$_['text_cyberpunks_values_mode_palette'] = 'Color palette';
+$_['text_cyberpunks_filament_none'] = '—';
+$_['help_cyberpunks_color_palettes'] = 'Select palettes to use. Option values are synced from the selected palette colors (name, swatch, model).';
+$_['button_cyberpunks_sync_products'] = 'Update in products';
+$_['help_cyberpunks_sync_products'] = 'Syncs selected palette colors into this option, then into every product that uses it. New colors are added (Quantity=1, Subtract=No). Existing quantity/price/points/weight are kept. Stale or duplicate rows are removed.';
+$_['text_cyberpunks_sync_products_confirm'] = 'Sync selected palette colors into this option and all products that use it? Existing quantity/price fields on products will be kept.';
+$_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then use Update in products.';
 ]]></add>
 		</operation>
 	</file>
@@ -272,6 +659,7 @@ $_['entry_cyberpunks_option_fields'] = 'Custom option fields';
 			<search trim="false"><![CDATA[			$product_option_data[] = array(]]></search>
 			<add position="before"><![CDATA[
 			$cyberpunks_option_fields = array();
+			$cyberpunks_option_mode = array('show_image' => 0, 'enabled_field_ids' => array(), 'values_mode' => 'default', 'filament_type' => '');
 			$cyberpunks_option_fields_tables = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_option_custom_field_value") . "'");
 
 			if ($cyberpunks_option_fields_tables->num_rows) {
@@ -282,6 +670,12 @@ $_['entry_cyberpunks_option_fields'] = 'Custom option fields';
 						$cyberpunks_option_fields[$cyberpunks_option_field_row['field_key']] = $cyberpunks_option_field_row['value'];
 					}
 				}
+			}
+
+			if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php')) {
+				$this->load->model('extension/module/cyberpunks_shop_option_fields');
+				$cyberpunks_option_mode = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionMode((int)$product_option['option_id']);
+				$cyberpunks_option_fields = $this->model_extension_module_cyberpunks_shop_option_fields->mergeOptionLabels($cyberpunks_option_fields, (int)$product_id, (int)$product_option['option_id']);
 			}
 ]]></add>
 		</operation>
@@ -301,13 +695,20 @@ $_['entry_cyberpunks_option_fields'] = 'Custom option fields';
 						}
 					}
 				}
+
+				if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php')) {
+					$this->load->model('extension/module/cyberpunks_shop_option_fields');
+					$cyberpunks_fields = $this->model_extension_module_cyberpunks_shop_option_fields->mergeColorFields($cyberpunks_fields, (int)$product_option_value['option_value_id']);
+					$cyberpunks_fields = $this->model_extension_module_cyberpunks_shop_option_fields->mergeGalleryBannerIndex($cyberpunks_fields, (int)$product_id, (int)$product_option_value['option_value_id']);
+				}
 ]]></add>
 		</operation>
 
 		<operation error="skip">
 			<search trim="false"><![CDATA[				'required'             => $product_option['required']]]></search>
 			<add position="replace"><![CDATA[				'required'             => $product_option['required'],
-				'cyberpunks_fields'    => $cyberpunks_option_fields]]></add>
+				'cyberpunks_fields'    => $cyberpunks_option_fields,
+				'cyberpunks_option_mode' => $cyberpunks_option_mode]]></add>
 		</operation>
 
 		<operation error="skip">
@@ -321,7 +722,8 @@ $_['entry_cyberpunks_option_fields'] = 'Custom option fields';
 		<operation error="skip">
 			<search trim="false"><![CDATA[					'required'             => $option['required']]]></search>
 			<add position="replace"><![CDATA[					'required'             => $option['required'],
-					'cyberpunks_fields'    => isset($option['cyberpunks_fields']) ? $option['cyberpunks_fields'] : array()]]></add>
+					'cyberpunks_fields'    => isset($option['cyberpunks_fields']) ? $option['cyberpunks_fields'] : array(),
+					'cyberpunks_option_mode' => isset($option['cyberpunks_option_mode']) ? $option['cyberpunks_option_mode'] : array()]]></add>
 		</operation>
 
 		<operation error="skip">
@@ -335,9 +737,11 @@ $_['entry_cyberpunks_option_fields'] = 'Custom option fields';
 		<operation error="skip">
 			<search trim="false"><![CDATA[				$option_data = array();]]></search>
 			<add position="after"><![CDATA[
-				$cyberpunks_option_name_map = array();
-				$cyberpunks_option_fields_tables = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_option_custom_field_value") . "'");
-				$cyberpunks_option_fields_enabled = (bool)$cyberpunks_option_fields_tables->num_rows;
+				$cyberpunks_option_fields_model = false;
+				if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php')) {
+					$this->load->model('extension/module/cyberpunks_shop_option_fields');
+					$cyberpunks_option_fields_model = $this->model_extension_module_cyberpunks_shop_option_fields;
+				}
 ]]></add>
 		</operation>
 
@@ -346,31 +750,11 @@ $_['entry_cyberpunks_option_fields'] = 'Custom option fields';
 			<add position="before"><![CDATA[
 					$option_display_name = $option['name'];
 
-					if ($cyberpunks_option_fields_enabled && isset($option['option_id'])) {
-						$option_id = (int)$option['option_id'];
+					if ($cyberpunks_option_fields_model && isset($option['option_id'])) {
+						$resolved = $cyberpunks_option_fields_model->resolveDisplayName((int)$product['product_id'], (int)$option['option_id']);
 
-						if (!isset($cyberpunks_option_name_map[$option_id])) {
-							$cyberpunks_option_name_map[$option_id] = '';
-
-							$option_name_query = $this->db->query("SELECT f.field_key, v.value FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_option_custom_field` f ON (v.field_id = f.field_id) WHERE v.option_id = '" . $option_id . "' AND v.option_value_id = '0' AND f.status = '1' AND f.field_key IN ('display_name', 'pick_display_name')");
-
-							$option_field_values = array();
-
-							foreach ($option_name_query->rows as $option_name_row) {
-								if (!empty($option_name_row['field_key']) && $option_name_row['value'] !== '') {
-									$option_field_values[$option_name_row['field_key']] = $option_name_row['value'];
-								}
-							}
-
-							if (!empty($option_field_values['display_name'])) {
-								$cyberpunks_option_name_map[$option_id] = $option_field_values['display_name'];
-							} elseif (!empty($option_field_values['pick_display_name'])) {
-								$cyberpunks_option_name_map[$option_id] = $option_field_values['pick_display_name'];
-							}
-						}
-
-						if (!empty($cyberpunks_option_name_map[$option_id])) {
-							$option_display_name = $cyberpunks_option_name_map[$option_id];
+						if ($resolved !== '') {
+							$option_display_name = $resolved;
 						}
 					}
 ]]></add>
@@ -380,6 +764,243 @@ $_['entry_cyberpunks_option_fields'] = 'Custom option fields';
 			<search trim="false"><![CDATA[						'name'  => $option['name'],]]></search>
 			<add position="replace"><![CDATA[						'name'         => $option['name'],
 						'display_name' => $option_display_name,]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/controller/catalog/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_catalog_product->addProduct($this->request->post);]]></search>
+			<add position="replace"><![CDATA[			$this->load->model('extension/module/cyberpunks_shop_option_fields');
+			$this->model_extension_module_cyberpunks_shop_option_fields->ensureProductOptionValues($this->request->post);
+			$cyberpunks_product_id = $this->model_catalog_product->addProduct($this->request->post);
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveProductOptionGallery((int)$cyberpunks_product_id, $this->request->post);
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveProductOptionLabels((int)$cyberpunks_product_id, $this->request->post);]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_catalog_product->editProduct($this->request->get['product_id'], $this->request->post);]]></search>
+			<add position="replace"><![CDATA[			$this->load->model('extension/module/cyberpunks_shop_option_fields');
+			$this->model_extension_module_cyberpunks_shop_option_fields->ensureProductOptionValues($this->request->post);
+			$this->model_catalog_product->editProduct($this->request->get['product_id'], $this->request->post);
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveProductOptionGallery((int)$this->request->get['product_id'], $this->request->post);
+			$this->model_extension_module_cyberpunks_shop_option_fields->saveProductOptionLabels((int)$this->request->get['product_id'], $this->request->post);]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$this->load->model('catalog/option');]]></search>
+			<add position="before"><![CDATA[
+		$cyberpunks_gallery_map = array();
+		$cyberpunks_option_label_map = array();
+		$data['cyberpunks_display_name_defaults_json'] = '{}';
+		$data['cyberpunks_pick_display_name_defaults_json'] = '{}';
+		$this->load->model('extension/module/cyberpunks_shop_option_fields');
+		$this->model_extension_module_cyberpunks_shop_option_fields->install();
+		$cyberpunks_display_name_defaults = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionLabelDefaults('display_name');
+		$cyberpunks_pick_display_name_defaults = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionLabelDefaults('pick_display_name');
+		$data['cyberpunks_display_name_defaults_json'] = $cyberpunks_display_name_defaults ? json_encode($cyberpunks_display_name_defaults, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : '{}';
+		$data['cyberpunks_pick_display_name_defaults_json'] = $cyberpunks_pick_display_name_defaults ? json_encode($cyberpunks_pick_display_name_defaults, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : '{}';
+		if (isset($this->request->get['product_id'])) {
+			$cyberpunks_gallery_map = $this->model_extension_module_cyberpunks_shop_option_fields->getProductOptionGalleryMap((int)$this->request->get['product_id']);
+			$cyberpunks_option_label_map = $this->model_extension_module_cyberpunks_shop_option_fields->getProductOptionLabelMap((int)$this->request->get['product_id']);
+		}
+		$data['entry_cyberpunks_gallery_slide'] = 'Slide #';
+		$data['help_cyberpunks_gallery_slide'] = 'Gallery slide # (1 = main image, then extra images and 3D tabs). Comma-separated list allowed, e.g. 5,6 — theme picks the slide matching other selected options.';
+		$data['entry_cyberpunks_display_name'] = 'Display Name';
+		$data['entry_cyberpunks_pick_display_name'] = 'Pick Display Name';
+		$data['help_cyberpunks_option_label'] = 'Leave empty to use the option default from Catalog → Options.';
+
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[						'weight_prefix'           => $product_option_value['weight_prefix']]]></search>
+			<add position="replace"><![CDATA[						'weight_prefix'           => $product_option_value['weight_prefix'],
+						'cyberpunks_gallery_banner_index' => isset($product_option_value['cyberpunks_gallery_banner_index']) ? $product_option_value['cyberpunks_gallery_banner_index'] : (isset($cyberpunks_gallery_map[(int)$product_option_value['option_value_id']]) ? $cyberpunks_gallery_map[(int)$product_option_value['option_value_id']] : '')]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[				'value'                => isset($product_option['value']) ? $product_option['value'] : '',]]></search>
+			<add position="replace" offset="1"><![CDATA[				'value'                => isset($product_option['value']) ? $product_option['value'] : '',
+				'required'             => $product_option['required'],
+				'cyberpunks_display_name' => isset($product_option['cyberpunks_display_name']) ? $product_option['cyberpunks_display_name'] : (isset($cyberpunks_option_label_map[(int)$product_option['option_id']]['display_name']) ? $cyberpunks_option_label_map[(int)$product_option['option_id']]['display_name'] : ''),
+				'cyberpunks_display_name_default' => isset($cyberpunks_display_name_defaults[(int)$product_option['option_id']]) ? $cyberpunks_display_name_defaults[(int)$product_option['option_id']] : '',
+				'cyberpunks_pick_display_name' => isset($product_option['cyberpunks_pick_display_name']) ? $product_option['cyberpunks_pick_display_name'] : (isset($cyberpunks_option_label_map[(int)$product_option['option_id']]['pick_display_name']) ? $cyberpunks_option_label_map[(int)$product_option['option_id']]['pick_display_name'] : ''),
+				'cyberpunks_pick_display_name_default' => isset($cyberpunks_pick_display_name_defaults[(int)$product_option['option_id']]) ? $cyberpunks_pick_display_name_defaults[(int)$product_option['option_id']] : '']]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[				$this->model_catalog_product->deleteProduct($product_id);]]></search>
+			<add position="after"><![CDATA[
+				$this->load->model('extension/module/cyberpunks_shop_option_fields');
+				$this->model_extension_module_cyberpunks_shop_option_fields->deleteProductOptionGallery((int)$product_id);
+				$this->model_extension_module_cyberpunks_shop_option_fields->deleteProductOptionLabels((int)$product_id);
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/view/template/catalog/product_form.twig">
+		<!-- Single-line searches only: OpenCart matches OCMOD search one line at a time. -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[                        {% if product_option.type == 'text' %}]]></search>
+			<add position="before"><![CDATA[
+                        <div class="form-group">
+                          <label class="col-sm-2 control-label" for="input-cyberpunks-display-name{{ option_row }}"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label }}">{{ entry_cyberpunks_display_name }}</span></label>
+                          <div class="col-sm-10">
+                            <input type="text" name="product_option[{{ option_row }}][cyberpunks_display_name]" value="{{ product_option.cyberpunks_display_name|default('') }}" placeholder="{{ product_option.cyberpunks_display_name_default|default(help_cyberpunks_option_label) }}" id="input-cyberpunks-display-name{{ option_row }}" class="form-control"/>
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label class="col-sm-2 control-label" for="input-cyberpunks-pick-display-name{{ option_row }}"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label }}">{{ entry_cyberpunks_pick_display_name }}</span></label>
+                          <div class="col-sm-10">
+                            <input type="text" name="product_option[{{ option_row }}][cyberpunks_pick_display_name]" value="{{ product_option.cyberpunks_pick_display_name|default('') }}" placeholder="{{ product_option.cyberpunks_pick_display_name_default|default(help_cyberpunks_option_label) }}" id="input-cyberpunks-pick-display-name{{ option_row }}" class="form-control"/>
+                          </div>
+                        </div>
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[		  if (item['type'] == 'text') {]]></search>
+			<add position="before"><![CDATA[
+		  var cyberpunksDisplayPlaceholder = (cyberpunksDisplayNameDefaults && cyberpunksDisplayNameDefaults[item['value']]) ? String(cyberpunksDisplayNameDefaults[item['value']]) : '{{ help_cyberpunks_option_label|e('js') }}';
+		  var cyberpunksPickPlaceholder = (cyberpunksPickDisplayNameDefaults && cyberpunksPickDisplayNameDefaults[item['value']]) ? String(cyberpunksPickDisplayNameDefaults[item['value']]) : '{{ help_cyberpunks_option_label|e('js') }}';
+		  html += '	<div class="form-group">';
+		  html += '	  <label class="col-sm-2 control-label" for="input-cyberpunks-display-name' + option_row + '"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label|e('js') }}">{{ entry_cyberpunks_display_name|e('js') }}</span></label>';
+		  html += '	  <div class="col-sm-10"><input type="text" name="product_option[' + option_row + '][cyberpunks_display_name]" value="" placeholder="' + $('<div/>').text(cyberpunksDisplayPlaceholder).html() + '" id="input-cyberpunks-display-name' + option_row + '" class="form-control" /></div>';
+		  html += '	</div>';
+		  html += '	<div class="form-group">';
+		  html += '	  <label class="col-sm-2 control-label" for="input-cyberpunks-pick-display-name' + option_row + '"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label|e('js') }}">{{ entry_cyberpunks_pick_display_name|e('js') }}</span></label>';
+		  html += '	  <div class="col-sm-10"><input type="text" name="product_option[' + option_row + '][cyberpunks_pick_display_name]" value="" placeholder="' + $('<div/>').text(cyberpunksPickPlaceholder).html() + '" id="input-cyberpunks-pick-display-name' + option_row + '" class="form-control" /></div>';
+		  html += '	</div>';
+
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[  var option_row = {{ option_row }};]]></search>
+			<add position="after"><![CDATA[
+  var cyberpunksDisplayNameDefaults = {{ cyberpunks_display_name_defaults_json|default('{}')|raw }};
+  if (!cyberpunksDisplayNameDefaults || $.isArray(cyberpunksDisplayNameDefaults)) {
+	  cyberpunksDisplayNameDefaults = {};
+  }
+  var cyberpunksPickDisplayNameDefaults = {{ cyberpunks_pick_display_name_defaults_json|default('{}')|raw }};
+  if (!cyberpunksPickDisplayNameDefaults || $.isArray(cyberpunksPickDisplayNameDefaults)) {
+	  cyberpunksPickDisplayNameDefaults = {};
+  }
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[                                  <td class="text-right">{{ entry_weight }}</td>]]></search>
+			<add position="after"><![CDATA[
+                                  <td class="text-right"><span data-toggle="tooltip" title="{{ help_cyberpunks_gallery_slide }}">{{ entry_cyberpunks_gallery_slide }}</span></td>]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[                                    <td class="text-right"><button type="button" onclick="$(this).tooltip('destroy');$('#option-value-row{{ option_value_row }}').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>]]></search>
+			<add position="before"><![CDATA[                                    <td class="text-right"><input type="text" name="product_option[{{ option_row }}][product_option_value][{{ option_value_row }}][cyberpunks_gallery_banner_index]" value="{{ product_option_value.cyberpunks_gallery_banner_index }}" placeholder="{{ entry_cyberpunks_gallery_slide }}" class="form-control" style="max-width:5.5em;"/></td>
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[                                  <td colspan="6"></td>]]></search>
+			<add position="replace"><![CDATA[                                  <td colspan="7"></td>]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[                                  <td class="text-left"><button type="button" onclick="addOptionValue('{{ option_row }}');" data-toggle="tooltip" title="{{ button_option_value_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td>]]></search>
+			<add position="replace"><![CDATA[                                  <td class="text-left" style="white-space:nowrap;"><button type="button" onclick="addAllOptionValues('{{ option_row }}');" data-toggle="tooltip" title="{{ button_cyberpunks_add_all_option_values }}" class="btn btn-default"><i class="fa fa-list"></i></button> <button type="button" onclick="addOptionValue('{{ option_row }}');" data-toggle="tooltip" title="{{ button_option_value_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td>]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[			  html += '        <td class="text-left"><button type="button" onclick="addOptionValue(' + option_row + ');" data-toggle="tooltip" title="{{ button_option_value_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td>';]]></search>
+			<add position="replace"><![CDATA[			  html += '        <td class="text-left" style="white-space:nowrap;"><button type="button" onclick="addAllOptionValues(' + option_row + ');" data-toggle="tooltip" title="{{ button_cyberpunks_add_all_option_values|e('js') }}" class="btn btn-default"><i class="fa fa-list"></i></button> <button type="button" onclick="addOptionValue(' + option_row + ');" data-toggle="tooltip" title="{{ button_option_value_add|e('js') }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td>';]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[			  html += '        <td class="text-right">{{ entry_weight }}</td>';]]></search>
+			<add position="after"><![CDATA[
+			  html += '        <td class="text-right">{{ entry_cyberpunks_gallery_slide|e('js') }}</td>';]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[			  html += '        <td colspan="6"></td>';]]></search>
+			<add position="replace"><![CDATA[			  html += '        <td colspan="7"></td>';]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[		  $('#tab-option .tab-content').append(html);]]></search>
+			<add position="after"><![CDATA[
+
+		  if (item['type'] == 'select' || item['type'] == 'radio' || item['type'] == 'checkbox' || item['type'] == 'image') {
+			  addAllOptionValues(option_row);
+		  }
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[  function addOptionValue(option_row) {]]></search>
+			<add position="replace"><![CDATA[  function addOptionValue(option_row, selected_option_value_id) {
+	  selected_option_value_id = selected_option_value_id || '';
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[	  html += '  <td class="text-right"><input type="text" name="product_option[' + option_row + '][product_option_value][' + option_value_row + '][quantity]" value="" placeholder="{{ entry_quantity }}" class="form-control" /></td>';]]></search>
+			<add position="replace"><![CDATA[	  html += '  <td class="text-right"><input type="text" name="product_option[' + option_row + '][product_option_value][' + option_value_row + '][quantity]" value="1" placeholder="{{ entry_quantity }}" class="form-control" /></td>';]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[	  html += '  <td class="text-left"><button type="button" onclick="$(this).tooltip(\'destroy\');$(\'#option-value-row' + option_value_row + '\').remove();" data-toggle="tooltip" rel="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>';]]></search>
+			<add position="before"><![CDATA[	  html += '  <td class="text-right"><input type="text" name="product_option[' + option_row + '][product_option_value][' + option_value_row + '][cyberpunks_gallery_banner_index]" value="" placeholder="{{ entry_cyberpunks_gallery_slide|e('js') }}" class="form-control" style="max-width:5.5em;" /></td>';
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[	  $('#option-value' + option_row + ' tbody').append(html);]]></search>
+			<add position="after"><![CDATA[
+	  $('#option-value-row' + option_value_row + ' select[name*="[subtract]"]').val('0');
+	  if (selected_option_value_id) {
+		  $('#option-value-row' + option_value_row + ' select[name*="[option_value_id]"]').val(String(selected_option_value_id));
+	  }
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[  var discount_row = {{ discount_row }};]]></search>
+			<add position="before"><![CDATA[
+  function addAllOptionValues(option_row) {
+	  var existing = {};
+
+	  $('#option-value' + option_row + ' tbody select[name*="[option_value_id]"]').each(function() {
+		  existing[String($(this).val())] = true;
+	  });
+
+	  $('#option-values' + option_row + ' option').each(function() {
+		  var option_value_id = String($(this).attr('value'));
+
+		  if (!option_value_id || existing[option_value_id]) {
+			  return;
+		  }
+
+		  addOptionValue(option_row, option_value_id);
+	  });
+  }
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/language/en-gb/en-gb.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[$_['button_option_value_add']       = 'Add Option Value';]]></search>
+			<add position="after"><![CDATA[
+$_['button_cyberpunks_add_all_option_values'] = 'Add all option values';
+$_['entry_cyberpunks_gallery_slide'] = 'Slide #';
+$_['help_cyberpunks_gallery_slide'] = 'Gallery slide # (1 = main image, then extra images and 3D tabs). Comma-separated list allowed, e.g. 5,6 — theme picks the slide matching other selected options.';
+$_['entry_cyberpunks_display_name'] = 'Display Name';
+$_['entry_cyberpunks_pick_display_name'] = 'Pick Display Name';
+$_['help_cyberpunks_option_label'] = 'Leave empty to use the option default from Catalog → Options.';
+]]></add>
 		</operation>
 	</file>
 </modification>

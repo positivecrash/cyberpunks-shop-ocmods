@@ -1,4 +1,55 @@
-{% macro product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, placeholder, summernote) %}
+{% macro repeater_subfield_input(field_id, row_index, subfield, row_values, cyberpunks_product_field_repeater_thumbs, placeholder) %}
+  {% set sub_key = subfield.key %}
+  {% set input_id = 'input-cyberpunks-repeater-' ~ field_id ~ '-' ~ row_index ~ '-' ~ sub_key %}
+  {% set field_name = 'cyberpunks_product_fields[' ~ field_id ~ '][' ~ row_index ~ '][' ~ sub_key ~ ']' %}
+  {% set sub_value = row_values[sub_key] is defined ? row_values[sub_key] : '' %}
+
+  <div class="form-group cyberpunks-repeater-subfield" data-subfield-key="{{ sub_key }}" data-subfield-type="{{ subfield.type }}">
+    <label class="col-sm-3 control-label" for="{{ input_id }}">{{ subfield.label }}</label>
+    <div class="col-sm-9">
+      {% if subfield.type == 'checkbox' %}
+        <input type="hidden" name="{{ field_name }}" value="0" />
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" name="{{ field_name }}" value="1" id="{{ input_id }}" {% if sub_value %}checked="checked"{% endif %}/>
+          </label>
+        </div>
+      {% elseif subfield.type == 'checkboxes' %}
+        {% set selected_values = sub_value is iterable ? sub_value : [] %}
+        {% for option in subfield.options %}
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" name="{{ field_name }}[]" value="{{ option.value }}" {% if option.value in selected_values %}checked="checked"{% endif %}/>
+            {{ option.label }}
+          </label>
+        </div>
+        {% endfor %}
+      {% elseif subfield.type == 'select' %}
+        <select name="{{ field_name }}" id="{{ input_id }}" class="form-control">
+          <option value=""></option>
+          {% for option in subfield.options %}
+          <option value="{{ option.value }}" {% if sub_value == option.value %}selected="selected"{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      {% elseif subfield.type == 'textarea' %}
+        <textarea name="{{ field_name }}" rows="4" id="{{ input_id }}" class="form-control" style="font-family:monospace;">{{ sub_value }}</textarea>
+      {% elseif subfield.type == 'image' %}
+        {% set thumb = placeholder %}
+        {% if cyberpunks_product_field_repeater_thumbs[field_id] is defined and cyberpunks_product_field_repeater_thumbs[field_id][row_index] is defined and cyberpunks_product_field_repeater_thumbs[field_id][row_index][sub_key] is defined %}
+          {% set thumb = cyberpunks_product_field_repeater_thumbs[field_id][row_index][sub_key] %}
+        {% endif %}
+        <a href="" id="thumb-{{ input_id }}" data-toggle="image" class="img-thumbnail">
+          <img src="{{ thumb }}" alt="" title="" data-placeholder="{{ placeholder }}"/>
+        </a>
+        <input type="hidden" name="{{ field_name }}" value="{{ sub_value }}" id="{{ input_id }}" />
+      {% else %}
+        <input type="text" name="{{ field_name }}" value="{{ sub_value }}" id="{{ input_id }}" class="form-control" />
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}
+
+{% macro product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, cyberpunks_product_field_repeater_thumbs, placeholder, summernote, button_repeater_add, button_repeater_remove) %}
 <div class="form-group">
   <label class="col-sm-2 control-label" for="input-cyberpunks-product-field-{{ field.field_id }}"{% if field.admin_hint %} data-toggle="tooltip" title="{{ field.admin_hint }}"{% endif %}>{{ field.label }}</label>
   <div class="col-sm-10">
@@ -38,6 +89,40 @@
         <img src="{{ cyberpunks_product_field_thumbs[field.field_id] is defined ? cyberpunks_product_field_thumbs[field.field_id] : placeholder }}" alt="" title="" data-placeholder="{{ placeholder }}"/>
       </a>
       <input type="hidden" name="cyberpunks_product_fields[{{ field.field_id }}]" value="{{ cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : '' }}" id="input-cyberpunks-product-field-{{ field.field_id }}"/>
+    {% elseif field.field_type == 'repeater' %}
+      {% set repeater_rows = cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : [] %}
+      {% if repeater_rows is not iterable %}
+        {% set repeater_rows = [] %}
+      {% endif %}
+      <div
+        class="cyberpunks-repeater"
+        id="cyberpunks-repeater-{{ field.field_id }}"
+        data-field-id="{{ field.field_id }}"
+        data-placeholder="{{ placeholder }}"
+        data-add-label="{{ button_repeater_add }}"
+        data-remove-label="{{ button_repeater_remove }}"
+        data-schema="{{ field.repeater_schema|default([])|json_encode|e('html_attr') }}"
+      >
+        <div class="cyberpunks-repeater-rows">
+          {% if repeater_rows|length %}
+            {% for row in repeater_rows %}
+            {% set row_index = loop.index0 %}
+            <div class="cyberpunks-repeater-row panel panel-default" data-row-index="{{ row_index }}">
+              <div class="panel-heading clearfix">
+                <button type="button" class="btn btn-danger btn-xs pull-right cyberpunks-repeater-remove" title="{{ button_repeater_remove }}"><i class="fa fa-minus-circle"></i></button>
+                <strong>#{{ loop.index }}</strong>
+              </div>
+              <div class="panel-body">
+                {% for subfield in field.repeater_schema|default([]) %}
+                {{ _self.repeater_subfield_input(field.field_id, row_index, subfield, row, cyberpunks_product_field_repeater_thumbs, placeholder) }}
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          {% endif %}
+        </div>
+        <button type="button" class="btn btn-primary btn-sm cyberpunks-repeater-add"><i class="fa fa-plus-circle"></i> {{ button_repeater_add }}</button>
+      </div>
     {% else %}
       <input type="text" name="cyberpunks_product_fields[{{ field.field_id }}]" value="{{ cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : '' }}" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" class="form-control" />
     {% endif %}
@@ -51,7 +136,7 @@
 {% import _self as product_fields %}
 
 {% for field in cyberpunks_product_field_groups.ungrouped_fields %}
-{{ product_fields.product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, placeholder, summernote) }}
+{{ product_fields.product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, cyberpunks_product_field_repeater_thumbs|default({}), placeholder, summernote, button_repeater_add|default('Add item'), button_repeater_remove|default('Remove')) }}
 {% endfor %}
 
 {% for section in cyberpunks_product_field_groups.sections %}
@@ -59,8 +144,154 @@
 <fieldset>
   <legend>{{ section.title }}</legend>
   {% for field in section.fields %}
-  {{ product_fields.product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, placeholder, summernote) }}
+  {{ product_fields.product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, cyberpunks_product_field_repeater_thumbs|default({}), placeholder, summernote, button_repeater_add|default('Add item'), button_repeater_remove|default('Remove')) }}
   {% endfor %}
 </fieldset>
 {% endif %}
 {% endfor %}
+
+<script type="text/javascript"><!--
+(function($) {
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function buildRepeaterSubfieldHtml(fieldId, rowIndex, subfield, placeholder) {
+    var subKey = subfield.key;
+    var inputId = 'input-cyberpunks-repeater-' + fieldId + '-' + rowIndex + '-' + subKey;
+    var fieldName = 'cyberpunks_product_fields[' + fieldId + '][' + rowIndex + '][' + subKey + ']';
+    var html = '<div class="form-group cyberpunks-repeater-subfield" data-subfield-key="' + escapeHtml(subKey) + '" data-subfield-type="' + escapeHtml(subfield.type) + '">';
+    html += '<label class="col-sm-3 control-label" for="' + inputId + '">' + escapeHtml(subfield.label) + '</label>';
+    html += '<div class="col-sm-9">';
+
+    if (subfield.type === 'checkbox') {
+      html += '<input type="hidden" name="' + fieldName + '" value="0" />';
+      html += '<div class="checkbox"><label><input type="checkbox" name="' + fieldName + '" value="1" id="' + inputId + '" /></label></div>';
+    } else if (subfield.type === 'checkboxes') {
+      (subfield.options || []).forEach(function(option) {
+        html += '<div class="checkbox"><label><input type="checkbox" name="' + fieldName + '[]" value="' + escapeHtml(option.value) + '" /> ' + escapeHtml(option.label) + '</label></div>';
+      });
+    } else if (subfield.type === 'select') {
+      html += '<select name="' + fieldName + '" id="' + inputId + '" class="form-control"><option value=""></option>';
+      (subfield.options || []).forEach(function(option) {
+        html += '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>';
+      });
+      html += '</select>';
+    } else if (subfield.type === 'textarea') {
+      html += '<textarea name="' + fieldName + '" rows="4" id="' + inputId + '" class="form-control" style="font-family:monospace;"></textarea>';
+    } else if (subfield.type === 'image') {
+      html += '<a href="" id="thumb-' + inputId + '" data-toggle="image" class="img-thumbnail">';
+      html += '<img src="' + escapeHtml(placeholder) + '" alt="" title="" data-placeholder="' + escapeHtml(placeholder) + '"/>';
+      html += '</a>';
+      html += '<input type="hidden" name="' + fieldName + '" value="" id="' + inputId + '" />';
+    } else {
+      html += '<input type="text" name="' + fieldName + '" value="" id="' + inputId + '" class="form-control" />';
+    }
+
+    html += '</div></div>';
+    return html;
+  }
+
+  function buildRepeaterRowHtml($repeater, rowIndex) {
+    var fieldId = $repeater.data('field-id');
+    var schema = $repeater.data('schema') || [];
+    var removeLabel = $repeater.data('remove-label') || 'Remove';
+    var placeholder = $repeater.data('placeholder') || '';
+    var html = '<div class="cyberpunks-repeater-row panel panel-default" data-row-index="' + rowIndex + '">';
+    html += '<div class="panel-heading clearfix">';
+    html += '<button type="button" class="btn btn-danger btn-xs pull-right cyberpunks-repeater-remove" title="' + escapeHtml(removeLabel) + '"><i class="fa fa-minus-circle"></i></button>';
+    html += '<strong>#' + (rowIndex + 1) + '</strong>';
+    html += '</div><div class="panel-body">';
+
+    schema.forEach(function(subfield) {
+      html += buildRepeaterSubfieldHtml(fieldId, rowIndex, subfield, placeholder);
+    });
+
+    html += '</div></div>';
+    return html;
+  }
+
+  function reindexRepeaterRows($repeater) {
+    var fieldId = $repeater.data('field-id');
+    var schema = $repeater.data('schema') || [];
+
+    $repeater.find('.cyberpunks-repeater-row').each(function(rowIndex) {
+      var $row = $(this);
+      $row.attr('data-row-index', rowIndex);
+      $row.find('.panel-heading strong').text('#' + (rowIndex + 1));
+
+      schema.forEach(function(subfield) {
+        var subKey = subfield.key;
+        var inputId = 'input-cyberpunks-repeater-' + fieldId + '-' + rowIndex + '-' + subKey;
+        var fieldName = 'cyberpunks_product_fields[' + fieldId + '][' + rowIndex + '][' + subKey + ']';
+        var $subfield = $row.find('.cyberpunks-repeater-subfield[data-subfield-key="' + subKey + '"]');
+
+        $subfield.find('label.control-label').attr('for', inputId);
+
+        if (subfield.type === 'checkbox') {
+          $subfield.find('input[type="hidden"]').attr('name', fieldName);
+          $subfield.find('input[type="checkbox"]').attr({ name: fieldName, id: inputId });
+        } else if (subfield.type === 'checkboxes') {
+          $subfield.find('input[type="checkbox"]').attr('name', fieldName + '[]');
+        } else if (subfield.type === 'image') {
+          $subfield.find('a[data-toggle="image"]').attr('id', 'thumb-' + inputId);
+          $subfield.find('input[type="hidden"]').attr({ name: fieldName, id: inputId });
+        } else {
+          $subfield.find('input, select, textarea').first().attr({ name: fieldName, id: inputId });
+        }
+      });
+    });
+  }
+
+  function nextRepeaterRowIndex($repeater) {
+    var max = -1;
+
+    $repeater.find('.cyberpunks-repeater-row').each(function() {
+      var index = parseInt($(this).attr('data-row-index'), 10);
+
+      if (!isNaN(index) && index > max) {
+        max = index;
+      }
+    });
+
+    return max + 1;
+  }
+
+  $(document).on('click', '.cyberpunks-repeater-add', function() {
+    var $repeater = $(this).closest('.cyberpunks-repeater');
+    var rowIndex = nextRepeaterRowIndex($repeater);
+
+    $repeater.find('.cyberpunks-repeater-rows').append(buildRepeaterRowHtml($repeater, rowIndex));
+    reindexRepeaterRows($repeater);
+  });
+
+  $(document).on('click', '.cyberpunks-repeater-remove', function() {
+    var $repeater = $(this).closest('.cyberpunks-repeater');
+    $(this).closest('.cyberpunks-repeater-row').remove();
+    reindexRepeaterRows($repeater);
+  });
+
+  $('.cyberpunks-repeater').each(function() {
+    var $repeater = $(this);
+    var schema = [];
+
+    try {
+      schema = JSON.parse($repeater.attr('data-schema') || '[]');
+    } catch (e) {
+      schema = [];
+    }
+
+    $repeater.data('schema', schema);
+
+    if (!$repeater.find('.cyberpunks-repeater-row').length && schema.length) {
+      $repeater.find('.cyberpunks-repeater-rows').append(buildRepeaterRowHtml($repeater, 0));
+    }
+
+    reindexRepeaterRows($repeater);
+  });
+})(jQuery);
+//--></script>

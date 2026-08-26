@@ -27,6 +27,8 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 				$value = $this->resolveImageFieldValue($value);
 			} elseif ($field_type === 'checkboxes') {
 				$value = $this->decodeCheckboxListValue($value);
+			} elseif ($field_type === 'repeater') {
+				$value = $this->decodeRepeaterValue($value);
 			}
 
 			$data[$row['field_key']] = $value;
@@ -35,11 +37,6 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		return $data;
 	}
 
-	/**
-	 * Categories that have products with checkbox field $flag_key = 1,
-	 * each with up to $limit newest items. Card keys (title/image/label) are not
-	 * interpreted here — templates read product.fields.<your_key>.
-	 */
 	public function getHomeFeaturedCategories($limit = 3, $flag_key = 'featured') {
 		$limit = max(1, (int)$limit);
 		$flag_key = preg_replace('/[^a-z0-9_]/', '', (string)$flag_key);
@@ -135,7 +132,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 	}
 
 	/**
-	 * Attach generic fields map for listing templates (category, etc.).
+	 * Attach generic fields map for listing / cart templates.
 	 * Returns the product array (must assign — OC model Proxy breaks by-ref args).
 	 */
 	public function attachProductFields(array $product) {
@@ -146,6 +143,58 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		}
 
 		return $product;
+	}
+
+	/**
+	 * Register product checkbox-list scripts (field `3d_scripts`) once in Document header.
+	 * Do not also output these paths as <script> in product twig (avoids THREE double-init warning).
+	 */
+	public function registerProductScripts($document, array $fields_map, $field_key = '3d_scripts') {
+		if (!is_object($document) || !method_exists($document, 'addScript')) {
+			return;
+		}
+
+		if (empty($fields_map[$field_key]) || !is_array($fields_map[$field_key])) {
+			return;
+		}
+
+		$script_types = array();
+
+		if ($this->registry->has('cyberpunks_shop_head_includes_script_types')) {
+			$script_types = (array)$this->registry->get('cyberpunks_shop_head_includes_script_types');
+		}
+
+		$seen = array();
+
+		foreach ($fields_map[$field_key] as $script_path) {
+			$script_path = trim((string)$script_path);
+
+			if ($script_path === '') {
+				continue;
+			}
+
+			$is_module = false;
+
+			if (stripos($script_path, 'module:') === 0) {
+				$is_module = true;
+				$script_path = trim(substr($script_path, 7));
+			}
+
+			if ($script_path === '' || isset($seen[$script_path])) {
+				continue;
+			}
+
+			$seen[$script_path] = true;
+			$document->addScript($script_path, 'header');
+
+			if ($is_module) {
+				$script_types[$script_path] = 'module';
+			}
+		}
+
+		if ($script_types) {
+			$this->registry->set('cyberpunks_shop_head_includes_script_types', $script_types);
+		}
 	}
 
 	private function resolveImageFieldValue($path) {
@@ -251,6 +300,60 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			},
 			$text
 		);
+	}
+
+	private function decodeRepeaterValue($raw) {
+		$raw = trim((string)$raw);
+
+		if ($raw === '') {
+			return array();
+		}
+
+		$decoded = json_decode($raw, true);
+
+		if (!is_array($decoded)) {
+			return array();
+		}
+
+		$rows = array();
+
+		foreach ($decoded as $row) {
+			if (!is_array($row)) {
+				continue;
+			}
+
+			$clean_row = array();
+
+			foreach ($row as $sub_key => $sub_value) {
+				$sub_key = trim((string)$sub_key);
+
+				if ($sub_key === '') {
+					continue;
+				}
+
+				if (is_array($sub_value)) {
+					$clean_list = array();
+
+					foreach ($sub_value as $item) {
+						$item = trim((string)$item);
+
+						if ($item !== '') {
+							$clean_list[] = $item;
+						}
+					}
+
+					$clean_row[$sub_key] = $clean_list;
+				} else {
+					$clean_row[$sub_key] = (string)$sub_value;
+				}
+			}
+
+			if ($clean_row) {
+				$rows[] = $clean_row;
+			}
+		}
+
+		return $rows;
 	}
 
 	private function decodeCheckboxListValue($raw) {
