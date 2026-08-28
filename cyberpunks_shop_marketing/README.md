@@ -21,6 +21,9 @@ Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag i
 
 ## Changelog
 
+### 1.2.8
+- Consent banner buttons: drop `button-small` class (match theme button sizing)
+
 ### 1.2.7
 - Fix Extension Installer error: remove empty `catalog/view/template/` paths from the zip (OpenCart whitelist)
 
