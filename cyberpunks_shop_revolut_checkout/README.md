@@ -4,6 +4,9 @@
 - **/checkout** express — theme `checkout-revolut-express.js` (Revolut Pay / Apple Pay / Google Pay)
 - Adds `redirect_url` when creating Merchant API orders (required for Revolut Pay mobile return)
 - **1.2.1** — ships fixed admin PHP/twig that actually register Apple Pay domain and show OK/FAILED after Save
+- **1.2.9** — no email local-part name fallback (empty name stays empty)
+- **1.2.8** — slim order sync (cache file + Merchant API name only); no placeholder seeds
+- **1.2.4** — `finalizeOrder` retries + verify `order_status_id > 0`; accept Revolut state `completed`
 
 Requires the official **Revolut Gateway for OpenCart** extension (backend).
 
@@ -15,9 +18,9 @@ Requires the official **Revolut Gateway for OpenCart** extension (backend).
 ./build-ocmod.sh cyberpunks_shop_revolut_checkout
 ```
 
-2. OpenCart admin → Extensions → Installer → upload `cyberpunks_shop_revolut_checkout_1_2_1.ocmod.zip`
+2. OpenCart admin → Extensions → Installer → upload `cyberpunks_shop_revolut_checkout_1_2_9.ocmod.zip`
 3. Extensions → Modifications → **Refresh**
-4. Keep **Checkout Facade** `1.3.8+`
+4. Keep **Checkout** `1.0.19+` (no Guest/Express checkout placeholders; no email→name fallback)
 
 ## Apple Pay domain (required)
 

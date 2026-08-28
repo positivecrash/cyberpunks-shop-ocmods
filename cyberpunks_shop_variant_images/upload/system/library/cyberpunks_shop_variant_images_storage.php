@@ -131,6 +131,32 @@ class CyberpunksShopVariantImagesStorage {
 		return ltrim($image, '/');
 	}
 
+	/**
+	 * Convert a resolved cart/checkout image path to a front-end URL.
+	 * Theme assets live outside DIR_IMAGE; catalog images go through model_tool_image->resize.
+	 */
+	public static function pathToUrl($image, $model_tool_image = null, $width = 80, $height = 80) {
+		$image = ltrim((string)$image, '/');
+		if ($image === '') {
+			return '';
+		}
+
+		if (strpos($image, 'http://') === 0 || strpos($image, 'https://') === 0 || strpos($image, '//') === 0) {
+			return $image;
+		}
+
+		// Theme asset path (outside DIR_IMAGE), e.g. catalog/view/theme/...
+		if (strpos($image, 'catalog/view/theme/') === 0) {
+			return '/' . $image;
+		}
+
+		if (is_object($model_tool_image) && method_exists($model_tool_image, 'resize') && defined('DIR_IMAGE') && is_file(DIR_IMAGE . $image)) {
+			return $model_tool_image->resize($image, (int)$width, (int)$height);
+		}
+
+		return '/' . $image;
+	}
+
 	public static function expandImagePathFromStorage($image, $product_id = 0) {
 		$image = trim((string)$image);
 		if ($image === '') {

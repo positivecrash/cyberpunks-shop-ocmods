@@ -429,6 +429,11 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 			if ($this->cart->hasShipping()) {
 				$shipping_options = $this->getExpressShippingOptionsForCountryIso($country_iso);
+
+				// Ensure payable total includes a shipping method (same as createOrder will use).
+				if ($shipping_options && empty($this->session->data['shipping_method'])) {
+					$this->setExpressShippingMethodById($shipping_options[0]['id']);
+				}
 			}
 
 			$total_minor = $this->getOrderTotalMinor();
@@ -445,17 +450,22 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 			$json = array(
 				'enabled'              => true,
-				'facade_version'       => '1.0.0',
+				'facade_version'       => '1.0.19',
 				'public_token'         => $public_key,
 				'mode'                 => $this->config->get('payment_revolut_test') ? 'sandbox' : 'prod',
 				'embed_domain'         => $this->config->get('payment_revolut_test') ? 'sandbox-merchant' : 'merchant',
 				'shipping_required'    => (bool)$this->cart->hasShipping(),
+				'has_shipping_address' => $this->hasUsableExpressShippingAddress(),
 				'shipping_options'     => $shipping_options,
 				'currency'             => (string)$this->session->data['currency'],
 				'cart_amount'          => $total_minor,
 				'total'                => array('amount' => $total_minor),
 				'express_token'        => $express_token,
+				'checkout_url'         => $this->url->link('checkout/checkout', '', true),
 				'mobile_redirect_url'  => $this->url->link('extension/payment/revolut/appRedirection', '', true),
+				'customer_email'       => $this->hasRealExpressGuestEmail() ? trim((string)$this->session->data['guest']['email']) : '',
+				'customer_name'        => $this->getExpressGuestDisplayName(),
+				'customer_phone'       => $this->getExpressGuestPhone(),
 			);
 		} catch (Throwable $e) {
 			$json = array(
@@ -615,55 +625,33 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 	/**
 	 * Revolut Pay Fast checkout synchronous webhook.
-	 * Register via Merchant API: POST /api/synchronous-webhooks
 	 * event_type=fast_checkout.validate_address
-	 * url=https://your.shop/index.php?route=extension/module/cyberpunks_checkout_facade/express_validate_address
 	 */
 	public function express_validate_address() {
 		try {
 			$input = $this->getJsonInput();
-			$shipping_address = $this->extractValidateAddressPayload($input);
-
-			$token = '';
-			if (isset($input['metadata']) && is_array($input['metadata']) && isset($input['metadata']['cp_token'])) {
-				$token = (string)$input['metadata']['cp_token'];
-			}
-
-			// Currency must exist before shipping quotes call currency->format().
-			if (empty($this->session->data['currency']) && $token !== '' && isset($this->cache)) {
-				$cached = $this->cache->get('cp_express_' . $token);
-				if (is_array($cached) && !empty($cached['currency'])) {
-					$this->session->data['currency'] = $cached['currency'];
-				}
-			}
+			$raw = $this->extractValidateAddressPayload($input);
+			$address = array(
+				'countryCode' => $this->pickAddressField($raw, array('country_code', 'countryCode', 'country')),
+				'region'      => $this->pickAddressField($raw, array('region', 'administrativeArea', 'state')),
+				'city'        => $this->pickAddressField($raw, array('city', 'locality')),
+				'postcode'    => $this->pickAddressField($raw, array('postcode', 'postalCode', 'zip')),
+				'streetLine1' => $this->pickAddressField($raw, array('street_line_1', 'streetLine1', 'line_1', 'address_line_1', 'street')),
+				'streetLine2' => $this->pickAddressField($raw, array('street_line_2', 'streetLine2', 'line_2', 'address_line_2')),
+			);
 
 			if (empty($this->session->data['currency'])) {
 				$this->session->data['currency'] = $this->config->get('config_currency');
 			}
 
-			$wallet = array(
-				'address' => array(
-					'countryCode' => $this->pickAddressField($shipping_address, array('country_code', 'countryCode', 'country')),
-					'region'      => $this->pickAddressField($shipping_address, array('region', 'administrativeArea', 'state')),
-					'city'        => $this->pickAddressField($shipping_address, array('city', 'locality')),
-					'postcode'    => $this->pickAddressField($shipping_address, array('postcode', 'postalCode', 'zip')),
-					'streetLine1' => $this->pickAddressField($shipping_address, array('street_line_1', 'streetLine1', 'line_1', 'address_line_1')),
-					'streetLine2' => $this->pickAddressField($shipping_address, array('street_line_2', 'streetLine2', 'line_2', 'address_line_2')),
-				),
-			);
-
 			$this->logValidateAddress('incoming', array(
 				'order_id' => isset($input['order_id']) ? $input['order_id'] : null,
-				'address'  => $wallet['address'],
-				'raw_keys' => array_keys($shipping_address),
+				'address'  => $address,
+				'raw'      => $raw,
 			));
 
-			if (!$this->seedExpressQuoteFromWalletAddress($wallet)) {
-				$this->logValidateAddress('reject_country', $wallet['address']);
-				$this->json(array(
-					'valid'            => false,
-					'delivery_methods' => array(),
-				));
+			if (!$this->seedExpressQuoteFromWalletAddress(array('address' => $address))) {
+				$this->json(array('valid' => false, 'delivery_methods' => array()));
 				return;
 			}
 
@@ -671,26 +659,16 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			$options = $this->buildExpressShippingOptions();
 
 			if (!$options) {
-				$this->logValidateAddress('reject_no_methods', array(
-					'country_id' => isset($this->session->data['shipping_address']['country_id']) ? $this->session->data['shipping_address']['country_id'] : null,
-					'methods'    => isset($this->session->data['shipping_methods']) ? array_keys($this->session->data['shipping_methods']) : array(),
-				));
-				$this->json(array(
-					'valid'            => false,
-					'delivery_methods' => array(),
-				));
+				$this->json(array('valid' => false, 'delivery_methods' => array()));
 				return;
 			}
 
 			$delivery_methods = array();
-
 			foreach ($options as $index => $option) {
-				// Keep refs short/simple — some Revolut clients are picky about dotted ids.
 				$ref = 'ship_' . (int)$index;
 				if (!empty($option['id'])) {
 					$ref = substr(preg_replace('/[^a-zA-Z0-9_]+/', '_', (string)$option['id']), 0, 100);
 				}
-
 				$delivery_methods[] = array(
 					'ref'         => $ref,
 					'amount'      => (int)$option['amount'],
@@ -699,40 +677,17 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 				);
 			}
 
-			if ($token !== '' && isset($this->cache)) {
-				$this->cache->set('cp_express_addr_' . $token, array(
-					'address'          => $wallet['address'],
-					'delivery_methods' => $delivery_methods,
-					'shipping_options' => $options,
-					'updated'          => time(),
-				));
+			$order_ref = !empty($input['order_id']) ? (string)$input['order_id'] : '';
+			if ($order_ref !== '' && $this->isUsableWalletStreetAddress($address)) {
+				$this->saveRevolutShipCache($order_ref, $address);
+				$ok = $this->persistFastCheckoutAddressToOrder($order_ref, $address);
+				$this->logValidateAddress('persist', array('order_id' => $order_ref, 'ok' => $ok ? 'yes' : 'no', 'street' => $address['streetLine1']));
 			}
 
-			// Also cache by Revolut order id when present (metadata may be empty pre-createOrder).
-			if (!empty($input['order_id']) && isset($this->cache)) {
-				$this->cache->set('cp_express_addr_order_' . (string)$input['order_id'], array(
-					'address'          => $wallet['address'],
-					'delivery_methods' => $delivery_methods,
-					'shipping_options' => $options,
-					'updated'          => time(),
-				));
-			}
-
-			$this->logValidateAddress('ok', array(
-				'count'   => count($delivery_methods),
-				'methods' => $delivery_methods,
-			));
-
-			$this->json(array(
-				'valid'            => true,
-				'delivery_methods' => $delivery_methods,
-			));
+			$this->json(array('valid' => true, 'delivery_methods' => $delivery_methods));
 		} catch (Throwable $e) {
 			$this->logValidateAddress('exception', array('error' => $e->getMessage()));
-			$this->json(array(
-				'valid'            => false,
-				'delivery_methods' => array(),
-			));
+			$this->json(array('valid' => false, 'delivery_methods' => array()));
 		}
 	}
 
@@ -768,7 +723,7 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 				continue;
 			}
 
-			$value = trim((string)$value);
+			$value = $this->sanitizeExpressValue($value);
 
 			if ($value !== '') {
 				return $value;
@@ -776,6 +731,251 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		}
 
 		return '';
+	}
+
+	private function sanitizeExpressValue($value) {
+		$value = trim((string)$value);
+
+		if ($value === '' || strcasecmp($value, 'undefined') === 0 || strcasecmp($value, 'null') === 0) {
+			return '';
+		}
+
+		return $value;
+	}
+
+	private function isJunkExpressAddress($address) {
+		if (!is_array($address) || !$address) {
+			return true;
+		}
+
+		$address_1 = $this->sanitizeExpressValue(isset($address['address_1']) ? $address['address_1'] : '');
+		$city = $this->sanitizeExpressValue(isset($address['city']) ? $address['city'] : '');
+
+		if ($address_1 === '' || strcasecmp($address_1, 'Express checkout') === 0) {
+			return true;
+		}
+
+		if ($city === '' || strcasecmp($city, 'City') === 0) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Strip literal "undefined"/"null" from address string fields before session/SQL write.
+	 */
+	private function sanitizeExpressAddressFields(array $address) {
+		foreach (array('firstname', 'lastname', 'company', 'address_1', 'address_2', 'city', 'postcode', 'zone', 'zone_code', 'country') as $key) {
+			if (isset($address[$key])) {
+				$address[$key] = $this->sanitizeExpressValue($address[$key]);
+			}
+		}
+
+		return $address;
+	}
+
+	/**
+	 * Revolut Pay Fast-checkout cache has address only — merge guest contact so wallet apply can succeed.
+	 */
+	private function mergeGuestContactIntoWalletInput(array $input) {
+		if (!$this->hasRealExpressGuestEmail()) {
+			return $input;
+		}
+
+		$guest = $this->session->data['guest'];
+
+		if (empty($input['email']) || !filter_var(trim((string)$input['email']), FILTER_VALIDATE_EMAIL)) {
+			$input['email'] = trim((string)$guest['email']);
+		}
+
+		if (empty($input['name'])) {
+			$first = $this->sanitizeExpressValue(isset($guest['firstname']) ? $guest['firstname'] : '');
+			$last = $this->sanitizeExpressValue(isset($guest['lastname']) ? $guest['lastname'] : '');
+			$name = trim($first . ' ' . $last);
+			if ($name !== '' && strcasecmp($name, 'Guest Customer') !== 0 && strcasecmp($first, 'Guest') !== 0) {
+				$input['name'] = $name;
+			}
+		}
+
+		if (empty($input['phone']) && !empty($guest['telephone'])) {
+			$phone = $this->sanitizeExpressValue($guest['telephone']);
+			if ($phone !== '' && $phone !== '0000000') {
+				$input['phone'] = $phone;
+			}
+		}
+
+		return $input;
+	}
+
+	/**
+	 * Copy a good payment address onto junk shipping (e.g. Fast checkout "undefined").
+	 */
+	private function healExpressSessionAddresses() {
+		$payment = (!empty($this->session->data['payment_address']) && is_array($this->session->data['payment_address']))
+			? $this->session->data['payment_address']
+			: array();
+		$shipping = (!empty($this->session->data['shipping_address']) && is_array($this->session->data['shipping_address']))
+			? $this->session->data['shipping_address']
+			: array();
+
+		if (!$this->isJunkExpressAddress($payment) && $this->isJunkExpressAddress($shipping)) {
+			$this->session->data['shipping_address'] = $payment;
+		} elseif ($this->isJunkExpressAddress($payment) && !$this->isJunkExpressAddress($shipping)) {
+			$this->session->data['payment_address'] = $shipping;
+		}
+	}
+
+	/**
+	 * Prefer real checkout-form names on the guest session. Never invent a fake email.
+	 */
+	private function ensureGuestFromPaymentAddress() {
+		$payment = (!empty($this->session->data['payment_address']) && is_array($this->session->data['payment_address']))
+			? $this->session->data['payment_address']
+			: array();
+
+		if ($this->isJunkExpressAddress($payment)) {
+			return;
+		}
+
+		$firstname = $this->sanitizeExpressValue(isset($payment['firstname']) ? $payment['firstname'] : '');
+		$lastname = $this->sanitizeExpressValue(isset($payment['lastname']) ? $payment['lastname'] : '');
+
+		if ($firstname === '' || strcasecmp($firstname, 'Guest') === 0) {
+			$firstname = '';
+		}
+
+		if (empty($this->session->data['guest']) || !is_array($this->session->data['guest'])) {
+			// Do not create a placeholder guest — email must come from the form or Revolut.
+			return;
+		}
+
+		$guest = $this->session->data['guest'];
+		$g_first = $this->sanitizeExpressValue(isset($guest['firstname']) ? $guest['firstname'] : '');
+		$g_last = $this->sanitizeExpressValue(isset($guest['lastname']) ? $guest['lastname'] : '');
+
+		if (($g_first === '' || strcasecmp($g_first, 'Guest') === 0) && $firstname !== '') {
+			$this->session->data['guest']['firstname'] = $firstname;
+		}
+
+		if (($g_last === '' || strcasecmp($g_last, 'Customer') === 0) && $lastname !== '') {
+			$this->session->data['guest']['lastname'] = $lastname;
+		}
+
+		// Strip legacy placeholders if still present.
+		$email = isset($this->session->data['guest']['email']) ? trim((string)$this->session->data['guest']['email']) : '';
+		if ($email === 'express@cyberpunks.shop') {
+			$this->session->data['guest']['email'] = '';
+		}
+
+		$telephone = isset($this->session->data['guest']['telephone']) ? trim((string)$this->session->data['guest']['telephone']) : '';
+		if ($telephone === '0000000') {
+			$this->session->data['guest']['telephone'] = '';
+		}
+	}
+
+	private function hasRealExpressGuestEmail() {
+		if (empty($this->session->data['guest']) || !is_array($this->session->data['guest'])) {
+			return false;
+		}
+
+		$email = isset($this->session->data['guest']['email']) ? trim((string)$this->session->data['guest']['email']) : '';
+
+		return $email !== ''
+			&& $email !== 'express@cyberpunks.shop'
+			&& (bool)filter_var($email, FILTER_VALIDATE_EMAIL);
+	}
+
+	private function getExpressGuestDisplayName() {
+		if (empty($this->session->data['guest']) || !is_array($this->session->data['guest'])) {
+			return '';
+		}
+
+		$first = $this->sanitizeExpressValue(isset($this->session->data['guest']['firstname']) ? $this->session->data['guest']['firstname'] : '');
+		$last = $this->sanitizeExpressValue(isset($this->session->data['guest']['lastname']) ? $this->session->data['guest']['lastname'] : '');
+
+		if ($first === 'Guest') {
+			$first = '';
+		}
+
+		if ($last === 'Customer') {
+			$last = '';
+		}
+
+		return trim($first . ' ' . $last);
+	}
+
+	private function getExpressGuestPhone() {
+		if (empty($this->session->data['guest']) || !is_array($this->session->data['guest'])) {
+			return '';
+		}
+
+		$phone = $this->sanitizeExpressValue(isset($this->session->data['guest']['telephone']) ? $this->session->data['guest']['telephone'] : '');
+
+		if ($phone === '0000000') {
+			return '';
+		}
+
+		return $phone;
+	}
+
+	/**
+	 * Push contact fields from the checkout form into the guest session before Revolut Pay createOrder.
+	 * Revolut does not reliably return payer email for Pay — we must use the form email.
+	 */
+	public function express_set_contact() {
+		$json = array('success' => false);
+		$input = $this->getJsonInput();
+
+		$email = isset($input['email']) ? trim((string)$input['email']) : '';
+		$firstname = isset($input['firstname']) ? $this->sanitizeExpressValue($input['firstname']) : '';
+		$lastname = isset($input['lastname']) ? $this->sanitizeExpressValue($input['lastname']) : '';
+		$telephone = isset($input['telephone']) ? $this->sanitizeExpressValue($input['telephone']) : '';
+
+		if ($email === '' || $email === 'express@cyberpunks.shop' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+			$json['error'] = 'email_required';
+			$this->json($json);
+			return;
+		}
+
+		if (empty($this->session->data['guest']) || !is_array($this->session->data['guest'])) {
+			$this->session->data['account'] = 'guest';
+			$this->session->data['guest'] = array(
+				'customer_group_id' => $this->config->get('config_customer_group_id'),
+				'firstname'         => $firstname !== '' ? $firstname : '',
+				'lastname'          => $lastname !== '' ? $lastname : '',
+				'email'             => $email,
+				'telephone'         => $telephone !== '' ? $telephone : '',
+				'custom_field'      => array(),
+			);
+		} else {
+			$this->session->data['guest']['email'] = $email;
+			if ($firstname !== '') {
+				$this->session->data['guest']['firstname'] = $firstname;
+			}
+			if ($lastname !== '') {
+				$this->session->data['guest']['lastname'] = $lastname;
+			}
+			if ($telephone !== '') {
+				$this->session->data['guest']['telephone'] = $telephone;
+			}
+		}
+
+		foreach (array('payment_address', 'shipping_address') as $key) {
+			if (empty($this->session->data[$key]) || !is_array($this->session->data[$key])) {
+				continue;
+			}
+			if ($firstname !== '') {
+				$this->session->data[$key]['firstname'] = $firstname;
+			}
+			if ($lastname !== '') {
+				$this->session->data[$key]['lastname'] = $lastname;
+			}
+		}
+
+		$json['success'] = true;
+		$json['email'] = $email;
+		$this->json($json);
 	}
 
 	private function logValidateAddress($stage, $data) {
@@ -886,53 +1086,37 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 		$input = $this->getJsonInput();
 
-		// Apply Revolut Pay Fast checkout address cached from validate_address webhook.
-		$token = isset($this->session->data['cp_express_token']) ? (string)$this->session->data['cp_express_token'] : '';
-		if ($token !== '' && isset($this->cache) && empty($input)) {
-			$cached = $this->cache->get('cp_express_addr_' . $token);
-			if (is_array($cached) && !empty($cached['address'])) {
-				$input = array('address' => $cached['address']);
-				if (!empty($cached['shipping_options'][0]['id'])) {
-					$this->seedExpressQuoteFromWalletAddress($input);
-					$this->rebuildShippingMethodsSession();
-					$this->setExpressShippingMethodById((string)$cached['shipping_options'][0]['id']);
-				}
+		// Apple / Google Pay: full wallet payload. Revolut Pay: empty body (address comes later via webhook).
+		if ($input) {
+			$input = $this->mergeGuestContactIntoWalletInput($input);
+			$applied = $this->applyExpressWalletPayload($input);
+			if (!$applied['success']) {
+				$json['error'] = $applied['error'];
+				$this->json($json);
+				return;
 			}
 		}
 
-		if ($input) {
-			$applied = $this->applyExpressWalletPayload($input);
+		if (!$this->hasRealExpressGuestEmail()) {
+			$json['error'] = 'email_required';
+			$this->json($json);
+			return;
+		}
 
-			if (!$applied['success']) {
-				// Revolut Pay webhook may have partial contact — try quote address + guest defaults.
-				if (!$this->seedExpressQuoteFromWalletAddress($input)) {
-					$json['error'] = $applied['error'];
-					$this->json($json);
-					return;
-				}
-
-				if (empty($this->session->data['guest'])) {
-					$this->session->data['account'] = 'guest';
-					$this->session->data['guest'] = array(
-						'customer_group_id' => $this->config->get('config_customer_group_id'),
-						'firstname'         => 'Guest',
-						'lastname'          => 'Customer',
-						'email'             => 'express@cyberpunks.shop',
-						'telephone'         => '0000000',
-						'custom_field'      => array(),
-					);
-				}
-
-				if (!empty($this->session->data['shipping_address'])) {
-					$this->session->data['payment_address'] = $this->session->data['shipping_address'];
-				}
+		// Ensure payment address exists (copy shipping or country-only quote).
+		if (empty($this->session->data['payment_address']) || !is_array($this->session->data['payment_address'])) {
+			if (!empty($this->session->data['shipping_address']) && is_array($this->session->data['shipping_address'])) {
+				$this->session->data['payment_address'] = $this->session->data['shipping_address'];
+			} else {
+				$json['error'] = 'address';
+				$this->json($json);
+				return;
 			}
 		}
 
 		if ($this->cart->hasShipping() && empty($this->session->data['shipping_method'])) {
 			$this->rebuildShippingMethodsSession();
 			$options = $this->buildExpressShippingOptions();
-
 			if ($options) {
 				$this->setExpressShippingMethodById($options[0]['id']);
 			}
@@ -952,6 +1136,15 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 		unset($this->session->data['revolut_order_id']);
 
+		foreach (array('payment_address', 'shipping_address') as $key) {
+			if (empty($this->session->data[$key]) || !is_array($this->session->data[$key])) {
+				continue;
+			}
+			if (empty($this->session->data[$key]['firstname']) && !empty($this->session->data['guest']['firstname'])) {
+				$this->session->data[$key]['firstname'] = $this->session->data['guest']['firstname'];
+			}
+		}
+
 		if (!$this->createCheckoutOrderFromSession()) {
 			$json['error'] = 'order';
 			$this->json($json);
@@ -960,8 +1153,195 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 		$json['success'] = true;
 		$json['order_id'] = (int)$this->session->data['order_id'];
-
+		$json['amount_minor'] = $this->getOrderTotalMinor();
 		$this->json($json);
+	}
+
+	/**
+	 * After Revolut Pay: apply Merchant API + Fast-checkout ship cache onto the OC order.
+	 */
+	public function express_sync_from_revolut() {
+		$json = array('success' => false);
+		$input = $this->getJsonInput();
+		$public_id = isset($input['public_id']) ? trim((string)$input['public_id']) : '';
+
+		if ($public_id === '' || !is_file(DIR_APPLICATION . 'model/extension/payment/revolut.php')) {
+			$json['error'] = 'public_id';
+			$this->json($json);
+			return;
+		}
+
+		$this->load->model('extension/payment/revolut');
+		$record = $this->model_extension_payment_revolut->getOrderByRevolutPublicId($public_id);
+
+		if (empty($record['revolut_id']) || empty($record['order_id'])) {
+			$json['error'] = 'mapping';
+			$this->json($json);
+			return;
+		}
+
+		$revolut_id = (string)$record['revolut_id'];
+		$oc_order_id = (int)$record['order_id'];
+		$result = array('applied' => false, 'source' => 'none');
+
+		$sync_file = DIR_SYSTEM . 'library/cyberpunks_revolut_order_sync.php';
+		if (is_file($sync_file)) {
+			require_once($sync_file);
+			if (class_exists('CyberpunksRevolutOrderSync')) {
+				$result = CyberpunksRevolutOrderSync::applyToOpenCartOrder($this->registry, $oc_order_id, $revolut_id);
+			}
+		}
+
+		$json['success'] = true;
+		$json['order_id'] = $oc_order_id;
+		$json['sync_source'] = isset($result['source']) ? $result['source'] : 'none';
+		$this->json($json);
+	}
+
+	public function express_bind_public_id() {
+		$json = array('success' => false);
+		$input = $this->getJsonInput();
+		$public_id = isset($input['public_id']) ? trim((string)$input['public_id']) : '';
+
+		if ($public_id === '') {
+			$json['error'] = 'public_id';
+			$this->json($json);
+			return;
+		}
+
+		$this->session->data['cp_express_public_id'] = $public_id;
+
+		// Mirror ship cache from revolut_id → public token when both exist.
+		if (is_file(DIR_APPLICATION . 'model/extension/payment/revolut.php')) {
+			$this->load->model('extension/payment/revolut');
+			$record = $this->model_extension_payment_revolut->getOrderByRevolutPublicId($public_id);
+			if (!empty($record['revolut_id'])) {
+				$ship = $this->loadRevolutShipCache((string)$record['revolut_id']);
+				if ($ship) {
+					$this->saveRevolutShipCache($public_id, $ship);
+				}
+			}
+		}
+
+		$json['success'] = true;
+		$this->json($json);
+	}
+
+	private function saveRevolutShipCache($ref, array $address) {
+		$safe = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$ref);
+		if ($safe === '' || !defined('DIR_CACHE') || !$address) {
+			return false;
+		}
+		return (bool)@file_put_contents(DIR_CACHE . 'cp_revolut_ship_' . $safe . '.json', json_encode($address));
+	}
+
+	private function loadRevolutShipCache($ref) {
+		$safe = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$ref);
+		if ($safe === '' || !defined('DIR_CACHE')) {
+			return null;
+		}
+		$path = DIR_CACHE . 'cp_revolut_ship_' . $safe . '.json';
+		if (!is_file($path)) {
+			return null;
+		}
+		$decoded = json_decode((string)file_get_contents($path), true);
+		return (is_array($decoded) && $decoded) ? $decoded : null;
+	}
+
+	private function isUsableWalletStreetAddress($address) {
+		if (!is_array($address) || !$address) {
+			return false;
+		}
+		$street = $this->expressStreetLine($address, 0);
+		$city = $this->pickAddressField($address, array('city', 'locality'));
+		$postcode = $this->pickAddressField($address, array('postcode', 'postalCode', 'zip'));
+		if ($street === '') {
+			return false;
+		}
+		return ($city !== '' || $postcode !== '');
+	}
+
+	/** Write Fast-checkout shipping onto the OC draft (webhook has no shopper session). */
+	private function persistFastCheckoutAddressToOrder($revolut_ref, array $wallet_address) {
+		$revolut_ref = trim((string)$revolut_ref);
+		if ($revolut_ref === '' || !$this->isUsableWalletStreetAddress($wallet_address)) {
+			return false;
+		}
+		if (!is_file(DIR_APPLICATION . 'model/extension/payment/revolut.php')) {
+			return false;
+		}
+
+		$this->load->model('extension/payment/revolut');
+		$record = $this->model_extension_payment_revolut->getOrderByRevolutPublicId($revolut_ref);
+		if (empty($record['order_id']) && method_exists($this->model_extension_payment_revolut, 'getOrderByRevolutOrderId')) {
+			$record = $this->model_extension_payment_revolut->getOrderByRevolutOrderId($revolut_ref);
+		}
+		if (empty($record['order_id'])) {
+			return false;
+		}
+
+		$country_info = $this->getCountryByIso2($this->pickAddressField($wallet_address, array('countryCode', 'country_code', 'country')));
+		if (!$country_info) {
+			return false;
+		}
+
+		$street_1 = $this->expressStreetLine($wallet_address, 0);
+		$street_2 = $this->expressStreetLine($wallet_address, 1);
+		$city = $this->pickAddressField($wallet_address, array('city', 'locality'));
+		$postcode = $this->pickAddressField($wallet_address, array('postcode', 'postalCode', 'zip'));
+		$region = $this->pickAddressField($wallet_address, array('region', 'administrativeArea', 'state'));
+		$zone_id = $this->resolveZoneId((int)$country_info['country_id'], $region);
+		$zone_name = $region;
+
+		if ($zone_id) {
+			$this->load->model('localisation/zone');
+			$zone_info = $this->model_localisation_zone->getZone($zone_id);
+			if ($zone_info) {
+				$zone_name = $zone_info['name'];
+			}
+		}
+
+		$this->load->model('checkout/order');
+		$existing = $this->model_checkout_order->getOrder((int)$record['order_id']);
+		$firstname = $existing ? $this->sanitizeExpressValue(isset($existing['firstname']) ? $existing['firstname'] : '') : '';
+		$lastname = $existing ? $this->sanitizeExpressValue(isset($existing['lastname']) ? $existing['lastname'] : '') : '';
+		if ($firstname === '' || strcasecmp($firstname, 'Guest') === 0 || strcasecmp($firstname, 'Customer') === 0) {
+			$firstname = '';
+		}
+		if ($lastname === '' || strcasecmp($lastname, 'Customer') === 0) {
+			$lastname = '';
+		}
+
+		$oc_order_id = (int)$record['order_id'];
+		$this->db->query(
+			"UPDATE `" . DB_PREFIX . "order` SET
+				payment_firstname = '" . $this->db->escape($firstname) . "',
+				payment_lastname = '" . $this->db->escape($lastname) . "',
+				payment_address_1 = '" . $this->db->escape($street_1) . "',
+				payment_address_2 = '" . $this->db->escape($street_2) . "',
+				payment_city = '" . $this->db->escape($city) . "',
+				payment_postcode = '" . $this->db->escape($postcode) . "',
+				payment_country = '" . $this->db->escape($country_info['name']) . "',
+				payment_country_id = '" . (int)$country_info['country_id'] . "',
+				payment_zone = '" . $this->db->escape($zone_name) . "',
+				payment_zone_id = '" . (int)$zone_id . "',
+				payment_address_format = '" . $this->db->escape($country_info['address_format']) . "',
+				shipping_firstname = '" . $this->db->escape($firstname) . "',
+				shipping_lastname = '" . $this->db->escape($lastname) . "',
+				shipping_address_1 = '" . $this->db->escape($street_1) . "',
+				shipping_address_2 = '" . $this->db->escape($street_2) . "',
+				shipping_city = '" . $this->db->escape($city) . "',
+				shipping_postcode = '" . $this->db->escape($postcode) . "',
+				shipping_country = '" . $this->db->escape($country_info['name']) . "',
+				shipping_country_id = '" . (int)$country_info['country_id'] . "',
+				shipping_zone = '" . $this->db->escape($zone_name) . "',
+				shipping_zone_id = '" . (int)$zone_id . "',
+				shipping_address_format = '" . $this->db->escape($country_info['address_format']) . "',
+				date_modified = NOW()
+			WHERE order_id = '" . (int)$oc_order_id . "'"
+		);
+
+		return true;
 	}
 
 	private function loadPaymentReviewData(&$data) {
@@ -1031,7 +1411,18 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 					);
 
 					if ($resolved_image !== '') {
-						$variant_image = CyberpunksShopVariantImagesStorage::pathToUrl($resolved_image, $this->model_tool_image, 80, 80);
+						if (method_exists('CyberpunksShopVariantImagesStorage', 'pathToUrl')) {
+							$variant_image = CyberpunksShopVariantImagesStorage::pathToUrl($resolved_image, $this->model_tool_image, 80, 80);
+						} else {
+							$resolved = ltrim((string)$resolved_image, '/');
+							if (strpos($resolved, 'catalog/view/theme/') === 0) {
+								$variant_image = '/' . $resolved;
+							} elseif ($resolved !== '' && is_file(DIR_IMAGE . $resolved)) {
+								$variant_image = $this->model_tool_image->resize($resolved, 80, 80);
+							} else {
+								$variant_image = '/' . $resolved;
+							}
+						}
 					}
 				}
 			}
@@ -1405,19 +1796,19 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 		$this->session->data['account'] = 'guest';
 		$this->session->data['guest']['customer_group_id'] = $customer_group_id;
-		$this->session->data['guest']['firstname'] = $this->request->post['firstname'];
-		$this->session->data['guest']['lastname'] = $this->request->post['lastname'];
-		$this->session->data['guest']['email'] = $this->request->post['email'];
-		$this->session->data['guest']['telephone'] = $this->request->post['telephone'];
+		$this->session->data['guest']['firstname'] = $this->sanitizeExpressValue(isset($this->request->post['firstname']) ? $this->request->post['firstname'] : '');
+		$this->session->data['guest']['lastname'] = $this->sanitizeExpressValue(isset($this->request->post['lastname']) ? $this->request->post['lastname'] : '');
+		$this->session->data['guest']['email'] = $this->sanitizeExpressValue(isset($this->request->post['email']) ? $this->request->post['email'] : '');
+		$this->session->data['guest']['telephone'] = $this->sanitizeExpressValue(isset($this->request->post['telephone']) ? $this->request->post['telephone'] : '');
 		$this->session->data['guest']['custom_field'] = isset($this->request->post['custom_field']['account']) ? $this->request->post['custom_field']['account'] : array();
 
-		$this->session->data['payment_address']['firstname'] = $this->request->post['firstname'];
-		$this->session->data['payment_address']['lastname'] = $this->request->post['lastname'];
-		$this->session->data['payment_address']['company'] = $this->request->post['company'];
-		$this->session->data['payment_address']['address_1'] = $this->request->post['address_1'];
-		$this->session->data['payment_address']['address_2'] = $this->request->post['address_2'];
-		$this->session->data['payment_address']['postcode'] = $this->request->post['postcode'];
-		$this->session->data['payment_address']['city'] = $this->request->post['city'];
+		$this->session->data['payment_address']['firstname'] = $this->session->data['guest']['firstname'];
+		$this->session->data['payment_address']['lastname'] = $this->session->data['guest']['lastname'];
+		$this->session->data['payment_address']['company'] = $this->sanitizeExpressValue(isset($this->request->post['company']) ? $this->request->post['company'] : '');
+		$this->session->data['payment_address']['address_1'] = $this->sanitizeExpressValue(isset($this->request->post['address_1']) ? $this->request->post['address_1'] : '');
+		$this->session->data['payment_address']['address_2'] = $this->sanitizeExpressValue(isset($this->request->post['address_2']) ? $this->request->post['address_2'] : '');
+		$this->session->data['payment_address']['postcode'] = $this->sanitizeExpressValue(isset($this->request->post['postcode']) ? $this->request->post['postcode'] : '');
+		$this->session->data['payment_address']['city'] = $this->sanitizeExpressValue(isset($this->request->post['city']) ? $this->request->post['city'] : '');
 		$this->session->data['payment_address']['country_id'] = $this->request->post['country_id'];
 		$this->session->data['payment_address']['zone_id'] = $this->request->post['zone_id'];
 		$this->session->data['payment_address']['custom_field'] = isset($this->request->post['custom_field']['address']) ? $this->request->post['custom_field']['address'] : array();
@@ -1460,13 +1851,13 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		}
 
 		if ($this->cart->hasShipping()) {
-			$this->session->data['shipping_address']['firstname'] = $this->request->post['firstname'];
-			$this->session->data['shipping_address']['lastname'] = $this->request->post['lastname'];
-			$this->session->data['shipping_address']['company'] = $this->request->post['company'];
-			$this->session->data['shipping_address']['address_1'] = $this->request->post['address_1'];
-			$this->session->data['shipping_address']['address_2'] = $this->request->post['address_2'];
-			$this->session->data['shipping_address']['postcode'] = $this->request->post['postcode'];
-			$this->session->data['shipping_address']['city'] = $this->request->post['city'];
+			$this->session->data['shipping_address']['firstname'] = $this->session->data['guest']['firstname'];
+			$this->session->data['shipping_address']['lastname'] = $this->session->data['guest']['lastname'];
+			$this->session->data['shipping_address']['company'] = $this->session->data['payment_address']['company'];
+			$this->session->data['shipping_address']['address_1'] = $this->session->data['payment_address']['address_1'];
+			$this->session->data['shipping_address']['address_2'] = $this->session->data['payment_address']['address_2'];
+			$this->session->data['shipping_address']['postcode'] = $this->session->data['payment_address']['postcode'];
+			$this->session->data['shipping_address']['city'] = $this->session->data['payment_address']['city'];
 			$this->session->data['shipping_address']['country_id'] = $this->request->post['country_id'];
 			$this->session->data['shipping_address']['zone_id'] = $this->request->post['zone_id'];
 			$this->session->data['shipping_address']['custom_field'] = isset($this->request->post['custom_field']['address']) ? $this->request->post['custom_field']['address'] : array();
@@ -1627,10 +2018,10 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 	}
 
 	private function splitExpressName($name) {
-		$name = trim(preg_replace('/\s+/', ' ', (string)$name));
+		$name = $this->sanitizeExpressValue($name);
 
 		if ($name === '') {
-			return array('Guest', 'Customer');
+			return array('', '');
 		}
 
 		$parts = explode(' ', $name, 2);
@@ -1691,74 +2082,131 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 	}
 
 	private function extractExpressWalletAddress($input) {
+		if (isset($input['shippingAddress']) && is_array($input['shippingAddress'])) {
+			return $input['shippingAddress'];
+		}
+
 		if (isset($input['address']) && is_array($input['address'])) {
 			return $input['address'];
 		}
 
-		if (isset($input['shippingAddress']) && is_array($input['shippingAddress'])) {
-			return $input['shippingAddress'];
+		if (isset($input['billingAddress']) && is_array($input['billingAddress'])) {
+			return $input['billingAddress'];
 		}
 
 		return is_array($input) ? $input : array();
 	}
 
-	private function seedExpressQuoteFromWalletAddress($input) {
-		$address = $this->extractExpressWalletAddress($input);
-		$country_code = '';
+	private function expressStreetLine($address, $index) {
+		$index = (int)$index;
 
-		if (isset($address['countryCode'])) {
-			$country_code = $address['countryCode'];
-		} elseif (isset($address['country_code'])) {
-			$country_code = $address['country_code'];
-		} elseif (isset($address['country'])) {
-			$country_code = $address['country'];
+		// W3C: addressLine is usually an array; some Google Pay browsers send a single string.
+		if (isset($address['addressLine'])) {
+			if (is_array($address['addressLine']) && isset($address['addressLine'][$index])) {
+				$line = $this->sanitizeExpressValue($address['addressLine'][$index]);
+				if ($line !== '') {
+					return $line;
+				}
+			} elseif ($index === 0 && is_string($address['addressLine'])) {
+				$line = $this->sanitizeExpressValue($address['addressLine']);
+				if ($line !== '') {
+					return $line;
+				}
+			}
 		}
 
+		if (isset($address['addressLines'])) {
+			if (is_array($address['addressLines']) && isset($address['addressLines'][$index])) {
+				$line = $this->sanitizeExpressValue($address['addressLines'][$index]);
+				if ($line !== '') {
+					return $line;
+				}
+			} elseif ($index === 0 && is_string($address['addressLines'])) {
+				$line = $this->sanitizeExpressValue($address['addressLines']);
+				if ($line !== '') {
+					return $line;
+				}
+			}
+		}
+
+		if ($index === 0) {
+			foreach (array('streetLine1', 'street_line_1', 'line_1', 'address_line_1') as $key) {
+				if (!empty($address[$key])) {
+					$line = $this->sanitizeExpressValue($address[$key]);
+					if ($line !== '') {
+						return $line;
+					}
+				}
+			}
+		}
+
+		if ($index === 1) {
+			foreach (array('streetLine2', 'street_line_2', 'line_2', 'address_line_2') as $key) {
+				if (!empty($address[$key])) {
+					$line = $this->sanitizeExpressValue($address[$key]);
+					if ($line !== '') {
+						return $line;
+					}
+				}
+			}
+		}
+
+		return '';
+	}
+
+	private function hasUsableExpressGuestSession() {
+		if (empty($this->session->data['guest']) || !is_array($this->session->data['guest'])) {
+			return false;
+		}
+
+		$email = isset($this->session->data['guest']['email']) ? trim((string)$this->session->data['guest']['email']) : '';
+
+		if ($email === '' || $email === 'express@cyberpunks.shop' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+			return false;
+		}
+
+		return $this->hasUsableExpressShippingAddress();
+	}
+
+	private function hasUsableExpressShippingAddress() {
+		$shipping = (!empty($this->session->data['shipping_address']) && is_array($this->session->data['shipping_address']))
+			? $this->session->data['shipping_address']
+			: array();
+		$payment = (!empty($this->session->data['payment_address']) && is_array($this->session->data['payment_address']))
+			? $this->session->data['payment_address']
+			: array();
+
+		if (!$this->isJunkExpressAddress($shipping) || !$this->isJunkExpressAddress($payment)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	private function seedExpressQuoteFromWalletAddress($input) {
+		$address = $this->extractExpressWalletAddress($input);
+		$country_code = $this->pickAddressField($address, array('countryCode', 'country_code', 'country'));
 		$country_info = $this->getCountryByIso2($country_code);
 
 		if (!$country_info) {
 			return false;
 		}
 
-		$region = '';
-		if (isset($address['region'])) {
-			$region = (string)$address['region'];
-		} elseif (isset($address['administrativeArea'])) {
-			$region = (string)$address['administrativeArea'];
-		}
-
+		$region = $this->pickAddressField($address, array('region', 'administrativeArea', 'state'));
 		$zone_id = $this->resolveZoneId((int)$country_info['country_id'], $region);
-		$postcode = '';
+		$guest = (!empty($this->session->data['guest']) && is_array($this->session->data['guest'])) ? $this->session->data['guest'] : array();
+		$firstname = $this->sanitizeExpressValue(isset($guest['firstname']) ? $guest['firstname'] : '');
+		$lastname = $this->sanitizeExpressValue(isset($guest['lastname']) ? $guest['lastname'] : '');
 
-		if (isset($address['postcode'])) {
-			$postcode = trim((string)$address['postcode']);
-		} elseif (isset($address['postalCode'])) {
-			$postcode = trim((string)$address['postalCode']);
-		}
-
-		$city = '';
-		if (isset($address['city'])) {
-			$city = trim((string)$address['city']);
-		} elseif (isset($address['locality'])) {
-			$city = trim((string)$address['locality']);
-		}
-
-		if ($city === '') {
-			$city = 'City';
-		}
-
-		if ($postcode === '') {
-			$postcode = '00000';
-		}
-
+		// Zone shipping only needs country_id — never invent Guest / Express checkout / City / 00000.
 		$address_row = array(
-			'firstname'      => 'Guest',
-			'lastname'       => 'Customer',
+			'firstname'      => $firstname,
+			'lastname'       => $lastname,
 			'company'        => '',
-			'address_1'      => 'Express checkout',
-			'address_2'      => '',
-			'postcode'       => $postcode,
-			'city'           => $city,
+			'address_1'      => $this->expressStreetLine($address, 0),
+			'address_2'      => $this->expressStreetLine($address, 1),
+			'postcode'       => $this->pickAddressField($address, array('postcode', 'postalCode', 'zip')),
+			'city'           => $this->pickAddressField($address, array('city', 'locality')),
 			'country_id'     => (int)$country_info['country_id'],
 			'zone_id'        => (int)$zone_id,
 			'country'        => $country_info['name'],
@@ -1795,34 +2243,32 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			return array('success' => false, 'error' => 'country');
 		}
 
-		$region = isset($address['region']) ? (string)$address['region'] : '';
+		$region = isset($address['region']) ? $this->sanitizeExpressValue($address['region']) : '';
 		if ($region === '' && isset($address['administrativeArea'])) {
-			$region = (string)$address['administrativeArea'];
+			$region = $this->sanitizeExpressValue($address['administrativeArea']);
 		}
 		$zone_id = $this->resolveZoneId((int)$country_info['country_id'], $region);
 
-		$street_line_1 = isset($address['streetLine1']) ? trim((string)$address['streetLine1']) : '';
-		if ($street_line_1 === '' && isset($address['addressLines'][0])) {
-			$street_line_1 = trim((string)$address['addressLines'][0]);
-		}
-		$street_line_2 = isset($address['streetLine2']) ? trim((string)$address['streetLine2']) : '';
-		if ($street_line_2 === '' && isset($address['addressLines'][1])) {
-			$street_line_2 = trim((string)$address['addressLines'][1]);
-		}
-		$city = isset($address['city']) ? trim((string)$address['city']) : '';
+		$street_line_1 = $this->expressStreetLine($address, 0);
+		$street_line_2 = $this->expressStreetLine($address, 1);
+		$city = isset($address['city']) ? $this->sanitizeExpressValue($address['city']) : '';
 		if ($city === '' && isset($address['locality'])) {
-			$city = trim((string)$address['locality']);
+			$city = $this->sanitizeExpressValue($address['locality']);
 		}
-		$postcode = isset($address['postcode']) ? trim((string)$address['postcode']) : '';
+		$postcode = isset($address['postcode']) ? $this->sanitizeExpressValue($address['postcode']) : '';
 		if ($postcode === '' && isset($address['postalCode'])) {
-			$postcode = trim((string)$address['postalCode']);
+			$postcode = $this->sanitizeExpressValue($address['postalCode']);
 		}
 
-		if ($street_line_1 === '' || $city === '' || $postcode === '') {
-			if ($allow_incomplete) {
-				return array('success' => false, 'error' => 'address');
-			}
+		if ($street_line_1 === '' || $city === '') {
+			return array('success' => false, 'error' => 'address');
+		}
 
+		// Reject legacy fake seeds if they somehow reappear.
+		if (
+			strcasecmp($street_line_1, 'Express checkout') === 0
+			|| strcasecmp($city, 'City') === 0
+		) {
 			return array('success' => false, 'error' => 'address');
 		}
 
@@ -1831,6 +2277,25 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			$name = (string)$input['name'];
 		} elseif (isset($input['contact']['name'])) {
 			$name = (string)$input['contact']['name'];
+		} elseif (!empty($address['recipient'])) {
+			$name = (string)$address['recipient'];
+		} elseif (!empty($address['name'])) {
+			// Google Pay / Chrome Payment Request sometimes uses `name` instead of `recipient`.
+			$name = (string)$address['name'];
+		} elseif (!empty($address['givenName']) || !empty($address['familyName'])) {
+			$name = trim(
+				(isset($address['givenName']) ? (string)$address['givenName'] : '') . ' ' .
+				(isset($address['familyName']) ? (string)$address['familyName'] : '')
+			);
+		}
+
+		// Billing address name as last resort (Apple/Google Pay sometimes puts full contact there).
+		if ($name === '' && isset($input['billingAddress']) && is_array($input['billingAddress'])) {
+			if (!empty($input['billingAddress']['recipient'])) {
+				$name = (string)$input['billingAddress']['recipient'];
+			} elseif (!empty($input['billingAddress']['name'])) {
+				$name = (string)$input['billingAddress']['name'];
+			}
 		}
 
 		list($firstname, $lastname) = $this->splitExpressName($name);
@@ -1847,10 +2312,21 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			$telephone = trim((string)$input['phone']);
 		} elseif (isset($input['contact']['phone'])) {
 			$telephone = trim((string)$input['contact']['phone']);
+		} elseif (!empty($address['phone'])) {
+			$telephone = trim((string)$address['phone']);
 		}
 
-		if ($telephone === '') {
-			$telephone = '0000000';
+		if ($telephone === '0000000') {
+			$telephone = '';
+		}
+
+		if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+			if (!empty($this->session->data['guest']['email'])) {
+				$session_email = trim((string)$this->session->data['guest']['email']);
+				if ($session_email !== '' && $session_email !== 'express@cyberpunks.shop' && filter_var($session_email, FILTER_VALIDATE_EMAIL)) {
+					$email = $session_email;
+				}
+			}
 		}
 
 		if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -2013,14 +2489,16 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			return;
 		}
 
+		$guest = (!empty($this->session->data['guest']) && is_array($this->session->data['guest'])) ? $this->session->data['guest'] : array();
+
 		$address_row = array(
-			'firstname'      => 'Guest',
-			'lastname'       => 'Customer',
+			'firstname'      => $this->sanitizeExpressValue(isset($guest['firstname']) ? $guest['firstname'] : ''),
+			'lastname'       => $this->sanitizeExpressValue(isset($guest['lastname']) ? $guest['lastname'] : ''),
 			'company'        => '',
-			'address_1'      => 'Express checkout',
+			'address_1'      => '',
 			'address_2'      => '',
-			'postcode'       => '00000',
-			'city'           => 'City',
+			'postcode'       => '',
+			'city'           => '',
 			'country_id'     => (int)$country_info['country_id'],
 			'zone_id'        => 0,
 			'country'        => $country_info['name'],
@@ -2083,9 +2561,136 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			return false;
 		}
 
+		$this->healExpressSessionAddresses();
+
+		// Draft may still be quote-seed placeholders — express_sync_from_revolut fills real Revolut data after pay.
+		// Do not block createOrder here or Revolut Pay returns "The provided order is not valid".
+
+		// Apple Pay validate + createOrder can both call prepare — reuse draft only when total still matches.
+		if (!empty($this->session->data['order_id'])) {
+			$order_id = (int)$this->session->data['order_id'];
+			$this->load->model('checkout/order');
+			$existing = $this->model_checkout_order->getOrder($order_id);
+			$cart_total = $this->getCartGrandTotal();
+
+			if (
+				$existing
+				&& (int)$existing['order_status_id'] === 0
+				&& abs((float)$existing['total'] - $cart_total) < 0.005
+				&& $this->hasUsableExpressGuestSession()
+			) {
+				return $this->updateExpressOrderFromSession($order_id);
+			}
+
+			// Coupon / cart change left a stale draft — Revolut would get the wrong amount ("order is not valid").
+			unset($this->session->data['order_id']);
+			unset($this->session->data['revolut_order_id']);
+		}
+
 		$this->renderControllerOutput('checkout/confirm');
 
 		return !empty($this->session->data['order_id']);
+	}
+
+	private function getCartGrandTotal() {
+		$totals = array();
+		$taxes = $this->cart->getTaxes();
+		$total = 0;
+
+		$total_data = array(
+			'totals' => &$totals,
+			'taxes'  => &$taxes,
+			'total'  => &$total
+		);
+
+		$this->load->model('setting/extension');
+		$results = $this->model_setting_extension->getExtensions('total');
+		$sort_order = array();
+
+		foreach ($results as $key => $value) {
+			$sort_order[$key] = (int)$this->config->get('total_' . $value['code'] . '_sort_order');
+		}
+
+		array_multisort($sort_order, SORT_ASC, $results);
+
+		foreach ($results as $result) {
+			if ($this->config->get('total_' . $result['code'] . '_status')) {
+				$this->load->model('extension/total/' . $result['code']);
+				$this->{'model_extension_total_' . $result['code']}->getTotal($total_data);
+			}
+		}
+
+		return (float)$total;
+	}
+
+	private function updateExpressOrderFromSession($order_id) {
+		$order_id = (int)$order_id;
+		if ($order_id <= 0) {
+			return false;
+		}
+
+		$this->healExpressSessionAddresses();
+
+		$payment = !empty($this->session->data['payment_address']) && is_array($this->session->data['payment_address'])
+			? $this->sanitizeExpressAddressFields($this->session->data['payment_address'])
+			: array();
+		$shipping = !empty($this->session->data['shipping_address']) && is_array($this->session->data['shipping_address'])
+			? $this->sanitizeExpressAddressFields($this->session->data['shipping_address'])
+			: $payment;
+
+		if ($this->isJunkExpressAddress($payment) && !$this->isJunkExpressAddress($shipping)) {
+			$payment = $shipping;
+		}
+		if ($this->isJunkExpressAddress($shipping) && !$this->isJunkExpressAddress($payment)) {
+			$shipping = $payment;
+		}
+
+		$guest = (!empty($this->session->data['guest']) && is_array($this->session->data['guest'])) ? $this->session->data['guest'] : array();
+		$firstname = $this->sanitizeExpressValue(isset($guest['firstname']) ? $guest['firstname'] : '');
+		$lastname = $this->sanitizeExpressValue(isset($guest['lastname']) ? $guest['lastname'] : '');
+		$email = $this->sanitizeExpressValue(isset($guest['email']) ? $guest['email'] : '');
+		$telephone = $this->sanitizeExpressValue(isset($guest['telephone']) ? $guest['telephone'] : '');
+
+		$shipping_method = !empty($this->session->data['shipping_method']['title']) ? (string)$this->session->data['shipping_method']['title'] : '';
+		$shipping_code = !empty($this->session->data['shipping_method']['code']) ? (string)$this->session->data['shipping_method']['code'] : '';
+
+		$this->db->query(
+			"UPDATE `" . DB_PREFIX . "order` SET
+				firstname = '" . $this->db->escape($firstname) . "',
+				lastname = '" . $this->db->escape($lastname) . "',
+				email = '" . $this->db->escape($email) . "',
+				telephone = '" . $this->db->escape($telephone) . "',
+				payment_firstname = '" . $this->db->escape($firstname) . "',
+				payment_lastname = '" . $this->db->escape($lastname) . "',
+				payment_company = '" . $this->db->escape(isset($payment['company']) ? $payment['company'] : '') . "',
+				payment_address_1 = '" . $this->db->escape(isset($payment['address_1']) ? $payment['address_1'] : '') . "',
+				payment_address_2 = '" . $this->db->escape(isset($payment['address_2']) ? $payment['address_2'] : '') . "',
+				payment_city = '" . $this->db->escape(isset($payment['city']) ? $payment['city'] : '') . "',
+				payment_postcode = '" . $this->db->escape(isset($payment['postcode']) ? $payment['postcode'] : '') . "',
+				payment_country = '" . $this->db->escape(isset($payment['country']) ? $payment['country'] : '') . "',
+				payment_country_id = '" . (int)(isset($payment['country_id']) ? $payment['country_id'] : 0) . "',
+				payment_zone = '" . $this->db->escape(isset($payment['zone']) ? $payment['zone'] : '') . "',
+				payment_zone_id = '" . (int)(isset($payment['zone_id']) ? $payment['zone_id'] : 0) . "',
+				payment_address_format = '" . $this->db->escape(isset($payment['address_format']) ? $payment['address_format'] : '') . "',
+				shipping_firstname = '" . $this->db->escape($firstname) . "',
+				shipping_lastname = '" . $this->db->escape($lastname) . "',
+				shipping_company = '" . $this->db->escape(isset($shipping['company']) ? $shipping['company'] : '') . "',
+				shipping_address_1 = '" . $this->db->escape(isset($shipping['address_1']) ? $shipping['address_1'] : '') . "',
+				shipping_address_2 = '" . $this->db->escape(isset($shipping['address_2']) ? $shipping['address_2'] : '') . "',
+				shipping_city = '" . $this->db->escape(isset($shipping['city']) ? $shipping['city'] : '') . "',
+				shipping_postcode = '" . $this->db->escape(isset($shipping['postcode']) ? $shipping['postcode'] : '') . "',
+				shipping_country = '" . $this->db->escape(isset($shipping['country']) ? $shipping['country'] : '') . "',
+				shipping_country_id = '" . (int)(isset($shipping['country_id']) ? $shipping['country_id'] : 0) . "',
+				shipping_zone = '" . $this->db->escape(isset($shipping['zone']) ? $shipping['zone'] : '') . "',
+				shipping_zone_id = '" . (int)(isset($shipping['zone_id']) ? $shipping['zone_id'] : 0) . "',
+				shipping_address_format = '" . $this->db->escape(isset($shipping['address_format']) ? $shipping['address_format'] : '') . "',
+				shipping_method = '" . $this->db->escape($shipping_method) . "',
+				shipping_code = '" . $this->db->escape($shipping_code) . "',
+				date_modified = NOW()
+			WHERE order_id = '" . (int)$order_id . "'"
+		);
+
+		return true;
 	}
 
 	private function getCheckoutRedirect() {

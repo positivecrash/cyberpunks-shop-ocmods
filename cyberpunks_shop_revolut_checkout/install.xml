@@ -2,17 +2,274 @@
 <modification>
 	<name>Cyberpunks Shop Revolut Checkout</name>
 	<code>cyberpunks_shop_revolut_checkout</code>
-	<version>1.2.2</version>
+	<version>1.2.9</version>
 	<author>positivecrash</author>
-	<description>Card field on /payment, redirect_url for Revolut Pay, Apple Pay domain: reuse existing .well-known file and register via API.</description>
+	<description>Card field on /payment, soft appRedirection, reliable finalize; sync Revolut name/shipping onto OC order before status/mail.</description>
 
+	<!-- Mobile return URL on Merchant order create -->
 	<file path="catalog/controller/extension/payment/revolut.php">
-		<operation>
+		<operation error="skip">
 			<search><![CDATA[            'capture_mode' => $order_capture_mode
         ]; ]]></search>
 			<add position="replace"><![CDATA[            'capture_mode' => $order_capture_mode,
             'redirect_url' => $this->url->link('extension/payment/revolut/appRedirection', '', true)
         ]; ]]></add>
+		</operation>
+
+		<!-- Charge in the customer's currency (OC stores total in default currency). -->
+		<operation error="skip">
+			<search><![CDATA[        $total = $order_info['total']; 
+        $currency = $order_info['currency_code']; 
+        $billing = $this->getBillingDetails();]]></search>
+			<add position="replace"><![CDATA[        $currency = $order_info['currency_code'];
+        $currency_value = isset($order_info['currency_value']) ? (float)$order_info['currency_value'] : 1.0;
+        if ($currency_value <= 0) {
+            $currency_value = 1.0;
+        }
+        $total = (float)$order_info['total'] * $currency_value;
+        $billing = $this->getBillingDetails();]]></add>
+		</operation>
+
+		<!-- Cancel / fail from Revolut Pay must not dump users on the stock white error page. -->
+		<operation error="skip">
+			<search><![CDATA[    public function appRedirection()
+    {
+
+        if(isset($this->request->get['_rp_dos'])){
+            return $this->response->redirect($this->url->link('checkout/checkout'));
+        }
+
+        if (isset($this->request->get['_rp_fr'])) {
+            $error_message = $this->request->get['_rp_fr'];
+            $this->displayError($error_message);
+            return;
+        }
+
+        $publicId = isset($this->request->get['_rp_oid']) ? $this->request->get['_rp_oid'] : null;
+
+        if (!$publicId) {
+            return $this->displayError("public_id was not passed");
+        }
+
+        $this->load->model('extension/payment/revolut');
+        $order_record = $this->model_extension_payment_revolut->getOrderByRevolutPublicId($publicId);
+        
+        if (!$order_record || empty($order_record['revolut_id']) || empty($order_record['order_id'])) {
+            $this->log->write("appRedirection: oc order not found in db");
+            return $this->displayError("Payment record not found");
+        }
+
+        $oc_order_id = $order_record['order_id'];
+        $revolut_order_id = $order_record['revolut_id'];
+        
+        $this->load->model('checkout/order');
+        if (!$this->model_checkout_order->getOrder($oc_order_id)) {
+            $this->log->write("appRedirection: Missing order info for OC order ID: {$oc_order_id} / Revolut order ID: {$revolut_order_id}");
+            return $this->displayError("Missing order info");
+        }
+
+        $processResult = $this->processOrder($revolut_order_id, $oc_order_id);
+
+        if (isset($processResult['success']) && $processResult['success']) {
+            return $this->response->redirect($processResult['redirect']);
+        }
+
+        $error = isset($processResult['error'] ) ? $processResult['error']  : "Something went wrong";
+        $this->displayError($error);
+    }]]></search>
+			<add position="replace"><![CDATA[    public function appRedirection()
+    {
+        $checkout = $this->url->link('checkout/checkout', '', true);
+
+        // User dismissed Revolut Pay / cancelled in-app.
+        if (isset($this->request->get['_rp_dos'])) {
+            return $this->response->redirect($checkout);
+        }
+
+        // Failure reason from Revolut (e.g. "The provided order is not valid") — back to checkout, not white error page.
+        if (isset($this->request->get['_rp_fr'])) {
+            $this->log->write('appRedirection _rp_fr: ' . (string)$this->request->get['_rp_fr']);
+            return $this->response->redirect($checkout);
+        }
+
+        $publicId = isset($this->request->get['_rp_oid']) ? $this->request->get['_rp_oid'] : null;
+
+        if (!$publicId) {
+            return $this->response->redirect($checkout);
+        }
+
+        $this->load->model('extension/payment/revolut');
+        $order_record = $this->model_extension_payment_revolut->getOrderByRevolutPublicId($publicId);
+
+        if (!$order_record || empty($order_record['revolut_id']) || empty($order_record['order_id'])) {
+            $this->log->write('appRedirection: oc order not found in db');
+            return $this->response->redirect($checkout);
+        }
+
+        $oc_order_id = $order_record['order_id'];
+        $revolut_order_id = $order_record['revolut_id'];
+
+        $this->load->model('checkout/order');
+        if (!$this->model_checkout_order->getOrder($oc_order_id)) {
+            $this->log->write("appRedirection: Missing order info for OC order ID: {$oc_order_id} / Revolut order ID: {$revolut_order_id}");
+            return $this->response->redirect($checkout);
+        }
+
+        $processResult = $this->processOrder($revolut_order_id, $oc_order_id);
+
+        if (isset($processResult['success']) && $processResult['success']) {
+            return $this->response->redirect($processResult['redirect']);
+        }
+
+		$this->log->write('appRedirection processOrder fail: ' . (isset($processResult['error']) ? $processResult['error'] : 'unknown'));
+        return $this->response->redirect($checkout);
+    }]]></add>
+		</operation>
+
+		<!-- Stock plugin ignores addOrderHistory failures and always redirects to success → Missing Orders + no email. -->
+		<operation error="skip">
+			<search><![CDATA[    private function finalizeOrder($oc_order_id, $revolut_order_id, $order_status_id, $comment)
+    {
+        $this->addOrderHistory(
+            $oc_order_id,
+            $order_status_id,
+            $comment
+        );
+
+        try {
+            $this->updateMethodTitle($oc_order_id);
+        } catch (Exception $e) {
+            $this->log->write("finalizeOrder: Unable to update order details for Revolut order ID: {$revolut_order_id}. Error: {$e->getMessage()}");
+        }
+
+        return [
+            'success' => true,
+            'redirect' => $this->url->link('checkout/success&orderId='. $oc_order_id, '' )
+        ];
+    }]]></search>
+			<add position="replace"><![CDATA[    private function finalizeOrder($oc_order_id, $revolut_order_id, $order_status_id, $comment)
+    {
+        $oc_order_id = (int)$oc_order_id;
+        $order_status_id = (int)$order_status_id;
+
+        // BEFORE status/mail: pull name + shipping from Revolut (Merchant API + Fast-checkout cache).
+        try {
+            $sync_file = DIR_SYSTEM . 'library/cyberpunks_revolut_order_sync.php';
+            if (is_file($sync_file)) {
+                require_once($sync_file);
+                if (class_exists('CyberpunksRevolutOrderSync')) {
+                    CyberpunksRevolutOrderSync::applyToOpenCartOrder($this->registry, $oc_order_id, $revolut_order_id);
+                }
+            }
+        } catch (Exception $e) {
+            $this->log->write('finalizeOrder Revolut sync: ' . $e->getMessage());
+        }
+
+        // Retry: webhook + browser completeOrder often race on order_history_lock.
+        $history_ok = false;
+        for ($attempt = 0; $attempt < 6; $attempt++) {
+            if ($this->addOrderHistory($oc_order_id, $order_status_id, $comment)) {
+                $history_ok = true;
+                break;
+            }
+            $this->releaseLock($oc_order_id);
+            usleep(250000);
+        }
+
+        $this->load->model('checkout/order');
+        $order_info = $this->model_checkout_order->getOrder($oc_order_id);
+        $status_ok = $order_info && (int)$order_info['order_status_id'] > 0;
+
+        // Last resort without lock (status still Missing Orders / 0).
+        if (!$status_ok) {
+            try {
+                $this->model_checkout_order->addOrderHistory($oc_order_id, $order_status_id, $comment, true);
+                $order_info = $this->model_checkout_order->getOrder($oc_order_id);
+                $status_ok = $order_info && (int)$order_info['order_status_id'] > 0;
+                $history_ok = $status_ok;
+            } catch (Exception $e) {
+                $this->log->write('finalizeOrder fallback: ' . $e->getMessage());
+            }
+        }
+
+        try {
+            $this->updateMethodTitle($oc_order_id);
+        } catch (Exception $e) {
+            $this->log->write("finalizeOrder: Unable to update order details for Revolut order ID: {$revolut_order_id}. Error: {$e->getMessage()}");
+        }
+
+        if (!$status_ok) {
+            $this->log->write("finalizeOrder FAILED: OC #{$oc_order_id} still status 0 after Revolut {$revolut_order_id} (history_ok=" . ($history_ok ? '1' : '0') . ')');
+            return array(
+                'success' => false,
+                'error'   => 'Unable to confirm order. Payment may still be processing — contact the shop if charged.',
+            );
+        }
+
+        return array(
+            'success'  => true,
+            'redirect' => $this->url->link('checkout/success&orderId=' . $oc_order_id, ''),
+        );
+    }]]></add>
+		</operation>
+
+		<!-- Notify customer on status change (first 0→>0 mail also needs a real order email). -->
+		<operation error="skip">
+			<search><![CDATA[                $this->model_checkout_order->addOrderHistory($oc_order_id, $order_status_id, $comment);]]></search>
+			<add position="replace"><![CDATA[                $this->model_checkout_order->addOrderHistory($oc_order_id, $order_status_id, $comment, true);]]></add>
+		</operation>
+
+		<!-- Revolut Pay can already be "completed" when the browser confirms — stock only accepts "authorised". -->
+		<operation error="skip">
+			<search><![CDATA[        $order = $this->fetchRevolutOrder($revolut_order_id);
+        $state = isset($order['state']) ? strtolower($order['state']) : null;
+        if ($state !== 'authorised') {
+            $this->log->write("processOrder: Expected state 'authorised', got {$state} for Revolut order ID: {$revolut_order_id}");
+            return ['success' => false, 'error' => 'Order is not in authorised state.'];
+        }
+
+        // Manual capture mode
+        if ($this->config->get('payment_revolut_capture_mode') === 'MANUAL') {
+            $comment = "Revolut Payment Gateway - Order Payment Authorised. Transaction ID: {$revolut_order_id}";
+            return $this->finalizeOrder($oc_order_id, $revolut_order_id, $this->config->get('payment_revolut_authorised_status_id'), $comment);
+        }]]></search>
+			<add position="replace"><![CDATA[        $order = $this->fetchRevolutOrder($revolut_order_id);
+        $state = isset($order['state']) ? strtolower($order['state']) : null;
+
+        if ($state === 'completed') {
+            $comment = "Revolut Payment Gateway - Order Payment Completed. Transaction ID: {$revolut_order_id}";
+            return $this->finalizeOrder($oc_order_id, $revolut_order_id, $this->config->get('payment_revolut_completed_status_id'), $comment);
+        }
+
+        if ($state !== 'authorised') {
+            $this->log->write("processOrder: Expected state 'authorised' or 'completed', got {$state} for Revolut order ID: {$revolut_order_id}");
+            return array('success' => false, 'error' => 'Order is not in authorised state.');
+        }
+
+        // Manual capture mode
+        if ($this->config->get('payment_revolut_capture_mode') === 'MANUAL') {
+            $comment = "Revolut Payment Gateway - Order Payment Authorised. Transaction ID: {$revolut_order_id}";
+            return $this->finalizeOrder($oc_order_id, $revolut_order_id, $this->config->get('payment_revolut_authorised_status_id'), $comment);
+        }]]></add>
+		</operation>
+
+		<!-- Do not push OC quote placeholders ("Express checkout" / "City" / "00000") to Revolut. -->
+		<operation error="skip">
+			<search><![CDATA[        if (empty($street_line_1) || empty($post_code) || empty($city) || empty($country)) {
+            return [];
+        }]]></search>
+			<add position="replace"><![CDATA[        if (empty($street_line_1) || empty($post_code) || empty($city) || empty($country)) {
+            return [];
+        }
+        if (
+            strcasecmp((string)$street_line_1, 'Express checkout') === 0
+            || strcasecmp((string)$city, 'City') === 0
+            || (string)$post_code === '00000'
+            || strcasecmp((string)$street_line_1, 'undefined') === 0
+            || strcasecmp((string)$city, 'undefined') === 0
+        ) {
+            return [];
+        }]]></add>
 		</operation>
 	</file>
 </modification>

@@ -20,7 +20,7 @@ Theme picks cart/checkout thumbs: `variant_image` → `fields.category_image` �
    - `cyberpunks_shop_checkout_hardening`
    - `cyberpunks_shop_checkout_review_data`
    - `cyberpunks_shop_checkout_success_review_data`
-2. Upload `cyberpunks_shop_checkout_1_0_1.ocmod.zip` via **Extensions → Installer**.
+2. Upload `cyberpunks_shop_checkout_1_0_19.ocmod.zip` via **Extensions → Installer**.
 3. **Refresh** modifications.
 4. Enable **Cyberpunks Checkout Facade** under **Extensions → Extensions → Modules** (same module as before — settings keys unchanged).
 
@@ -48,6 +48,7 @@ Internal controller name stays `cyberpunks_checkout_facade` (theme + SEO URLs un
 - `extension/module/cyberpunks_checkout_facade/express_shipping`
 - `extension/module/cyberpunks_checkout_facade/express_shipping_option`
 - `extension/module/cyberpunks_checkout_facade/express_prepare_order`
+- `extension/module/cyberpunks_checkout_facade/express_sync_from_revolut` (after Revolut Pay: pull customer/shipping from Merchant API)
 - `extension/module/cyberpunks_checkout_facade/express_validate_address` (Revolut Pay Fast checkout synchronous webhook)
 
 SEO alias: `extension/cyberpunks_checkout_facade/payment` → facade payment action.
@@ -59,6 +60,10 @@ Checkout express UI (theme) uses Revolut **paymentRequest** (Apple Pay / Google 
 Revolut Pay Fast checkout needs a registered HTTPS synchronous webhook (`fast_checkout.validate_address`) pointing at `express_validate_address`.
 
 **Local note:** Revolut Pay QR / mobile app checkout cannot complete on `cyber.local`.
+
+**Apple Pay / Google Pay:** Wallet contact uses W3C `addressLine` / `recipient` / `email`. The express flow must not fall back to `express@cyberpunks.shop` placeholders when creating the OpenCart order.
+
+**Revolut Pay:** Fast checkout webhook has shipping address only (no email). After payment, `express_sync_from_revolut` copies `customer` (+ shipping) from the Merchant API into the OC order before confirm.
 
 **Apple Pay:** Register the domain once in admin: **Payments → Revolut Apple Pay / Google Pay → Save**.
 
