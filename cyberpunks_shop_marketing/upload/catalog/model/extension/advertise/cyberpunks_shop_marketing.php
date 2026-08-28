@@ -1,5 +1,10 @@
 <?php
 class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
+	private const CONSENT_CONFIG_ELEMENT_ID = 'cyberpunks-consent-config';
+	private const CONSENT_STORAGE_KEY = 'cyberpunks_google_consent';
+	private const CONSENT_DEFAULT_EXPIRY_DAYS = 30;
+	private const CONSENT_WAIT_FOR_UPDATE_MS = 500;
+
 	public function isEnabled() {
 		return (bool)$this->config->get('advertise_cyberpunks_shop_marketing_status');
 	}
@@ -41,7 +46,47 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 	public function getConsentExpiryDays() {
 		$days = (int)$this->config->get('advertise_cyberpunks_shop_marketing_consent_expiry_days');
 
-		return $days > 0 ? $days : 30;
+		return $days > 0 ? $days : self::CONSENT_DEFAULT_EXPIRY_DAYS;
+	}
+
+	private function getConsentConfig() {
+		return array(
+			'storageKey' => self::CONSENT_STORAGE_KEY,
+			'expiryDays' => $this->getConsentExpiryDays(),
+			'waitForUpdate' => self::CONSENT_WAIT_FOR_UPDATE_MS,
+		);
+	}
+
+	private function loadCatalogJavascript($filename) {
+		$file = DIR_APPLICATION . 'view/javascript/' . $filename;
+
+		if (!is_file($file) || !is_readable($file)) {
+			return '';
+		}
+
+		$contents = file_get_contents($file);
+
+		return $contents !== false ? trim($contents) : '';
+	}
+
+	private function renderCatalogTemplate($relative_path, array $vars) {
+		$file = DIR_APPLICATION . $relative_path;
+
+		if (!is_file($file) || !is_readable($file)) {
+			return '';
+		}
+
+		$html = file_get_contents($file);
+
+		if ($html === false) {
+			return '';
+		}
+
+		foreach ($vars as $key => $value) {
+			$html = str_replace('{{' . $key . '}}', $value, $html);
+		}
+
+		return trim($html);
 	}
 
 	public function getContainerId() {
@@ -57,7 +102,7 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 	public function renderHeadSnippet() {
 		$parts = array();
 
-		$consent = $this->renderGoogleConsentDefaults();
+		$consent = $this->renderGoogleConsentHead();
 		if ($consent !== '') {
 			$parts[] = $consent;
 		}
@@ -79,27 +124,23 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		return $this->renderGtmBodySnippet();
 	}
 
-	public function renderGoogleConsentDefaults() {
+	public function renderGoogleConsentHead() {
 		if (!$this->isConsentEnabled()) {
 			return '';
 		}
 
-		return "<!-- Google Consent Mode defaults -->\n"
-			. "<script>\n"
-			. "window.dataLayer = window.dataLayer || [];\n"
-			. "function gtag(){dataLayer.push(arguments);}\n"
-			. "gtag('consent', 'default', {\n"
-			. "  'ad_storage': 'denied',\n"
-			. "  'ad_user_data': 'denied',\n"
-			. "  'ad_personalization': 'denied',\n"
-			. "  'analytics_storage': 'denied',\n"
-			. "  'functionality_storage': 'denied',\n"
-			. "  'personalization_storage': 'denied',\n"
-			. "  'security_storage': 'granted',\n"
-			. "  'wait_for_update': 500\n"
-			. "});\n"
-			. "</script>\n"
-			. "<!-- End Google Consent Mode defaults -->";
+		$javascript = $this->loadCatalogJavascript('cyberpunks_google_consent.js');
+		if ($javascript === '') {
+			return '';
+		}
+
+		$config = json_encode($this->getConsentConfig(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		$config_id = self::CONSENT_CONFIG_ELEMENT_ID;
+
+		return "<!-- Google Consent Mode -->\n"
+			. '<script type="application/json" id="' . $config_id . '">' . $config . '</script>' . "\n"
+			. "<script>\n" . $javascript . "\n</script>\n"
+			. "<!-- End Google Consent Mode -->";
 	}
 
 	public function renderConsentFooterSnippet() {
@@ -135,27 +176,13 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		$deny_html = htmlspecialchars($deny_label, ENT_QUOTES, 'UTF-8');
 		$grant_html = htmlspecialchars($grant_label, ENT_QUOTES, 'UTF-8');
 
-		$config_json = json_encode(array(
-			'storageKey' => 'cyberpunks_google_consent',
-			'expiryDays' => $this->getConsentExpiryDays(),
-		), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-		if ($config_json === false) {
-			$config_json = '{"storageKey":"cyberpunks_google_consent","expiryDays":30}';
-		}
-
-		return '<div id="cyberpunks-google-consent" class="google-consent" hidden role="dialog" aria-modal="true" aria-labelledby="cyberpunks-google-consent-text">'
-			. '<div class="google-consent__panel content-medium">'
-			. '<p id="cyberpunks-google-consent-text" class="google-consent__text">'
-			. $message_html . ' See <a href="' . $privacy_url_html . '">' . $privacy_label_html . '</a>.'
-			. '</p>'
-			. '<div class="google-consent__actions">'
-			. '<button type="button" class="button button-bordered button-inline button-small" data-google-consent="deny">' . $deny_html . '</button>'
-			. '<button type="button" class="button button-green button-inline button-small" data-google-consent="grant">' . $grant_html . '</button>'
-			. '</div>'
-			. '</div>'
-			. '</div>'
-			. '<script type="application/json" id="cyberpunks-consent-config">' . $config_json . '</script>';
+		return $this->renderCatalogTemplate('view/javascript/cyberpunks_google_consent_banner.html', array(
+			'message_html' => $message_html,
+			'privacy_url_html' => $privacy_url_html,
+			'privacy_label_html' => $privacy_label_html,
+			'deny_html' => $deny_html,
+			'grant_html' => $grant_html,
+		));
 	}
 
 	public function renderGtmHeadSnippet() {

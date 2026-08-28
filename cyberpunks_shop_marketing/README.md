@@ -21,6 +21,31 @@ Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag i
 
 ## Changelog
 
+### 1.2.7
+- Fix Extension Installer error: remove empty `catalog/view/template/` paths from the zip (OpenCart whitelist)
+
+### 1.2.6
+- Move consent banner HTML to `catalog/view/javascript/` (OpenCart Installer only allows writes under whitelisted paths, not `catalog/view/template/`)
+
+### 1.2.5
+- Google consent: replay stored choice in `<head>` before GTM (fixes Meta Pixel timing for returning visitors)
+- Single `cyberpunks_google_consent.js` (defaults, early replay, banner clicks); banner markup in `view/javascript/cyberpunks_google_consent_banner.html`
+- Head JSON config: `storageKey`, `expiryDays`, `waitForUpdate` only; consent works without localStorage (in-memory for current session, Google update on click)
+
+### 1.2.4
+- Single consent script (`cyberpunks_google_consent.js`): defaults, early replay, and banner UI; theme `main-oc.js` no longer duplicates consent logic
+- One JSON config block in `<head>`; footer is banner HTML only
+
+### 1.2.3
+- Centralize consent defaults (`storageKey`, fallback expiry, `waitForUpdate`) in PHP class constants; head/footer JSON is the only config surface for JavaScript
+
+### 1.2.2
+- Refactor Google Consent head logic into `catalog/view/javascript/cyberpunks_google_consent_head.js` (defaults + stored-choice replay); PHP only injects JSON config and inlines the file
+- Shared consent helpers exposed as `window.CyberpunksConsent` for theme `main-oc.js` (banner UI)
+
+### 1.2.1
+- Replay stored Google consent choice inline in `<head>` (before GTM) so consent-gated tags see the visitor’s prior choice
+
 ### 1.2.0
 - Configurable Google cookie consent banner (admin: message, privacy link, button labels, expiry days)
 - Consent choice stored in localStorage with expiry (default 30 days); banner HTML rendered by OCMOD
@@ -80,4 +105,4 @@ View Page Source → search `cyberpunks-marketing: view_item` before `</body>`.
 
 ## Theme
 
-Marketing snippets and the consent banner are injected via OCMOD (`header` + `footer`). Theme keeps banner styles in `main-oc.css` and consent logic in `main-oc.js`.
+Marketing snippets and the consent banner are injected via OCMOD (`header` + `footer`). Consent logic: `catalog/view/javascript/cyberpunks_google_consent.js`. Banner markup: `catalog/view/javascript/cyberpunks_google_consent_banner.html`. Theme styles: `main-oc.css`.
