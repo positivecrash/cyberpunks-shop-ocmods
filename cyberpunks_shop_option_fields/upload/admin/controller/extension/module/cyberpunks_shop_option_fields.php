@@ -84,6 +84,7 @@ class ControllerExtensionModuleCyberpunksShopOptionFields extends Controller {
 		$data['entry_name'] = $this->language->get('entry_name');
 		$data['entry_swatch_color'] = $this->language->get('entry_swatch_color');
 		$data['entry_model_color'] = $this->language->get('entry_model_color');
+		$data['entry_in_stock'] = $this->language->get('entry_in_stock');
 		$data['text_enabled'] = $this->language->get('text_enabled');
 		$data['text_disabled'] = $this->language->get('text_disabled');
 		$data['text_text'] = $this->language->get('text_text');

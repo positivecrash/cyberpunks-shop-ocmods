@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Option Fields</name>
 	<code>cyberpunks_shop_option_fields</code>
-	<version>1.6.1</version>
+	<version>1.7.5</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -733,7 +733,131 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 		</operation>
 	</file>
 
+	<file path="system/library/cart/cart.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[								if ($option_value_query->row['subtract'] && (!$option_value_query->row['quantity'] || ($option_value_query->row['quantity'] < $cart['quantity']))) {
+									$stock = false;
+								}]]></search>
+			<add position="after"><![CDATA[
+								if ($stock && is_file(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php')) {
+									require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+									if (!CyberpunksPaletteStock::isProductOptionValueInStock($this->db, (int)$value)) {
+										$stock = false;
+									}
+								}
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[									if ($option_value_query->row['subtract'] && (!$option_value_query->row['quantity'] || ($option_value_query->row['quantity'] < $cart['quantity']))) {
+										$stock = false;
+									}]]></search>
+			<add position="after"><![CDATA[
+									if ($stock && is_file(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php')) {
+										require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+										if (!CyberpunksPaletteStock::isProductOptionValueInStock($this->db, (int)$product_option_value_id)) {
+											$stock = false;
+										}
+									}
+]]></add>
+		</operation>
+	</file>
+
+	<file path="system/library/cart/cart.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function hasStock() {
+		foreach ($this->getProducts() as $product) {
+			if (!$product['stock']) {
+				return false;
+			}
+		}
+
+		return true;
+	}]]></search>
+			<add position="replace"><![CDATA[	public function hasStock() {
+		foreach ($this->getProducts() as $product) {
+			if (!$product['stock']) {
+				return false;
+			}
+		}
+
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+			if (!CyberpunksPaletteStock::cartHasPaletteStock($this->db, $this->getProducts())) {
+				return false;
+			}
+		}
+
+		return true;
+	}]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/checkout/confirm.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		if ((!$this->cart->hasProducts() && empty($this->session->data['vouchers'])) || (!$this->cart->hasStock() && !$this->config->get('config_stock_checkout'))) {]]></search>
+			<add position="before"><![CDATA[
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+			if (!CyberpunksPaletteStock::cartHasPaletteStock($this->db, $this->cart->getProducts())) {
+				$this->load->language('checkout/cart');
+				$this->session->data['error'] = $this->language->get('error_stock');
+				$this->response->redirect($this->url->link('checkout/cart'));
+				return;
+			}
+		}
+
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/checkout/checkout.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function index() {
+		// Validate cart has products and has stock.
+		if ((!$this->cart->hasProducts() && empty($this->session->data['vouchers'])) || (!$this->cart->hasStock() && !$this->config->get('config_stock_checkout'))) {]]></search>
+			<add position="replace"><![CDATA[	public function index() {
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+			if (!CyberpunksPaletteStock::cartHasPaletteStock($this->db, $this->cart->getProducts())) {
+				$this->load->language('checkout/cart');
+				$this->session->data['error'] = $this->language->get('error_stock');
+				$this->response->redirect($this->url->link('checkout/cart'));
+				return;
+			}
+		}
+
+		// Validate cart has products and has stock.
+		if ((!$this->cart->hasProducts() && empty($this->session->data['vouchers'])) || (!$this->cart->hasStock() && !$this->config->get('config_stock_checkout'))) {]]></add>
+		</operation>
+	</file>
+
 	<file path="catalog/controller/checkout/cart.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		if ($this->cart->hasProducts() || !empty($this->session->data['vouchers'])) {
+			if (!$this->cart->hasStock() && (!$this->config->get('config_stock_checkout') || $this->config->get('config_stock_warning'))) {
+				$data['error_warning'] = $this->language->get('error_stock');
+			} elseif (isset($this->session->data['error'])) {]]></search>
+			<add position="replace"><![CDATA[		if ($this->cart->hasProducts() || !empty($this->session->data['vouchers'])) {
+			$cyberpunks_palette_stock_ok = true;
+
+			if (is_file(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php')) {
+				require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+				$cyberpunks_palette_stock_ok = CyberpunksPaletteStock::cartHasPaletteStock($this->db, $this->cart->getProducts());
+			}
+
+			if (!$cyberpunks_palette_stock_ok) {
+				$data['error_warning'] = $this->language->get('error_stock');
+			} elseif (!$this->cart->hasStock() && (!$this->config->get('config_stock_checkout') || $this->config->get('config_stock_warning'))) {
+				$data['error_warning'] = $this->language->get('error_stock');
+			} elseif (isset($this->session->data['error'])) {]]></add>
+		</operation>
+
 		<operation error="skip">
 			<search trim="false"><![CDATA[				$option_data = array();]]></search>
 			<add position="after"><![CDATA[
@@ -764,6 +888,45 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 			<search trim="false"><![CDATA[						'name'  => $option['name'],]]></search>
 			<add position="replace"><![CDATA[						'name'         => $option['name'],
 						'display_name' => $option_display_name,]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[				$data['products'][] = array(]]></search>
+			<add position="before"><![CDATA[
+				$cyberpunks_palette_line_ok = true;
+				$cyberpunks_palette_option_availability = array();
+
+				if (is_file(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php')) {
+					require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+					$cyberpunks_palette_line_ok = (CyberpunksPaletteStock::validateCartProductPaletteStock($this->db, $product) === '');
+					$cyberpunks_palette_option_availability = CyberpunksPaletteStock::getCartProductPaletteAvailability($this->db, $product);
+				}
+
+				$cyberpunks_product_stock = ($product['stock'] && $cyberpunks_palette_line_ok);
+
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[					'stock'     => $product['stock'] ? true : !(!$this->config->get('config_stock_checkout') || $this->config->get('config_stock_warning')),]]></search>
+			<add position="replace"><![CDATA[					'stock'     => $cyberpunks_product_stock ? true : !(!$this->config->get('config_stock_checkout') || $this->config->get('config_stock_warning')),
+					'palette_option_availability' => $cyberpunks_palette_option_availability,]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[			if (!$json) {
+				$this->cart->add($this->request->post['product_id'], $quantity, $option, $recurring_id);]]></search>
+			<add position="replace"><![CDATA[			if (!$json && is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php')) {
+				$this->load->model('extension/module/cyberpunks_shop_option_fields');
+				$cyberpunks_palette_error = $this->model_extension_module_cyberpunks_shop_option_fields->validateSelectedOptionsPaletteStock($product_id, $option);
+
+				if ($cyberpunks_palette_error !== '') {
+					$json['error']['warning'] = $cyberpunks_palette_error;
+				}
+			}
+
+			if (!$json) {
+				$this->cart->add($this->request->post['product_id'], $quantity, $option, $recurring_id);]]></add>
 		</operation>
 	</file>
 

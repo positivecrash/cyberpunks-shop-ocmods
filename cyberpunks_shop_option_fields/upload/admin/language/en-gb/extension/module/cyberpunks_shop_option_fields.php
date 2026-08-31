@@ -26,8 +26,9 @@ $_['entry_status'] = 'Status';
 $_['entry_name'] = 'Name';
 $_['entry_swatch_color'] = 'Swatch color';
 $_['entry_model_color'] = 'Model color';
+$_['entry_in_stock'] = 'In stock';
 
-$_['help_palettes'] = 'Define reusable color palettes here. Attach them on Catalog → Options and pick palette colors instead of typing hex values for every option value.';
+$_['help_palettes'] = 'Define reusable color palettes here. Attach them on Catalog → Options and pick palette colors instead of typing hex values for every option value. In stock controls whether a color swatch is selectable on the storefront (Random is available when at least one color in the palette is in stock).';
 
 $_['button_add'] = 'Add';
 $_['button_add_field'] = 'Add field';

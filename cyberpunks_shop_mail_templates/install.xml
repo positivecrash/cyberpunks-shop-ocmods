@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Mail Templates</name>
+	<code>cyberpunks_shop_mail_templates</code>
+	<version>1.1.1</version>
+	<author>positivecrash</author>
+	<link>https://github.com/positivecrash</link>
+	<description>Per order-status emails with reusable named layouts ({content}) for Paid, Pending, Processing, Shipped, Canceled, Complete.</description>
+
+	<!-- OpenCart OCMOD matches non-regex <search> against a SINGLE line only. -->
+	<file path="catalog/controller/mail/order.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$data['comment'] = strip_tags($comment);]]></search>
+			<add position="before"><![CDATA[		$data['store_name'] = $order_info['store_name'];
+		$data['firstname'] = $order_info['firstname'];
+		$data['lastname'] = $order_info['lastname'];
+]]></add>
+		</operation>
+
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$mail->setHtml($this->load->view('mail/order_add', $data));]]></search>
+			<add position="replace"><![CDATA[		$cp_mail_subject = html_entity_decode(sprintf($language->get('text_subject'), $order_info['store_name'], $order_info['order_id']), ENT_QUOTES, 'UTF-8');
+		$data['firstname'] = $order_info['firstname'];
+		$data['lastname'] = $order_info['lastname'];
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_mail_templates.php')) {
+			$this->load->model('extension/module/cyberpunks_mail_templates');
+			$this->model_extension_module_cyberpunks_mail_templates->applyOrderStatusMail($mail, 'mail/order_add', $data, $cp_mail_subject, $order_status_id, $order_info);
+		} else {
+			$mail->setSubject($cp_mail_subject);
+			$mail->setHtml($this->load->view('mail/order_add', $data));
+		}]]></add>
+		</operation>
+
+		<!-- Keep stock setSubject above; applyOrderStatusMail sets subject again when custom/layout used.
+		     Replace only setText so we do not leave duplicate setSubject before custom HTML. -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$mail->setText($this->load->view('mail/order_edit', $data));]]></search>
+			<add position="replace"><![CDATA[		$cp_mail_subject = html_entity_decode(sprintf($language->get('text_subject'), $order_info['store_name'], $order_info['order_id']), ENT_QUOTES, 'UTF-8');
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_mail_templates.php')) {
+			$this->load->model('extension/module/cyberpunks_mail_templates');
+			$this->model_extension_module_cyberpunks_mail_templates->applyOrderStatusMail($mail, 'mail/order_edit', $data, $cp_mail_subject, $order_status_id, $order_info);
+		} else {
+			$mail->setSubject($cp_mail_subject);
+			$mail->setText($this->load->view('mail/order_edit', $data));
+		}]]></add>
+		</operation>
+	</file>
+</modification>

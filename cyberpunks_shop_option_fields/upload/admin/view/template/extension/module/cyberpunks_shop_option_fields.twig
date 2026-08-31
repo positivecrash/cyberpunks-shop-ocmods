@@ -125,6 +125,7 @@
                           <td class="text-left">{{ entry_name }}</td>
                           <td class="text-left">{{ entry_swatch_color }}</td>
                           <td class="text-left">{{ entry_model_color }}</td>
+                          <td class="text-left">{{ entry_in_stock }}</td>
                           <td class="text-right">{{ entry_sort_order }}</td>
                           <td></td>
                         </tr>
@@ -139,6 +140,12 @@
                           </td>
                           <td class="text-left"><input type="text" name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][swatch_color]" value="{{ color.swatch_color is defined ? color.swatch_color : '' }}" class="form-control" /></td>
                           <td class="text-left"><input type="text" name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][model_color]" value="{{ color.model_color is defined ? color.model_color : '' }}" class="form-control" /></td>
+                          <td class="text-left">
+                            <select name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][in_stock]" class="form-control">
+                              <option value="1" {% if color.in_stock is not defined or color.in_stock %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                              <option value="0" {% if color.in_stock is defined and not color.in_stock %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                            </select>
+                          </td>
                           <td class="text-right"><input type="text" name="cyberpunks_color_palettes[{{ palette_row }}][colors][{{ color_row }}][sort_order]" value="{{ color.sort_order is defined ? color.sort_order : 0 }}" class="form-control" /></td>
                           <td class="text-right"><button type="button" onclick="$('#palette-{{ palette_row }}-color-{{ color_row }}').remove();" class="btn btn-danger" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button></td>
                         </tr>
@@ -147,7 +154,7 @@
                       </tbody>
                       <tfoot>
                         <tr>
-                          <td colspan="4"></td>
+                          <td colspan="5"></td>
                           <td class="text-right"><button type="button" onclick="addPaletteColor({{ palette_row }});" class="btn btn-primary" title="{{ button_add_color }}"><i class="fa fa-plus-circle"></i></button></td>
                         </tr>
                       </tfoot>
@@ -220,6 +227,7 @@ function addPaletteColor(paletteRow) {
   html += '  <input type="text" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][name]" value="" class="form-control" /></td>';
   html += '  <td class="text-left"><input type="text" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][swatch_color]" value="" class="form-control" /></td>';
   html += '  <td class="text-left"><input type="text" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][model_color]" value="" class="form-control" /></td>';
+  html += '  <td class="text-left"><select name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][in_stock]" class="form-control"><option value="1" selected="selected">{{ text_enabled }}</option><option value="0">{{ text_disabled }}</option></select></td>';
   html += '  <td class="text-right"><input type="text" name="cyberpunks_color_palettes[' + paletteRow + '][colors][' + colorRow + '][sort_order]" value="' + sortOrder + '" class="form-control" /></td>';
   html += '  <td class="text-right"><button type="button" onclick="$(\'#palette-' + paletteRow + '-color-' + colorRow + '\').remove();" class="btn btn-danger" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button></td>';
   html += '</tr>';
@@ -249,9 +257,10 @@ function addPalette() {
   html += '      <td class="text-left">{{ entry_name }}</td>';
   html += '      <td class="text-left">{{ entry_swatch_color }}</td>';
   html += '      <td class="text-left">{{ entry_model_color }}</td>';
+  html += '      <td class="text-left">{{ entry_in_stock }}</td>';
   html += '      <td class="text-right">{{ entry_sort_order }}</td><td></td>';
   html += '    </tr></thead><tbody></tbody>';
-  html += '    <tfoot><tr><td colspan="4"></td><td class="text-right"><button type="button" onclick="addPaletteColor(' + palette_row + ');" class="btn btn-primary" title="{{ button_add_color }}"><i class="fa fa-plus-circle"></i></button></td></tr></tfoot>';
+  html += '    <tfoot><tr><td colspan="5"></td><td class="text-right"><button type="button" onclick="addPaletteColor(' + palette_row + ');" class="btn btn-primary" title="{{ button_add_color }}"><i class="fa fa-plus-circle"></i></button></td></tr></tfoot>';
   html += '    </table>';
   html += '  </div>';
   html += '</div>';

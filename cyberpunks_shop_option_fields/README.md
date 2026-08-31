@@ -8,7 +8,7 @@ Replaces the separate `cyberpunks_shop_color_palettes` extension (merged in 1.4.
 
 - Custom field definitions (key, label, type, scope, status, sort order)
 - Per-option display mode (`show_image` + enabled field ids)
-- Color palettes (swatch hex, model hex, random) managed in the same module
+- Color palettes (swatch hex, model hex, random, **in stock**) managed in the same module
 - Attach palettes on **Catalog → Options**; option values pick a palette color
 - Storefront resolves `swatch_color`, `model_color`, and `color` from the linked palette color
 - **Product → Option**: optional **Slide #** per value → switches product gallery slide on the storefront (single number or comma-separated, e.g. `5,6`)
@@ -37,6 +37,33 @@ Replaces the separate `cyberpunks_shop_color_palettes` extension (merged in 1.4.
 (`oc_` is your `DB_PREFIX`.)
 
 ## Changelog
+
+### 1.7.5
+- Cart palette availability label keeps Display Name casing from admin (no forced lowercase)
+
+### 1.7.4
+- Cart palette availability label uses product/option Display Name instead of internal option key (e.g. `Color` not `urban-hood-color`)
+
+### 1.7.3
+- Cart line items with out-of-stock palette colors behave like standard OpenCart: `nostock` styling, `hasStock()` false, checkout blocked
+- Cart shows `Availability (color - Green): 0` for disabled palette colors
+- `Cart\Cart::hasStock()` also checks palette stock (works with checkout facade)
+- Checkout guard uses redirect; extra events for checkout facade routes
+
+### 1.7.2
+- Register catalog events for palette stock validation (cart warning, checkout block, add-to-cart block) so checks work even when core OCMOD patches are missing or skipped
+- Events auto-register on module install or next admin visit to Option Fields
+
+### 1.7.1
+- Fix cart palette stock check (`Cart\Cart` has no Loader — use `system/library/cyberpunks_palette_stock.php`)
+- Cart / checkout: standard OpenCart `error_stock` when a cart line uses an out-of-stock palette color; checkout blocked
+- Storefront: out-of-stock swatch uses diagonal strikethrough (not faded opacity)
+
+### 1.7.0
+- Color palettes: **In stock** Yes/No per color (global filament availability; no auto-decrement on order)
+- Storefront: out-of-stock palette colors → disabled swatches / select options (Random available when any palette color is in stock)
+- Cart / checkout: block add / confirm when a selected palette color is out of stock (product qty unchanged)
+- **Update in products**: preserve Slide # when option_value_id changes during palette sync (migrate gallery + product option rows)
 
 ### 1.6.1
 - Product → Option: **Display Name** next to Required (same pattern as Pick Display Name)

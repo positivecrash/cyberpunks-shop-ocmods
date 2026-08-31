@@ -44,11 +44,8 @@
 			<search><![CDATA[			$output = $this->registry->get('language')->load($route, $key);]]></search>
 			<add position="after"><![CDATA[
 			if (!$key) {
-				$cp_language_overrides_file = DIR_SYSTEM . 'library/cyberpunks_language_overrides.php';
-				if (is_file($cp_language_overrides_file)) {
-					require_once($cp_language_overrides_file);
-					CyberpunksLanguageOverrides::apply($this->registry->get('language'), $route, $this->registry->get('config'));
-				}
+				require_once(DIR_SYSTEM . 'library/cyberpunks_language_overrides.php');
+				CyberpunksLanguageOverrides::apply($this->registry->get('language'), $route, $this->registry->get('config'));
 			}
 ]]></add>
 		</operation>

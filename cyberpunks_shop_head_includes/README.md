@@ -15,6 +15,8 @@ catalog/view/theme/cybershops/js/product-oc.js
 catalog/view/theme/cybershops/css/product.css
 ```
 
+`product-oc.css` is linked from `template/product/product.twig` (palette out-of-stock swatches, other product overrides). Deploy theme files and run `./scripts/sync-theme-asset-version.sh` after edits.
+
 `product-oc.js` drives delivery text, add-to-cart AJAX, Amazon visibility. Without it the delivery block stays hidden.
 
 Disable old `product/altruist_*` rules — they are unused with the shared template.

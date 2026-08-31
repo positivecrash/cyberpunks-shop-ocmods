@@ -49,6 +49,93 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 		);
 	}
 
+	public function paletteHasInStockColor($palette_id) {
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+		return CyberpunksPaletteStock::paletteHasInStockColor($this->db, $palette_id);
+	}
+
+	public function isOptionValueInStock($option_value_id) {
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+		return CyberpunksPaletteStock::isOptionValueInStock($this->db, $option_value_id);
+	}
+
+	public function isProductOptionValueInStock($product_option_value_id) {
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+		return CyberpunksPaletteStock::isProductOptionValueInStock($this->db, $product_option_value_id);
+	}
+
+	/**
+	 * @param int   $product_id
+	 * @param array $option POST-style map: product_option_id => value or array of values
+	 * @return string Empty when OK, otherwise error message
+	 */
+	public function validateSelectedOptionsPaletteStock($product_id, array $option) {
+		$product_id = (int)$product_id;
+
+		if ($product_id <= 0 || !$option || !$this->tablesExist()) {
+			return '';
+		}
+
+		$this->load->model('catalog/product');
+		$product_options = $this->model_catalog_product->getProductOptions($product_id);
+
+		foreach ($product_options as $product_option) {
+			$product_option_id = (int)$product_option['product_option_id'];
+
+			if (!isset($option[$product_option_id]) || $option[$product_option_id] === '' || $option[$product_option_id] === array()) {
+				continue;
+			}
+
+			$selected = $option[$product_option_id];
+			$selected_ids = is_array($selected) ? $selected : array($selected);
+
+			foreach ($selected_ids as $selected_value) {
+				$product_option_value_id = (int)$selected_value;
+
+				if ($product_option_value_id <= 0) {
+					continue;
+				}
+
+				if (!$this->isProductOptionValueInStock($product_option_value_id)) {
+					$color_name = $this->getProductOptionValueLabel($product_option_value_id, isset($product_option['name']) ? $product_option['name'] : '');
+
+					return $color_name !== ''
+						? sprintf('The selected color "%s" is currently out of stock.', $color_name)
+						: 'One of the selected colors is currently out of stock.';
+				}
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Validate palette stock for a cart line item (option rows from Cart::getProducts()).
+	 */
+	public function validateCartProductPaletteStock(array $cart_product) {
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+		return CyberpunksPaletteStock::validateCartProductPaletteStock($this->db, $cart_product);
+	}
+
+	private function getProductOptionValueLabel($product_option_value_id, $fallback = '') {
+		$query = $this->db->query("SELECT ovd.name
+			FROM `" . DB_PREFIX . "product_option_value` pov
+			LEFT JOIN `" . DB_PREFIX . "option_value_description` ovd ON (pov.option_value_id = ovd.option_value_id)
+			WHERE pov.product_option_value_id = '" . (int)$product_option_value_id . "'
+			AND ovd.language_id = '" . (int)$this->config->get('config_language_id') . "'
+			LIMIT 1");
+
+		if ($query->num_rows && trim((string)$query->row['name']) !== '') {
+			return trim((string)$query->row['name']);
+		}
+
+		return trim((string)$fallback);
+	}
+
 	public function getColorFieldsForOptionValue($option_value_id) {
 		$option_value_id = (int)$option_value_id;
 
@@ -60,7 +147,9 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 			return array();
 		}
 
-		$query = $this->db->query("SELECT c.name, c.swatch_color, c.model_color, c.is_random
+		$in_stock_sql = $this->paletteColorTableHasInStockColumn() ? ', c.in_stock, c.palette_id' : '';
+
+		$query = $this->db->query("SELECT c.name, c.swatch_color, c.model_color, c.is_random" . $in_stock_sql . "
 			FROM `" . DB_PREFIX . "cyberpunks_option_value_palette_color` l
 			LEFT JOIN `" . DB_PREFIX . "cyberpunks_color_palette_color` c ON (l.color_id = c.color_id)
 			LEFT JOIN `" . DB_PREFIX . "cyberpunks_color_palette` p ON (c.palette_id = p.palette_id)
@@ -76,10 +165,13 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 		$is_random = !empty($row['is_random']) || strtolower((string)$row['swatch_color']) === 'random' || strtolower((string)$row['model_color']) === 'random';
 
 		if ($is_random) {
+			$palette_in_stock = $this->paletteHasInStockColor((int)$row['palette_id']);
+
 			return array(
 				'color' => 'random',
 				'swatch_color' => 'random',
-				'model_color' => 'random'
+				'model_color' => 'random',
+				'palette_in_stock' => $palette_in_stock
 			);
 		}
 
@@ -90,10 +182,17 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 			$model_color = $swatch_color;
 		}
 
+		$palette_in_stock = true;
+
+		if ($this->paletteColorTableHasInStockColumn()) {
+			$palette_in_stock = !empty($row['in_stock']);
+		}
+
 		return array(
 			'color' => $swatch_color,
 			'swatch_color' => $swatch_color,
-			'model_color' => $model_color
+			'model_color' => $model_color,
+			'palette_in_stock' => $palette_in_stock
 		);
 	}
 
@@ -231,6 +330,24 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 		}
 
 		return '';
+	}
+
+	private function paletteColorTableHasInStockColumn() {
+		static $has_column = null;
+
+		if ($has_column !== null) {
+			return $has_column;
+		}
+
+		if (!$this->tablesExist()) {
+			$has_column = false;
+			return $has_column;
+		}
+
+		$query = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_color_palette_color` LIKE 'in_stock'");
+		$has_column = (bool)$query->num_rows;
+
+		return $has_column;
 	}
 
 	private function displayModeTableExists() {

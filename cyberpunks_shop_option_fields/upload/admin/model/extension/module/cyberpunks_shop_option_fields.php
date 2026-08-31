@@ -69,6 +69,7 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 		}
 
 		$this->ensurePaletteSchema();
+		$this->ensurePaletteStockEvents();
 	}
 
 	private function ensurePaletteSchema() {
@@ -89,11 +90,17 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 			`swatch_color` VARCHAR(32) NOT NULL,
 			`model_color` VARCHAR(32) NOT NULL,
 			`is_random` TINYINT(1) NOT NULL DEFAULT '0',
+			`in_stock` TINYINT(1) NOT NULL DEFAULT '1',
 			`sort_order` INT(11) NOT NULL DEFAULT '0',
 			`date_modified` DATETIME NOT NULL,
 			PRIMARY KEY (`color_id`),
 			KEY `palette_id` (`palette_id`)
 		) ENGINE=MyISAM DEFAULT CHARSET=utf8");
+
+		$in_stock_column = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_color_palette_color` LIKE 'in_stock'");
+		if (!$in_stock_column->num_rows) {
+			$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_color_palette_color` ADD `in_stock` TINYINT(1) NOT NULL DEFAULT '1' AFTER `is_random`");
+		}
 
 		$this->db->query("CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "cyberpunks_option_color_palette` (
 			`option_id` INT(11) NOT NULL,
@@ -394,10 +401,44 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 	public function install() {
 		$this->ensureSchema();
 		$this->removeLegacyProductScopeFields();
+		$this->ensurePaletteStockEvents();
 	}
 
 	public function uninstall() {
-		// Keep data by default on uninstall.
+		$this->load->model('setting/event');
+		$this->model_setting_event->deleteEventByCode('cyberpunks_palette_stock');
+	}
+
+	private function ensurePaletteStockEvents() {
+		$events_version = '1.7.3';
+
+		$version_query = $this->db->query("SELECT `value` FROM `" . DB_PREFIX . "setting` WHERE `code` = 'cyberpunks_palette_stock' AND `key` = 'events_version' AND store_id = '0' LIMIT 1");
+
+		if ($version_query->num_rows && (string)$version_query->row['value'] === $events_version) {
+			return;
+		}
+
+		$this->load->model('setting/event');
+		$this->model_setting_event->deleteEventByCode('cyberpunks_palette_stock');
+
+		$events = array(
+			array('catalog/view/checkout/cart/before', 'extension/module/cyberpunks_shop_option_fields/paletteStockCartView'),
+			array('catalog/controller/checkout/checkout/before', 'extension/module/cyberpunks_shop_option_fields/paletteStockCheckoutGuard'),
+			array('catalog/controller/checkout/confirm/before', 'extension/module/cyberpunks_shop_option_fields/paletteStockCheckoutGuard'),
+			array('catalog/controller/checkout/cart/add/before', 'extension/module/cyberpunks_shop_option_fields/paletteStockCartAddGuard'),
+			array('catalog/controller/extension/module/cyberpunks_checkout_facade/confirm/before', 'extension/module/cyberpunks_shop_option_fields/paletteStockCheckoutGuard'),
+			array('catalog/controller/extension/module/cyberpunks_checkout_facade/payment/before', 'extension/module/cyberpunks_shop_option_fields/paletteStockCheckoutGuard'),
+			array('catalog/controller/extension/module/cyberpunks_checkout_facade/save_guest/before', 'extension/module/cyberpunks_shop_option_fields/paletteStockCheckoutGuard'),
+			array('catalog/controller/extension/module/cyberpunks_checkout_facade/save_payment/before', 'extension/module/cyberpunks_shop_option_fields/paletteStockCheckoutGuard'),
+			array('catalog/controller/extension/module/cyberpunks_checkout_facade/save_shipping/before', 'extension/module/cyberpunks_shop_option_fields/paletteStockCheckoutGuard'),
+		);
+
+		foreach ($events as $event) {
+			$this->model_setting_event->addEvent('cyberpunks_palette_stock', $event[0], $event[1], 1, 0);
+		}
+
+		$this->db->query("DELETE FROM `" . DB_PREFIX . "setting` WHERE `code` = 'cyberpunks_palette_stock' AND `key` = 'events_version' AND store_id = '0'");
+		$this->db->query("INSERT INTO `" . DB_PREFIX . "setting` SET store_id = '0', `code` = 'cyberpunks_palette_stock', `key` = 'events_version', `value` = '" . $this->db->escape($events_version) . "', serialized = '0'");
 	}
 
 	public function getCustomFields($only_active = false) {
@@ -741,10 +782,15 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 				$swatch_color = $this->normalizeColorValue(isset($color['swatch_color']) ? $color['swatch_color'] : '');
 				$model_color = $this->normalizeColorValue(isset($color['model_color']) ? $color['model_color'] : '');
 				$is_random = !empty($color['is_random']) ? 1 : 0;
+				$in_stock = !isset($color['in_stock']) || !empty($color['in_stock']) ? 1 : 0;
 				$color_sort_order = isset($color['sort_order']) ? (int)$color['sort_order'] : 0;
 
 				if ($color_name === '') {
 					continue;
+				}
+
+				if (strtolower($color_name) === 'random' || strtolower($swatch_color) === 'random' || strtolower($model_color) === 'random') {
+					$is_random = 1;
 				}
 
 				if ($is_random) {
@@ -761,6 +807,7 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 						swatch_color = '" . $this->db->escape($swatch_color) . "',
 						model_color = '" . $this->db->escape($model_color) . "',
 						is_random = '" . (int)$is_random . "',
+						in_stock = '" . (int)$in_stock . "',
 						sort_order = '" . (int)$color_sort_order . "',
 						date_modified = NOW()
 						WHERE color_id = '" . (int)$color_id . "'");
@@ -773,6 +820,7 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 						swatch_color = '" . $this->db->escape($swatch_color) . "',
 						model_color = '" . $this->db->escape($model_color) . "',
 						is_random = '" . (int)$is_random . "',
+						in_stock = '" . (int)$in_stock . "',
 						sort_order = '" . (int)$color_sort_order . "',
 						date_modified = NOW()");
 					$kept_color_ids[] = (int)$this->db->getLastId();
@@ -1168,6 +1216,23 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 
 		$keep_lookup = array_fill_keys($keep_option_value_ids, true);
 
+		foreach ($links as $old_option_value_id => $linked_color_id) {
+			$old_option_value_id = (int)$old_option_value_id;
+			$linked_color_id = (int)$linked_color_id;
+
+			if ($old_option_value_id <= 0 || $linked_color_id <= 0 || isset($keep_lookup[$old_option_value_id])) {
+				continue;
+			}
+
+			if (isset($color_to_option_value[$linked_color_id])) {
+				$new_option_value_id = (int)$color_to_option_value[$linked_color_id];
+
+				if ($new_option_value_id > 0 && $new_option_value_id !== $old_option_value_id) {
+					$this->migrateOptionValueReferences($old_option_value_id, $new_option_value_id);
+				}
+			}
+		}
+
 		foreach ($existing_value_ids as $option_value_id => $row) {
 			if (isset($keep_lookup[$option_value_id])) {
 				continue;
@@ -1181,6 +1246,45 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Move per-product data when catalog option_value_id changes (e.g. palette resync).
+	 */
+	private function migrateOptionValueReferences($old_option_value_id, $new_option_value_id) {
+		$old_option_value_id = (int)$old_option_value_id;
+		$new_option_value_id = (int)$new_option_value_id;
+
+		if ($old_option_value_id <= 0 || $new_option_value_id <= 0 || $old_option_value_id === $new_option_value_id) {
+			return;
+		}
+
+		$this->ensureSchema();
+
+		$this->db->query("UPDATE `" . DB_PREFIX . "product_option_value` SET option_value_id = '" . $new_option_value_id . "' WHERE option_value_id = '" . $old_option_value_id . "'");
+
+		$gallery_rows = $this->db->query("SELECT product_id, gallery_banner_index FROM `" . DB_PREFIX . "cyberpunks_product_option_gallery` WHERE option_value_id = '" . $old_option_value_id . "'");
+
+		foreach ($gallery_rows->rows as $gallery_row) {
+			$product_id = (int)$gallery_row['product_id'];
+			$index = isset($gallery_row['gallery_banner_index']) ? (string)$gallery_row['gallery_banner_index'] : '';
+			$existing = $this->db->query("SELECT gallery_banner_index FROM `" . DB_PREFIX . "cyberpunks_product_option_gallery` WHERE product_id = '" . $product_id . "' AND option_value_id = '" . $new_option_value_id . "' LIMIT 1");
+
+			if ($existing->num_rows) {
+				$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_product_option_gallery` WHERE product_id = '" . $product_id . "' AND option_value_id = '" . $old_option_value_id . "'");
+				continue;
+			}
+
+			$this->db->query("UPDATE `" . DB_PREFIX . "cyberpunks_product_option_gallery` SET
+				option_value_id = '" . $new_option_value_id . "',
+				gallery_banner_index = '" . $this->db->escape($index) . "',
+				date_modified = NOW()
+				WHERE product_id = '" . $product_id . "'
+				AND option_value_id = '" . $old_option_value_id . "'");
+		}
+
+		$this->db->query("UPDATE `" . DB_PREFIX . "cyberpunks_option_custom_field_value` SET option_value_id = '" . $new_option_value_id . "' WHERE option_value_id = '" . $old_option_value_id . "'");
+		$this->db->query("UPDATE `" . DB_PREFIX . "cyberpunks_option_value_palette_color` SET option_value_id = '" . $new_option_value_id . "', date_modified = NOW() WHERE option_value_id = '" . $old_option_value_id . "'");
 	}
 
 	private function getCustomFieldIdByKey($field_key) {

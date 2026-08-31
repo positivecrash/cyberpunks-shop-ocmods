@@ -1,0 +1,220 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-cyberpunks-mail-templates" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+        <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+    <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> {{ success }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3>
+      </div>
+      <div class="panel-body">
+        <div class="alert alert-info"><i class="fa fa-info-circle"></i> {{ text_setup_hint }}</div>
+        <div class="alert alert-warning"><i class="fa fa-code"></i> {{ text_raw_html_hint }}</div>
+
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-cyberpunks-mail-templates" class="form-horizontal">
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-status">{{ entry_status }}</label>
+            <div class="col-sm-10">
+              <select name="module_cyberpunks_mail_templates_status" id="input-status" class="form-control" style="max-width:200px">
+                <option value="1" {% if module_cyberpunks_mail_templates_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                <option value="0" {% if not module_cyberpunks_mail_templates_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+              </select>
+              <p class="help-block">{{ help_status }}</p>
+            </div>
+          </div>
+
+          <ul class="nav nav-tabs">
+            <li class="active"><a href="#tab-mail-main" data-toggle="tab">{{ text_main_tab }}</a></li>
+            {% for type in mail_types %}
+            <li><a href="#tab-mail-{{ type.code }}" data-toggle="tab">{{ type.title }}</a></li>
+            {% endfor %}
+          </ul>
+
+          <div class="tab-content">
+            <div class="tab-pane active" id="tab-mail-main">
+              <p class="help-block">{{ text_main_help }}</p>
+
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ text_variables }}</label>
+                <div class="col-sm-10">
+                  <div class="well well-sm" style="max-height:180px;overflow:auto;">
+                    <table class="table table-condensed" style="margin-bottom:0;">
+                      <tbody>
+                        {% for sc in main_shortcodes %}
+                        <tr>
+                          <td style="width:220px;"><code>{{ sc.code }}</code></td>
+                          <td>{{ sc.hint }}</td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div id="mail-layouts">
+                {% for layout in layouts %}
+                <div class="panel panel-default mail-layout-row">
+                  <div class="panel-heading clearfix">
+                    <strong>{{ text_layout_item }} #{{ loop.index }}</strong>
+                    <button type="button" class="btn btn-danger btn-xs pull-right button-remove-layout"><i class="fa fa-minus-circle"></i> {{ button_remove }}</button>
+                  </div>
+                  <div class="panel-body">
+                    <input type="hidden" name="module_cyberpunks_mail_templates_layouts[{{ loop.index0 }}][id]" value="{{ layout.id }}" />
+                    <div class="form-group">
+                      <label class="col-sm-2 control-label">{{ entry_layout_name }}</label>
+                      <div class="col-sm-10">
+                        <input type="text" name="module_cyberpunks_mail_templates_layouts[{{ loop.index0 }}][name]" value="{{ layout.name }}" class="form-control" />
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label class="col-sm-2 control-label">{{ entry_layout_html }}</label>
+                      <div class="col-sm-10">
+                        <textarea name="module_cyberpunks_mail_templates_layouts[{{ loop.index0 }}][html]" rows="22" class="form-control layout-html cp-mail-raw-html" spellcheck="false" style="font-family:Menlo,Monaco,Consolas,monospace;font-size:12px;">{{ layout.html }}</textarea>
+                        <p class="help-block">{{ help_layout_html }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+
+              <button type="button" id="button-add-layout" class="btn btn-primary"><i class="fa fa-plus-circle"></i> {{ button_add_layout }}</button>
+            </div>
+
+            {% for type in mail_types %}
+            <div class="tab-pane" id="tab-mail-{{ type.code }}">
+              <p class="help-block">{{ type.help }}</p>
+              {% if type.status_found %}
+              <p class="text-success"><i class="fa fa-check"></i> {{ text_status_mapped }}: <strong>{{ type.status_name }}</strong> (ID {{ type.status_id }})</p>
+              {% else %}
+              <div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> {{ text_status_missing }}</div>
+              {% endif %}
+
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-layout-{{ type.code }}">{{ entry_layout }}</label>
+                <div class="col-sm-10">
+                  <select name="module_cyberpunks_mail_templates_layout[{{ type.code }}]" id="input-layout-{{ type.code }}" class="form-control" style="max-width:360px">
+                    <option value="">{{ text_layout_none }}</option>
+                    {% for layout in layouts %}
+                    <option value="{{ layout.id }}"{% if type.layout_id == layout.id %} selected="selected"{% endif %}>{{ layout.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <p class="help-block">{{ help_layout }}</p>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-subject-{{ type.code }}">{{ entry_subject }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="module_cyberpunks_mail_templates_subject[{{ type.code }}]" value="{{ type.subject }}" placeholder="{{ type.default_subject }}" id="input-subject-{{ type.code }}" class="form-control" />
+                  <p class="help-block">{{ help_subject }} Default: <code>{{ type.default_subject }}</code></p>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ text_variables }}</label>
+                <div class="col-sm-10">
+                  <div class="well well-sm" style="max-height:220px;overflow:auto;">
+                    <table class="table table-condensed" style="margin-bottom:0;">
+                      <tbody>
+                        {% for sc in type.shortcodes %}
+                        <tr>
+                          <td style="width:220px;"><code>{{ sc.code }}</code></td>
+                          <td>{{ sc.hint }}</td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-html-{{ type.code }}">{{ text_html }}</label>
+                <div class="col-sm-10">
+                  <textarea name="module_cyberpunks_mail_templates_html[{{ type.code }}]" id="input-html-{{ type.code }}" rows="16" class="form-control cp-mail-raw-html" spellcheck="false" style="font-family:Menlo,Monaco,Consolas,monospace;font-size:12px;">{{ type.html }}</textarea>
+                  <p class="help-block">{{ help_status_html }}</p>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript"><!--
+var layout_row = {{ layouts|length }};
+
+function cpDisableMailSummernote($scope) {
+  ($scope || $('#form-cyberpunks-mail-templates')).find('textarea.cp-mail-raw-html').each(function() {
+    var $ta = $(this);
+
+    $ta.removeAttr('data-toggle');
+    $ta.removeAttr('data-lang');
+
+    if ($ta.next('.note-editor').length && typeof $ta.summernote === 'function') {
+      $ta.summernote('destroy');
+    }
+  });
+}
+
+cpDisableMailSummernote();
+
+$('#button-add-layout').on('click', function() {
+  var html = '';
+  html += '<div class="panel panel-default mail-layout-row">';
+  html += '  <div class="panel-heading clearfix">';
+  html += '    <strong>{{ text_layout_item }} #' + (layout_row + 1) + '</strong>';
+  html += '    <button type="button" class="btn btn-danger btn-xs pull-right button-remove-layout"><i class="fa fa-minus-circle"></i> {{ button_remove }}</button>';
+  html += '  </div>';
+  html += '  <div class="panel-body">';
+  html += '    <input type="hidden" name="module_cyberpunks_mail_templates_layouts[' + layout_row + '][id]" value="tpl_' + Date.now().toString(36) + '" />';
+  html += '    <div class="form-group">';
+  html += '      <label class="col-sm-2 control-label">{{ entry_layout_name }}</label>';
+  html += '      <div class="col-sm-10"><input type="text" name="module_cyberpunks_mail_templates_layouts[' + layout_row + '][name]" value="" placeholder="Default" class="form-control" /></div>';
+  html += '    </div>';
+  html += '    <div class="form-group">';
+  html += '      <label class="col-sm-2 control-label">{{ entry_layout_html }}</label>';
+  html += '      <div class="col-sm-10">';
+  html += '        <textarea name="module_cyberpunks_mail_templates_layouts[' + layout_row + '][html]" rows="22" class="form-control layout-html cp-mail-raw-html" spellcheck="false" style="font-family:Menlo,Monaco,Consolas,monospace;font-size:12px;"></textarea>';
+  html += '        <p class="help-block">{{ help_layout_html }}</p>';
+  html += '      </div>';
+  html += '    </div>';
+  html += '  </div>';
+  html += '</div>';
+
+  $('#mail-layouts').append(html);
+  cpDisableMailSummernote($('#mail-layouts .mail-layout-row:last'));
+  layout_row++;
+});
+
+$('#mail-layouts').on('click', '.button-remove-layout', function() {
+  $(this).closest('.mail-layout-row').remove();
+});
+//--></script>
+{{ footer }}
