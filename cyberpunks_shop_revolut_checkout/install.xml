@@ -297,5 +297,11 @@
 			<search><![CDATA['redirect' => $this->url->link('checkout/success&orderId=' . $oc_order_id, '')]]></search>
 			<add position="replace"><![CDATA['redirect' => $this->url->link('checkout/success', 'orderId=' . (int)$oc_order_id, true)]]></add>
 		</operation>
-	</file>
+
+		<!-- Webhook used raw event name ORDER_COMPLETED in customer-facing history/email comment. -->
+		<operation error="skip">
+			<search><![CDATA[$comment = "Revolut Payment Gateway - Order Payment {$event}. Transaction ID: {$revolut_id}";]]></search>
+			<add position="replace"><![CDATA[$comment = "Revolut Payment Gateway - Order Payment Completed. Transaction ID: {$revolut_id}";]]></add>
+		</operation>
+	</file> 
 </modification>
