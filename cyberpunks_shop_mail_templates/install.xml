@@ -2,12 +2,12 @@
 <modification>
 	<name>Cyberpunks Shop Mail Templates</name>
 	<code>cyberpunks_shop_mail_templates</code>
-	<version>1.1.1</version>
+	<version>1.1.5</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 	<description>Per order-status emails with reusable named layouts ({content}) for Paid, Pending, Processing, Shipped, Canceled, Complete.</description>
 
-	<!-- OpenCart OCMOD matches non-regex <search> against a SINGLE line only. -->
+	<!-- OpenCart OCMOD matches non-regex &lt;search&gt; against a SINGLE line only. -->
 	<file path="catalog/controller/mail/order.php">
 		<operation error="skip">
 			<search trim="false"><![CDATA[		$data['comment'] = strip_tags($comment);]]></search>

@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Checkout</name>
 	<code>cyberpunks_shop_checkout</code>
-	<version>1.0.19</version>
+	<version>1.0.24</version>
 	<author>positivecrash</author>
 	<description>Unified checkout: facade API, hardening, review data for checkout and success pages.</description>
 
@@ -19,6 +19,29 @@
 			<add position="replace"><![CDATA[$this->session->data['comment'] = strip_tags(isset($this->request->post['comment']) ? $this->request->post['comment'] : '');]]></add>
 		</operation>
 	</file>
+
+	<!-- Single-address guest checkout: force payment → shipping immediately before order insert. -->
+	<file path="catalog/controller/checkout/confirm.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[		if ($this->cart->hasShipping()) {
+			// Validate if shipping address has been set.
+			if (!isset($this->session->data['shipping_address'])) {
+				$redirect = $this->url->link('checkout/checkout', '', true);
+			}]]></search>
+			<add position="before"><![CDATA[
+		// Cyberpunks: one checkout address — always copy payment_address onto shipping_address
+		// before OpenCart builds the order (express quote seeding can leave shipping country-only).
+		if ($this->cart->hasShipping() && !empty($this->session->data['payment_address']) && is_array($this->session->data['payment_address'])) {
+			$cp_pay_line = isset($this->session->data['payment_address']['address_1']) ? trim((string)$this->session->data['payment_address']['address_1']) : '';
+			if ($cp_pay_line !== '' && strcasecmp($cp_pay_line, 'undefined') !== 0 && strcasecmp($cp_pay_line, 'null') !== 0) {
+				$this->session->data['shipping_address'] = $this->session->data['payment_address'];
+			}
+		}
+
+]]></add>
+		</operation>
+	</file>
+
 	<file path="catalog/controller/checkout/checkout.php">
 		<operation error="skip">
 			<search trim="true"><![CDATA[$data['shipping_required'] = $this->cart->hasShipping();]]></search>
@@ -304,7 +327,12 @@
 				}
 
 				$shipping_parts = array();
-				foreach (array('shipping_postcode', 'shipping_country', 'shipping_zone', 'shipping_city', 'shipping_address_1', 'shipping_address_2') as $cp_ship_key) {
+				$cp_addr_prefix = 'shipping_';
+				// Fallback: older drafts may only have payment_* populated.
+				if (empty($order_info['shipping_address_1']) && !empty($order_info['payment_address_1'])) {
+					$cp_addr_prefix = 'payment_';
+				}
+				foreach (array($cp_addr_prefix . 'postcode', $cp_addr_prefix . 'country', $cp_addr_prefix . 'zone', $cp_addr_prefix . 'city', $cp_addr_prefix . 'address_1', $cp_addr_prefix . 'address_2') as $cp_ship_key) {
 					if (empty($order_info[$cp_ship_key])) {
 						continue;
 					}

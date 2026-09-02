@@ -357,6 +357,7 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		if ($redirect) {
 			$json['redirect'] = $redirect;
 		} else {
+			$this->healExpressSessionAddresses();
 			$json['confirm_html'] = $this->renderControllerOutput('checkout/confirm');
 		}
 
@@ -381,12 +382,41 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		// checkout/confirm requires $this->session->data['payment_method'] to create an order.
 		$this->renderPaymentMethodSection();
 
+		// Express quote seeding may leave shipping_address as country-only while payment_address
+		// has the full guest form — mirror before checkout/confirm writes the OC order.
+		$this->healExpressSessionAddresses();
+
+		// Session may still point at an order paid in a previous attempt (e.g. sandbox webhook).
+		if (!empty($this->session->data['order_id'])) {
+			$existing_order_id = (int)$this->session->data['order_id'];
+			$this->load->model('checkout/order');
+			$existing_order = $this->model_checkout_order->getOrder($existing_order_id);
+
+			if ($existing_order && (int)$existing_order['order_status_id'] > 0) {
+				$this->response->redirect($this->url->link('checkout/success', 'orderId=' . $existing_order_id, true));
+				return;
+			}
+		}
+
 		// /payment should always create a fresh Revolut order for the current checkout session.
 		unset($this->session->data['revolut_order_id']);
 
 		// Run checkout/confirm to ensure an OpenCart order is created and stored in session.
 		// Do NOT render its HTML on /payment (it contains default table layout).
 		$this->renderControllerOutput('checkout/confirm');
+
+		if (!empty($this->session->data['order_id'])) {
+			$oc_order_id = (int)$this->session->data['order_id'];
+			$this->load->model('checkout/order');
+			$order_info = $this->model_checkout_order->getOrder($oc_order_id);
+
+			if ($order_info && (int)$order_info['order_status_id'] > 0) {
+				$this->response->redirect($this->url->link('checkout/success', 'orderId=' . $oc_order_id, true));
+				return;
+			}
+
+			$data['order_id'] = $oc_order_id;
+		}
 
 		// Render just the payment widget/form for the selected payment method.
 		$code = 'revolut_card';
@@ -450,7 +480,7 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 			$json = array(
 				'enabled'              => true,
-				'facade_version'       => '1.0.19',
+				'facade_version'       => '1.0.21',
 				'public_token'         => $public_key,
 				'mode'                 => $this->config->get('payment_revolut_test') ? 'sandbox' : 'prod',
 				'embed_domain'         => $this->config->get('payment_revolut_test') ? 'sandbox-merchant' : 'merchant',
@@ -809,9 +839,14 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 	}
 
 	/**
-	 * Copy a good payment address onto junk shipping (e.g. Fast checkout "undefined").
+	 * Single-address checkout: always keep shipping_address identical to a usable payment_address.
+	 * Express quote seeding previously left shipping as country-only while payment stayed full.
 	 */
 	private function healExpressSessionAddresses() {
+		if (!$this->cart->hasShipping()) {
+			return;
+		}
+
 		$payment = (!empty($this->session->data['payment_address']) && is_array($this->session->data['payment_address']))
 			? $this->session->data['payment_address']
 			: array();
@@ -819,9 +854,12 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			? $this->session->data['shipping_address']
 			: array();
 
-		if (!$this->isJunkExpressAddress($payment) && $this->isJunkExpressAddress($shipping)) {
+		if (!$this->isJunkExpressAddress($payment)) {
 			$this->session->data['shipping_address'] = $payment;
-		} elseif ($this->isJunkExpressAddress($payment) && !$this->isJunkExpressAddress($shipping)) {
+			return;
+		}
+
+		if (!$this->isJunkExpressAddress($shipping)) {
 			$this->session->data['payment_address'] = $shipping;
 		}
 	}
@@ -1851,37 +1889,8 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		}
 
 		if ($this->cart->hasShipping()) {
-			$this->session->data['shipping_address']['firstname'] = $this->session->data['guest']['firstname'];
-			$this->session->data['shipping_address']['lastname'] = $this->session->data['guest']['lastname'];
-			$this->session->data['shipping_address']['company'] = $this->session->data['payment_address']['company'];
-			$this->session->data['shipping_address']['address_1'] = $this->session->data['payment_address']['address_1'];
-			$this->session->data['shipping_address']['address_2'] = $this->session->data['payment_address']['address_2'];
-			$this->session->data['shipping_address']['postcode'] = $this->session->data['payment_address']['postcode'];
-			$this->session->data['shipping_address']['city'] = $this->session->data['payment_address']['city'];
-			$this->session->data['shipping_address']['country_id'] = $this->request->post['country_id'];
-			$this->session->data['shipping_address']['zone_id'] = $this->request->post['zone_id'];
-			$this->session->data['shipping_address']['custom_field'] = isset($this->request->post['custom_field']['address']) ? $this->request->post['custom_field']['address'] : array();
-
-			if ($country_info) {
-				$this->session->data['shipping_address']['country'] = $country_info['name'];
-				$this->session->data['shipping_address']['iso_code_2'] = $country_info['iso_code_2'];
-				$this->session->data['shipping_address']['iso_code_3'] = $country_info['iso_code_3'];
-				$this->session->data['shipping_address']['address_format'] = $country_info['address_format'];
-			} else {
-				$this->session->data['shipping_address']['country'] = '';
-				$this->session->data['shipping_address']['iso_code_2'] = '';
-				$this->session->data['shipping_address']['iso_code_3'] = '';
-				$this->session->data['shipping_address']['address_format'] = '';
-			}
-
-			if ($zone_info) {
-				$this->session->data['shipping_address']['zone'] = $zone_info['name'];
-				$this->session->data['shipping_address']['zone_code'] = $zone_info['code'];
-			} else {
-				$this->session->data['shipping_address']['zone'] = '';
-				$this->session->data['shipping_address']['zone_code'] = '';
-			}
-
+			// Always mirror the full payment address (do not leave a country-only shipping row).
+			$this->session->data['shipping_address'] = $this->session->data['payment_address'];
 			$this->tax->setShippingAddress((int)$this->request->post['country_id'], (int)$this->request->post['zone_id']);
 		}
 
@@ -2486,6 +2495,43 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		$country_info = $this->model_localisation_country->getCountry((int)$country_id);
 
 		if (!$country_info) {
+			return;
+		}
+
+		$existing = (!empty($this->session->data['shipping_address']) && is_array($this->session->data['shipping_address']))
+			? $this->session->data['shipping_address']
+			: array();
+
+		// Never wipe a real guest/payment street address — zone shipping only needs country_id.
+		if (!$this->isJunkExpressAddress($existing)) {
+			$zone_id = isset($existing['zone_id']) ? (int)$existing['zone_id'] : 0;
+
+			if ((int)$existing['country_id'] !== (int)$country_info['country_id']) {
+				$existing['country_id'] = (int)$country_info['country_id'];
+				$existing['country'] = $country_info['name'];
+				$existing['iso_code_2'] = $country_info['iso_code_2'];
+				$existing['iso_code_3'] = $country_info['iso_code_3'];
+				$existing['address_format'] = $country_info['address_format'];
+				$existing['zone_id'] = 0;
+				$existing['zone'] = '';
+				$existing['zone_code'] = '';
+				$zone_id = 0;
+				$this->session->data['shipping_address'] = $existing;
+			}
+
+			$this->tax->setShippingAddress((int)$country_info['country_id'], $zone_id);
+			return;
+		}
+
+		// Prefer copying a usable payment address rather than country-only placeholders.
+		$payment = (!empty($this->session->data['payment_address']) && is_array($this->session->data['payment_address']))
+			? $this->session->data['payment_address']
+			: array();
+
+		if (!$this->isJunkExpressAddress($payment)) {
+			$this->session->data['shipping_address'] = $payment;
+			$zone_id = isset($payment['zone_id']) ? (int)$payment['zone_id'] : 0;
+			$this->tax->setShippingAddress((int)$payment['country_id'], $zone_id);
 			return;
 		}
 

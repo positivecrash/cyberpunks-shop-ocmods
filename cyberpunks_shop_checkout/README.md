@@ -20,7 +20,7 @@ Theme picks cart/checkout thumbs: `variant_image` → `fields.category_image` �
    - `cyberpunks_shop_checkout_hardening`
    - `cyberpunks_shop_checkout_review_data`
    - `cyberpunks_shop_checkout_success_review_data`
-2. Upload `cyberpunks_shop_checkout_1_0_19.ocmod.zip` via **Extensions → Installer**.
+2. Upload `cyberpunks_shop_checkout_1_0_22.ocmod.zip` via **Extensions → Installer**.
 3. **Refresh** modifications.
 4. Enable **Cyberpunks Checkout Facade** under **Extensions → Extensions → Modules** (same module as before — settings keys unchanged).
 
@@ -51,7 +51,14 @@ Internal controller name stays `cyberpunks_checkout_facade` (theme + SEO URLs un
 - `extension/module/cyberpunks_checkout_facade/express_sync_from_revolut` (after Revolut Pay: pull customer/shipping from Merchant API)
 - `extension/module/cyberpunks_checkout_facade/express_validate_address` (Revolut Pay Fast checkout synchronous webhook)
 
-SEO alias: `extension/cyberpunks_checkout_facade/payment` → facade payment action.
+SEO aliases (Design → SEO URL, or added on module install since 1.0.22):
+
+| Query | Keyword |
+|-------|---------|
+| `route=extension/cyberpunks_checkout_facade/payment` | `payment` |
+| `route=checkout/success` | `order-success` |
+
+Success redirect after payment: `/order-success?orderId=123` (not `index.php?route=checkout/success&orderId=…`).
 
 ## Revolut / Apple Pay notes
 

@@ -26,7 +26,7 @@ $_['entry_layout_html'] = 'HTML';
 $_['help_status'] = 'Master switch. When Disabled, stock OpenCart order emails are used.';
 $_['help_subject'] = 'Leave empty for the OpenCart default subject. Shortcodes OK, e.g. {store_name}, {order_id}, {order_status}.';
 $_['help_layout'] = 'Wrapper from the Templates tab. Status HTML body replaces {content}. Selecting a Template enables custom HTML for this status.';
-$_['help_layout_html'] = 'Full email HTML. Must include {content}. Shortcodes: {order_id}, {comment}, {order_products}, … Image src must be absolute (https://…).';
+$_['help_layout_html'] = 'Full email HTML. Must include {content}. Shortcodes: {order_id}, {comment}, {order_products}, … Prefer absolute image URLs (https://…). Root-relative paths like /catalog/… are rewritten to your store URL when sending.';
 $_['help_status_html'] = 'Fragment injected into the layout’s {content}. Raw HTML, not a full document. Use {order_products} for the products list.';
 
 $_['help_status_paid'] = 'Sent when the order status becomes Paid.';

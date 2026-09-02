@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Revolut Checkout</name>
 	<code>cyberpunks_shop_revolut_checkout</code>
-	<version>1.2.9</version>
+	<version>1.2.12</version>
 	<author>positivecrash</author>
 	<description>Card field on /payment, soft appRedirection, reliable finalize; sync Revolut name/shipping onto OC order before status/mail.</description>
 
@@ -208,7 +208,7 @@
 
         return array(
             'success'  => true,
-            'redirect' => $this->url->link('checkout/success&orderId=' . $oc_order_id, ''),
+            'redirect' => $this->url->link('checkout/success', 'orderId=' . $oc_order_id, true),
         );
     }]]></add>
 		</operation>
@@ -220,6 +220,22 @@
 		</operation>
 
 		<!-- Revolut Pay can already be "completed" when the browser confirms — stock only accepts "authorised". -->
+		<!-- Single-line search: OC3 OCMOD matches line-by-line; multi-line blocks above never apply. -->
+		<operation error="skip">
+			<search><![CDATA[        if ($state !== 'authorised') {]]></search>
+			<add position="before"><![CDATA[        if ($state === 'completed') {
+            $comment = "Revolut Payment Gateway - Order Payment Completed. Transaction ID: {$revolut_order_id}";
+            return $this->finalizeOrder($oc_order_id, $revolut_order_id, $this->config->get('payment_revolut_completed_status_id'), $comment);
+        }
+
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[            $this->log->write("processOrder: Expected state 'authorised', got {$state} for Revolut order ID: {$revolut_order_id}");]]></search>
+			<add position="replace"><![CDATA[            $this->log->write("processOrder: Expected state 'authorised' or 'completed', got {$state} for Revolut order ID: {$revolut_order_id}");]]></add>
+		</operation>
+
+		<!-- Legacy multi-line block (no-op on OC3 refresh — kept for reference). -->
 		<operation error="skip">
 			<search><![CDATA[        $order = $this->fetchRevolutOrder($revolut_order_id);
         $state = isset($order['state']) ? strtolower($order['state']) : null;
@@ -270,6 +286,16 @@
         ) {
             return [];
         }]]></add>
+		</operation>
+
+		<!-- Stock Revolut builds success URL inside route name → index.php?route=checkout/success&orderId=… instead of SEO. -->
+		<operation error="skip">
+			<search><![CDATA['redirect' => $this->url->link('checkout/success&orderId='. $oc_order_id, '' )]]></search>
+			<add position="replace"><![CDATA['redirect' => $this->url->link('checkout/success', 'orderId=' . (int)$oc_order_id, true)]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA['redirect' => $this->url->link('checkout/success&orderId=' . $oc_order_id, '')]]></search>
+			<add position="replace"><![CDATA['redirect' => $this->url->link('checkout/success', 'orderId=' . (int)$oc_order_id, true)]]></add>
 		</operation>
 	</file>
 </modification>

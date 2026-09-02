@@ -24,6 +24,21 @@ Custom HTML is used automatically when a **Template** is selected or the status 
 
 ## Changelog
 
+### 1.1.5
+- `{order_products}` images use **Variant Images** OCMOD mapping when available (same as cart/checkout)
+
+### 1.1.4
+- HTML emails send **only** the admin template markup (no generated plain-text blurb that Proton showed above the layout)
+- Text part is a single space solely to suppress OpenCart’s default “does not support HTML email” stub
+
+### 1.1.3
+- Fix broken “blank” emails: plain-text part is short again (full HTML dump made some clients show text-only)
+- Safer absolute URL rewrite for `/catalog/...` images (failed regex no longer wipes HTML); prefer order `store_url` / HTTPS host
+
+### 1.1.2
+- Fix scary plain-text stub (“This is a HTML email and your email client…”) — always send a real text alternative with HTML
+- Auto-rewrite root-relative `src`/`href` (`/catalog/…`) to absolute store URLs so social icons load in mail clients
+
 ### 1.1.1
 - `{order_products}` option labels use Cyberpunks **Display Name** (not internal keys like `insight-desktop-stand-color`)
 

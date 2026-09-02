@@ -14,6 +14,25 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 			'module_cyberpunks_checkout_facade_status'               => 1,
 			'module_cyberpunks_checkout_facade_auto_single_payment' => 1
 		));
+
+		$this->ensureSuccessSeoUrl();
+	}
+
+	private function ensureSuccessSeoUrl() {
+		$languages = $this->db->query("SELECT language_id FROM `" . DB_PREFIX . "language` WHERE status = '1'");
+
+		foreach ($languages->rows as $language) {
+			$language_id = (int)$language['language_id'];
+			$exists = $this->db->query(
+				"SELECT seo_url_id FROM `" . DB_PREFIX . "seo_url` WHERE store_id = '0' AND language_id = '" . $language_id . "' AND `query` = 'route=checkout/success' LIMIT 1"
+			);
+
+			if (!$exists->num_rows) {
+				$this->db->query(
+					"INSERT INTO `" . DB_PREFIX . "seo_url` SET store_id = '0', language_id = '" . $language_id . "', `query` = 'route=checkout/success', keyword = 'order-success'"
+				);
+			}
+		}
 	}
 
 	public function index() {

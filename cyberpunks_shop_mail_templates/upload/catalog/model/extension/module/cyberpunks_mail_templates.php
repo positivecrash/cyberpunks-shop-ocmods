@@ -119,9 +119,7 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 			if ($route === 'mail/order_add') {
 				$vars = $this->buildVariables($data);
 				$body = $this->load->view('mail/order_add', $data);
-				$html = $this->finalizeHtmlEmail($this->applyLayout($body, $vars, $code));
-				$mail->setText('');
-				$mail->setHtml($html);
+				$this->assignHtmlMail($mail, $this->finalizeHtmlEmail($this->applyLayout($body, $vars, $code), $order_info));
 			} else {
 				$mail->setText($this->load->view('mail/order_edit', $data));
 			}
@@ -143,20 +141,25 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 
 		if ($use_html) {
 			$body = $this->replaceShortcodes($this->getTemplateHtml($code), $vars);
-			$html = $this->finalizeHtmlEmail($this->applyLayout($body, $vars, $code));
-			$mail->setText('');
-			$mail->setHtml($html);
+			$this->assignHtmlMail($mail, $this->finalizeHtmlEmail($this->applyLayout($body, $vars, $code), $order_info));
 			return;
 		}
 
 		if ($route === 'mail/order_add') {
 			$body = $this->load->view('mail/order_add', $data);
-			$html = $this->finalizeHtmlEmail($this->applyLayout($body, $vars, $code));
-			$mail->setText('');
-			$mail->setHtml($html);
+			$this->assignHtmlMail($mail, $this->finalizeHtmlEmail($this->applyLayout($body, $vars, $code), $order_info));
 		} else {
 			$mail->setText($this->load->view('mail/order_edit', $data));
 		}
+	}
+
+	/**
+	 * Send only the template HTML. OpenCart requires a non-empty text part or it injects
+	 * the scary "does not support HTML email" stub — use a single space, nothing else.
+	 */
+	private function assignHtmlMail($mail, $html) {
+		$mail->setText(' ');
+		$mail->setHtml((string)$html);
 	}
 
 	public function getLayouts() {
@@ -222,14 +225,64 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 		return $this->replaceShortcodes($html, $vars);
 	}
 
-	private function finalizeHtmlEmail($html) {
+	private function finalizeHtmlEmail($html, $order_info = array()) {
 		if (!is_file(DIR_SYSTEM . 'library/cyberpunks_mail_html.php')) {
 			return (string)$html;
 		}
 
 		require_once(DIR_SYSTEM . 'library/cyberpunks_mail_html.php');
 
-		return CyberpunksMailHtml::normalizeDocument($html, true);
+		$html = CyberpunksMailHtml::normalizeDocument($html, true);
+		$base = $this->resolveMailBaseUrl($order_info);
+
+		return CyberpunksMailHtml::absolutizeUrls($html, $base);
+	}
+
+	/**
+	 * Public storefront origin for absolute image URLs in outbound mail.
+	 */
+	private function resolveMailBaseUrl($order_info = array()) {
+		$candidates = array();
+
+		if (!empty($order_info['store_url'])) {
+			$candidates[] = (string)$order_info['store_url'];
+		}
+
+		$candidates[] = (string)$this->config->get('config_ssl');
+		$candidates[] = (string)$this->config->get('config_url');
+
+		if (defined('HTTPS_SERVER')) {
+			$candidates[] = (string)HTTPS_SERVER;
+		}
+
+		if (defined('HTTP_SERVER')) {
+			$candidates[] = (string)HTTP_SERVER;
+		}
+
+		foreach ($candidates as $url) {
+			$url = trim($url);
+
+			if ($url === '') {
+				continue;
+			}
+
+			// Drop path like /index.php/ — keep scheme + host (+ optional port).
+			$parts = parse_url($url);
+
+			if (empty($parts['scheme']) || empty($parts['host'])) {
+				continue;
+			}
+
+			$base = $parts['scheme'] . '://' . $parts['host'];
+
+			if (!empty($parts['port'])) {
+				$base .= ':' . $parts['port'];
+			}
+
+			return $base;
+		}
+
+		return 'https://cyberpunks.shop';
 	}
 
 	private function replaceShortcodes($text, array $vars) {
@@ -365,12 +418,13 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 				}
 
 				$option_data[] = array(
-					'name'  => $this->resolveOrderOptionDisplayName(
+					'name'                    => $this->resolveOrderOptionDisplayName(
 						isset($order_product['product_id']) ? (int)$order_product['product_id'] : 0,
 						isset($order_option['product_option_id']) ? (int)$order_option['product_option_id'] : 0,
 						isset($order_option['name']) ? $order_option['name'] : ''
 					),
-					'value' => $value
+					'value'                   => $value,
+					'product_option_value_id' => isset($order_option['product_option_value_id']) ? (int)$order_option['product_option_value_id'] : 0
 				);
 			}
 
@@ -473,6 +527,70 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 	}
 
 	/**
+	 * Product thumb for order emails — variant mapping first, then catalog image.
+	 */
+	private function resolveOrderProductImage($product_id, array $options, $store_url) {
+		$product_id = (int)$product_id;
+		$image = '';
+
+		if (!isset($this->model_tool_image)) {
+			$this->load->model('tool/image');
+		}
+
+		if ($product_id && is_file(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+
+			if (method_exists('CyberpunksShopVariantImagesStorage', 'resolveCartImage')) {
+				$variant_mappings = $this->config->get('module_cyberpunks_variant_images_mappings');
+
+				if (!is_array($variant_mappings)) {
+					$variant_mappings = array();
+				}
+
+				$resolved_image = CyberpunksShopVariantImagesStorage::resolveCartImage(
+					$variant_mappings,
+					$product_id,
+					$options
+				);
+
+				if ($resolved_image !== '') {
+					if (method_exists('CyberpunksShopVariantImagesStorage', 'pathToUrl')) {
+						$image = CyberpunksShopVariantImagesStorage::pathToUrl($resolved_image, $this->model_tool_image, 128, 128);
+					} else {
+						$resolved = ltrim((string)$resolved_image, '/');
+
+						if (strpos($resolved, 'catalog/view/theme/') === 0) {
+							$image = '/' . $resolved;
+						} elseif ($resolved !== '' && is_file(DIR_IMAGE . $resolved)) {
+							$image = $this->model_tool_image->resize($resolved, 128, 128);
+						} else {
+							$image = '/' . $resolved;
+						}
+					}
+				}
+			}
+		}
+
+		if ($image === '' && $product_id) {
+			if (!isset($this->model_catalog_product)) {
+				$this->load->model('catalog/product');
+			}
+
+			$product_info = $this->model_catalog_product->getProduct($product_id);
+
+			if (!empty($product_info['image'])) {
+				$image = $this->model_tool_image->resize($product_info['image'], 128, 128);
+			}
+		}
+
+		if ($image !== '' && strpos($image, 'http') !== 0 && strpos($image, '//') !== 0) {
+			$image = rtrim((string)$store_url, '/') . '/' . ltrim($image, '/');
+		}
+
+		return $image;
+	}
+
+	/**
 	 * Product list block for emails: thumb + name + options + qty.
 	 */
 	private function renderOrderProducts(array $data) {
@@ -480,14 +598,6 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 
 		if (!$products) {
 			return '';
-		}
-
-		if (!isset($this->model_catalog_product)) {
-			$this->load->model('catalog/product');
-		}
-
-		if (!isset($this->model_tool_image)) {
-			$this->load->model('tool/image');
 		}
 
 		$store_url = isset($data['store_url']) ? rtrim((string)$data['store_url'], '/') . '/' : HTTP_SERVER;
@@ -499,15 +609,11 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 			$image = '';
 
 			if (!empty($product['product_id'])) {
-				$product_info = $this->model_catalog_product->getProduct((int)$product['product_id']);
-
-				if (!empty($product_info['image'])) {
-					$image = $this->model_tool_image->resize($product_info['image'], 128, 128);
-
-					if ($image && strpos($image, 'http') !== 0) {
-						$image = $store_url . ltrim($image, '/');
-					}
-				}
+				$image = $this->resolveOrderProductImage(
+					(int)$product['product_id'],
+					isset($product['option']) && is_array($product['option']) ? $product['option'] : array(),
+					$store_url
+				);
 			}
 
 			$option_lines = array();

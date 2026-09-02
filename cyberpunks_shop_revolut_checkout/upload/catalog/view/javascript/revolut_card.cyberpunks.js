@@ -8,7 +8,6 @@ waitForjQuery()
     const isAllowedLatinName = (s) => {
       const v = typeof s === "string" ? s.trim() : "";
       if (!v) return false;
-      // Latin letters plus space, apostrophe, hyphen, dot
       return /^[A-Za-z][A-Za-z\s.'-]*$/.test(v);
     };
     const sanitizeLatinName = (s) => {
@@ -28,7 +27,10 @@ waitForjQuery()
           "index.php?route=extension/module/cyberpunks_checkout_facade/save_card_holder",
           {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+            headers: {
+              "Content-Type":
+                "application/x-www-form-urlencoded; charset=UTF-8",
+            },
             body: "card_holder=" + encodeURIComponent(name),
             credentials: "same-origin",
           }
@@ -46,6 +48,59 @@ waitForjQuery()
       const raw = el && typeof el.value === "string" ? el.value.trim() : "";
       return sanitizeLatinName(raw);
     };
+
+    // Stock helper only accepts "authorised"; sandbox often returns "completed".
+    window.pollOrderForAuthorisation = (publicId, method) => {
+      return new Promise((resolve, reject) => {
+        let elapsed = 0;
+
+        const poll = () => {
+          fetchOrderStatus(publicId, method)
+            .then((order) => {
+              const state =
+                order && order.state ? String(order.state).toLowerCase() : "";
+
+              if (state === "authorised" || state === "completed") {
+                resolve(state);
+                return;
+              }
+
+              elapsed += 1000;
+              if (elapsed >= 15000) {
+                reject(new Error("Payment confirmation is taking too long"));
+                return;
+              }
+
+              setTimeout(poll, 1000);
+            })
+            .catch(reject);
+        };
+
+        poll();
+      });
+    };
+
+    function handleSuccess(json) {
+      const { success, error, redirect } = json || {};
+
+      if (success && redirect) {
+        window.location = redirect;
+        return;
+      }
+
+      alert(error || "Unknown error occurred");
+      $("#button-confirm").button("reset");
+    }
+
+    function finalizeFromRevolutState(publicId) {
+      return pollOrderForAuthorisation(publicId, "revolut_card").then((state) => {
+        if (state === "completed") {
+          return processCompletedOrder(publicId, "revolut_card");
+        }
+        completeOrder(publicId, handleSuccess);
+      });
+    }
+
     const payWithPopup = async (public_id) => {
       const RC = RevolutCheckout(public_id, params.mode);
 
@@ -63,12 +118,11 @@ waitForjQuery()
             postcode: billing_address.postcode,
           },
           onSuccess() {
-            pollOrderForAuthorisation(public_id, "revolut_card")
-              .then(() => completeOrder())
-              .catch((err) => {
-                alert(err);
-                $("#button-confirm").button("reset");
-              });
+            finalizeFromRevolutState(public_id).catch((err) => {
+              alert(err);
+              popup.destroy();
+              $("#button-confirm").button("reset");
+            });
           },
           onError(message) {
             alert(message);
@@ -80,27 +134,12 @@ waitForjQuery()
             $("#button-confirm").button("reset");
           },
         });
+
+        $("#button-confirm").on("click", function () {
+          $("#button-confirm").button("loading");
+        });
       });
     };
-
-    function handleSuccess(json) {
-      const { success, error, redirect } = json || {};
-
-      if (success) {
-        const navigate = () => {
-          window.location = redirect;
-        };
-
-        if (params.styles.revolut_card.widget_type) {
-          setTimeout(navigate, 1500);
-        } else {
-          navigate();
-        }
-      } else {
-        alert(error || "Unknown error occurred");
-        $("#button-confirm").button("reset");
-      }
-    }
 
     const mountCardField = async (public_id) => {
       const instance = await RevolutCheckout(public_id, params.mode);
@@ -117,13 +156,11 @@ waitForjQuery()
           },
         },
         onSuccess() {
-          pollOrderForAuthorisation(public_id, "revolut_card")
-            .then(() => completeOrder(public_id, handleSuccess))
-            .catch((err) => {
-              alert(err);
-              instance.destroy();
-              $("#button-confirm").button("reset");
-            });
+          finalizeFromRevolutState(public_id).catch((err) => {
+            alert(err);
+            instance.destroy();
+            $("#button-confirm").button("reset");
+          });
         },
         onValidation(errors) {
           if (errors.length) {
@@ -149,7 +186,9 @@ waitForjQuery()
 
         const nameForRevolut = getHolderNameForRevolut();
         if (!nameForRevolut) {
-          $("#revolut-card-error").html("Please enter card holder name using Latin letters.");
+          $("#revolut-card-error").html(
+            "Please enter card holder name using Latin letters."
+          );
           $("#button-confirm").button("reset");
           return;
         }
@@ -178,15 +217,12 @@ waitForjQuery()
       }
 
       if (params.styles.revolut_card.widget_type === "popup") {
-        $("#button-confirm").on("click", function () {
-          payWithPopup(publicId);
-        });
+        payWithPopup(publicId);
         return;
       }
 
       mountCardField(publicId);
 
-      // Important: upsell_banner_enabled can be "0" (string) which is truthy in JS.
       if (String(params.order.upsell_banner_enabled) === "1") {
         const initCheckoutUpsellBanner = (params, publicId) => {
           let upsellBannerElement = document.getElementById(
@@ -220,4 +256,3 @@ waitForjQuery()
     alert(err);
     $("#button-confirm").hide();
   });
-
