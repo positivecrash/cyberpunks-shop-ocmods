@@ -29,7 +29,6 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		$this->load->model('setting/setting');
 
 		$this->model_extension_module_cyberpunks_language_overrides->ensureSchema();
-		$this->model_extension_module_cyberpunks_language_overrides->seedDefaults();
 
 		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate() && isset($this->request->post['save_settings'])) {
 			$posted = isset($this->request->post['module_cyberpunks_language_overrides_map']) && is_array($this->request->post['module_cyberpunks_language_overrides_map'])

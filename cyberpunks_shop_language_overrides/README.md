@@ -46,6 +46,11 @@ Same as 1.6.x: `/en/` `/nl/`, shared SEO keywords across languages, hreflang.
 
 `ocmod.log` should not show `NOT FOUND` for `twig.php` / `catalog.php`. Do **not** use a leading `\` before class names in OCMOD XML — OpenCart strips it and breaks namespaced files like `Template\Twig`. Use `call_user_func(array('CyberpunksCbLang', ...))` instead.
 
+## No hardcoded theme strings
+
+In this module we intentionally removed default hardcoded seeding of `cb_lang` theme strings.
+Theme uses `cb_lang()` and you add/edit all translated strings manually in **Extensions → Modules → Cyberpunks Language Overrides**.
+
 ## Safety: missing Twig templates
 
 In `cyberpunks_shop_language_overrides` we patch `system/library/template/twig.php` so missing Twig templates (like `cybershops/template/common/language.twig`) return an empty string instead of causing `exit()`/500/white screens.
