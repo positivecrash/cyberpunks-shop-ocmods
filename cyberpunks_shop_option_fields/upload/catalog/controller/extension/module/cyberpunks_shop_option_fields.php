@@ -32,7 +32,7 @@ class ControllerExtensionModuleCyberpunksShopOptionFields extends Controller {
 			}
 
 			$cart_product = $cart_by_id[$cart_id];
-			$palette_availability = CyberpunksPaletteStock::getCartProductPaletteAvailability($this->db, $cart_product);
+			$palette_availability = CyberpunksPaletteStock::getCartProductPaletteAvailability($this->db, $cart_product, (int)$this->config->get('config_language_id'));
 
 			if (!$palette_availability) {
 				continue;

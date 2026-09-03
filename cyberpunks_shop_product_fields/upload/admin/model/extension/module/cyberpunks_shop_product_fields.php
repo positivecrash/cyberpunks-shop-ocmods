@@ -35,15 +35,71 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		$this->db->query("CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "cyberpunks_product_field_value` (
 			`product_id` INT(11) NOT NULL,
 			`field_id` INT(11) NOT NULL,
+			`language_id` INT(11) NOT NULL DEFAULT '0',
 			`value` MEDIUMTEXT NOT NULL,
 			`date_modified` DATETIME NOT NULL,
-			PRIMARY KEY (`product_id`,`field_id`)
+			PRIMARY KEY (`product_id`,`field_id`,`language_id`)
 		) ENGINE=MyISAM DEFAULT CHARSET=utf8");
 
 		$col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_product_field_value` LIKE 'value'");
 		if ($col->num_rows && stripos($col->row['Type'], 'mediumtext') === false) {
 			$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_field_value` MODIFY `value` MEDIUMTEXT NOT NULL");
 		}
+
+		$this->ensureValueLanguageColumn();
+	}
+
+	private function ensureValueLanguageColumn() {
+		$col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_product_field_value` LIKE 'language_id'");
+
+		if ($col->num_rows) {
+			return;
+		}
+
+		$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_field_value` ADD `language_id` INT(11) NOT NULL DEFAULT '0' AFTER `field_id`");
+		$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_field_value` DROP PRIMARY KEY, ADD PRIMARY KEY (`product_id`, `field_id`, `language_id`)");
+
+		$languages = $this->db->query("SELECT language_id FROM `" . DB_PREFIX . "language` WHERE status = '1'")->rows;
+
+		if (!$languages) {
+			return;
+		}
+
+		$legacy = $this->db->query("SELECT v.product_id, v.field_id, v.value
+			FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v
+			INNER JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id)
+			WHERE v.language_id = '0'
+				AND f.field_type IN ('text', 'textarea', 'html')");
+
+		foreach ($legacy->rows as $row) {
+			foreach ($languages as $language) {
+				$language_id = (int)$language['language_id'];
+
+				if ($language_id < 1) {
+					continue;
+				}
+
+				$exists = $this->db->query("SELECT product_id FROM `" . DB_PREFIX . "cyberpunks_product_field_value`
+					WHERE product_id = '" . (int)$row['product_id'] . "'
+						AND field_id = '" . (int)$row['field_id'] . "'
+						AND language_id = '" . (int)$language_id . "'");
+
+				if ($exists->num_rows) {
+					continue;
+				}
+
+				$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_product_field_value` SET
+					product_id = '" . (int)$row['product_id'] . "',
+					field_id = '" . (int)$row['field_id'] . "',
+					language_id = '" . (int)$language_id . "',
+					value = '" . $this->db->escape($row['value']) . "',
+					date_modified = NOW()");
+			}
+		}
+	}
+
+	public function isMultilingualFieldType($field_type) {
+		return in_array((string)$field_type, array('text', 'textarea', 'html'), true);
 	}
 
 	public function install() {
@@ -335,16 +391,57 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		$this->ensureSchema();
 
 		$data = array();
-		$query = $this->db->query("SELECT v.field_id, v.value, f.field_type FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "'");
+		$query = $this->db->query("SELECT v.field_id, v.language_id, v.value, f.field_type FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "'");
 
 		foreach ($query->rows as $row) {
 			$field_id = (int)$row['field_id'];
+			$language_id = isset($row['language_id']) ? (int)$row['language_id'] : 0;
+			$field_type = isset($row['field_type']) ? $row['field_type'] : 'text';
 			$value = $row['value'];
 
-			if (isset($row['field_type']) && $row['field_type'] === 'checkboxes') {
+			if ($this->isMultilingualFieldType($field_type)) {
+				if (!isset($data[$field_id]) || !is_array($data[$field_id])) {
+					$data[$field_id] = array();
+				}
+
+				if ($language_id > 0) {
+					$data[$field_id][$language_id] = $value;
+				} elseif (!isset($data[$field_id]['_legacy'])) {
+					$data[$field_id]['_legacy'] = $value;
+				}
+
+				continue;
+			}
+
+			if ($field_type === 'checkboxes') {
 				$value = $this->decodeCheckboxListValue($value);
-			} elseif (isset($row['field_type']) && $row['field_type'] === 'repeater') {
+			} elseif ($field_type === 'repeater') {
 				$value = $this->decodeRepeaterValue($value);
+			}
+
+			$data[$field_id] = $value;
+		}
+
+		foreach ($data as $field_id => $value) {
+			if (!is_array($value) || !array_key_exists('_legacy', $value)) {
+				continue;
+			}
+
+			$legacy = $value['_legacy'];
+			unset($value['_legacy']);
+
+			$languages = $this->db->query("SELECT language_id FROM `" . DB_PREFIX . "language` WHERE status = '1'")->rows;
+
+			foreach ($languages as $language) {
+				$language_id = (int)$language['language_id'];
+
+				if ($language_id < 1) {
+					continue;
+				}
+
+				if (!isset($value[$language_id]) || $value[$language_id] === '') {
+					$value[$language_id] = $legacy;
+				}
 			}
 
 			$data[$field_id] = $value;
@@ -375,8 +472,29 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 				continue;
 			}
 
+			$field_type = isset($field_types[$field_id]) ? $field_types[$field_id] : 'text';
+
+			if ($this->isMultilingualFieldType($field_type)) {
+				if (!is_array($value)) {
+					$this->insertProductFieldValue($product_id, $field_id, 0, (string)$value);
+					continue;
+				}
+
+				foreach ($value as $language_id => $text) {
+					$language_id = (int)$language_id;
+
+					if ($language_id < 1 || is_array($text)) {
+						continue;
+					}
+
+					$this->insertProductFieldValue($product_id, $field_id, $language_id, (string)$text);
+				}
+
+				continue;
+			}
+
 			if (is_array($value)) {
-				if (isset($field_types[$field_id]) && $field_types[$field_id] === 'repeater') {
+				if ($field_type === 'repeater') {
 					$value = $this->encodeRepeaterValue($value);
 				} else {
 					$clean = array();
@@ -393,8 +511,17 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 				}
 			}
 
-			$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_product_field_value` SET product_id = '" . (int)$product_id . "', field_id = '" . (int)$field_id . "', value = '" . $this->db->escape((string)$value) . "', date_modified = NOW()");
+			$this->insertProductFieldValue($product_id, $field_id, 0, (string)$value);
 		}
+	}
+
+	private function insertProductFieldValue($product_id, $field_id, $language_id, $value) {
+		$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_product_field_value` SET
+			product_id = '" . (int)$product_id . "',
+			field_id = '" . (int)$field_id . "',
+			language_id = '" . (int)$language_id . "',
+			value = '" . $this->db->escape($value) . "',
+			date_modified = NOW()");
 	}
 
 	public function deleteProductFieldValues($product_id) {
@@ -407,11 +534,42 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		$this->ensureSchema();
 
 		$data = array();
-		$query = $this->db->query("SELECT f.field_key, v.value FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "' AND f.status = '1'");
+		$query = $this->db->query("SELECT f.field_key, f.field_type, v.language_id, v.value FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "' AND f.status = '1'");
+		$grouped = array();
 
 		foreach ($query->rows as $row) {
-			if (!empty($row['field_key'])) {
-				$data[$row['field_key']] = $row['value'];
+			if (empty($row['field_key'])) {
+				continue;
+			}
+
+			$key = $row['field_key'];
+			$language_id = isset($row['language_id']) ? (int)$row['language_id'] : 0;
+
+			if (!isset($grouped[$key])) {
+				$grouped[$key] = array(
+					'type' => isset($row['field_type']) ? $row['field_type'] : 'text',
+					'values' => array()
+				);
+			}
+
+			$grouped[$key]['values'][$language_id] = $row['value'];
+		}
+
+		$language_id = (int)$this->config->get('config_language_id');
+
+		foreach ($grouped as $key => $item) {
+			$values = $item['values'];
+
+			if ($this->isMultilingualFieldType($item['type'])) {
+				if ($language_id > 0 && isset($values[$language_id]) && $values[$language_id] !== '') {
+					$data[$key] = $values[$language_id];
+				} elseif (isset($values[0]) && $values[0] !== '') {
+					$data[$key] = $values[0];
+				} else {
+					$data[$key] = $values ? (string)reset($values) : '';
+				}
+			} else {
+				$data[$key] = isset($values[0]) ? $values[0] : (string)reset($values);
 			}
 		}
 

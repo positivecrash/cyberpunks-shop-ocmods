@@ -1,6 +1,42 @@
 <?php
 class ModelExtensionModuleCyberpunksShopProductFields extends Model {
+	private function hasValueLanguageColumn() {
+		$has_language = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_product_field_value` LIKE 'language_id'");
+		return (bool)$has_language->num_rows;
+	}
+
+	/**
+	 * Backward-compatible migration for old installs.
+	 * Fixes fatal SQL errors when the site uses new queries but DB still has the legacy schema.
+	 */
+	private function ensureValueLanguageColumn() {
+		// Table may not exist on brand-new installs; in that case just skip.
+		$value_table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_product_field_value") . "'");
+		if (!$value_table->num_rows) {
+			return false;
+		}
+
+		if ($this->hasValueLanguageColumn()) {
+			return true;
+		}
+
+		// Add column with default 0 for existing rows.
+		$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_field_value` ADD `language_id` INT(11) NOT NULL DEFAULT '0' AFTER `field_id`");
+
+		// Replace PK to include language_id (legacy table PK is usually (product_id, field_id)).
+		$pk = $this->db->query("SHOW INDEX FROM `" . DB_PREFIX . "cyberpunks_product_field_value` WHERE Key_name = 'PRIMARY'");
+		if ($pk->num_rows) {
+			$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_field_value` DROP PRIMARY KEY, ADD PRIMARY KEY (`product_id`, `field_id`, `language_id`)");
+		} else {
+			$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_field_value` ADD PRIMARY KEY (`product_id`, `field_id`, `language_id`)");
+		}
+
+		return true;
+	}
+
 	public function getProductFieldsMap($product_id) {
+		$this->ensureValueLanguageColumn();
+
 		$table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_product_field") . "'");
 		$value_table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_product_field_value") . "'");
 
@@ -8,19 +44,51 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			return array();
 		}
 
+		$language_select = $this->hasValueLanguageColumn() ? 'v.language_id,' : '0 AS language_id,';
+
 		$data = array();
-		$query = $this->db->query("SELECT f.field_key, f.field_type, v.value FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "' AND f.status = '1'");
+		$query = $this->db->query("SELECT f.field_key, f.field_type, " . $language_select . " v.value FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "' AND f.status = '1'");
+		$grouped = array();
 
 		foreach ($query->rows as $row) {
 			if (empty($row['field_key'])) {
 				continue;
 			}
 
-			$value = $row['value'];
-			$field_type = isset($row['field_type']) ? $row['field_type'] : 'text';
+			$key = $row['field_key'];
+			$language_id = isset($row['language_id']) ? (int)$row['language_id'] : 0;
+
+			if (!isset($grouped[$key])) {
+				$grouped[$key] = array(
+					'type' => isset($row['field_type']) ? $row['field_type'] : 'text',
+					'values' => array()
+				);
+			}
+
+			$grouped[$key]['values'][$language_id] = $row['value'];
+		}
+
+		$config_language_id = (int)$this->config->get('config_language_id');
+
+		foreach ($grouped as $key => $item) {
+			$field_type = $item['type'];
+			$values = $item['values'];
+			$value = '';
+
+			if (in_array($field_type, array('text', 'textarea', 'html'), true)) {
+				if ($config_language_id > 0 && isset($values[$config_language_id]) && $values[$config_language_id] !== '') {
+					$value = $values[$config_language_id];
+				} elseif (isset($values[0]) && $values[0] !== '') {
+					$value = $values[0];
+				} elseif ($values) {
+					$value = (string)reset($values);
+				}
+			} else {
+				$value = isset($values[0]) ? $values[0] : ($values ? reset($values) : '');
+			}
 
 			if ($field_type === 'html' || $field_type === 'textarea') {
-				$value = html_entity_decode($value, ENT_QUOTES, 'UTF-8');
+				$value = html_entity_decode((string)$value, ENT_QUOTES, 'UTF-8');
 				$value = $this->expandIconShortcodes($value);
 				$value = $this->expandOptionShortcodes($value);
 			} elseif ($field_type === 'image') {
@@ -29,9 +97,11 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 				$value = $this->decodeCheckboxListValue($value);
 			} elseif ($field_type === 'repeater') {
 				$value = $this->decodeRepeaterValue($value);
+			} elseif ($field_type === 'text') {
+				$value = html_entity_decode((string)$value, ENT_QUOTES, 'UTF-8');
 			}
 
-			$data[$row['field_key']] = $value;
+			$data[$key] = $value;
 		}
 
 		return $data;
@@ -44,6 +114,9 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		if ($flag_key === '') {
 			return array();
 		}
+
+		// Featured categories query depends on the legacy-to-multilang schema migration.
+		$this->ensureValueLanguageColumn();
 
 		$table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_product_field") . "'");
 		$value_table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_product_field_value") . "'");
@@ -59,6 +132,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		}
 
 		$flag_field_id = (int)$flag_field->row['field_id'];
+		$flag_language_sql = $this->hasValueLanguageColumn() ? " AND fv.language_id = '0'" : '';
 
 		$categories = $this->db->query("SELECT DISTINCT c.category_id, cd.name, c.sort_order
 			FROM `" . DB_PREFIX . "category` c
@@ -67,7 +141,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			INNER JOIN `" . DB_PREFIX . "product_to_category` p2c ON (c.category_id = p2c.category_id)
 			INNER JOIN `" . DB_PREFIX . "product` p ON (p2c.product_id = p.product_id)
 			INNER JOIN `" . DB_PREFIX . "product_to_store` p2s ON (p.product_id = p2s.product_id)
-			INNER JOIN `" . DB_PREFIX . "cyberpunks_product_field_value` fv ON (fv.product_id = p.product_id AND fv.field_id = '" . $flag_field_id . "' AND fv.value = '1')
+			INNER JOIN `" . DB_PREFIX . "cyberpunks_product_field_value` fv ON (fv.product_id = p.product_id AND fv.field_id = '" . $flag_field_id . "' AND fv.value = '1'" . $flag_language_sql . ")
 			WHERE cd.language_id = '" . (int)$this->config->get('config_language_id') . "'
 				AND c2s.store_id = '" . (int)$this->config->get('config_store_id') . "'
 				AND p2s.store_id = '" . (int)$this->config->get('config_store_id') . "'
@@ -92,7 +166,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 				LEFT JOIN `" . DB_PREFIX . "product_description` pd ON (p.product_id = pd.product_id)
 				LEFT JOIN `" . DB_PREFIX . "product_to_store` p2s ON (p.product_id = p2s.product_id)
 				INNER JOIN `" . DB_PREFIX . "product_to_category` p2c ON (p.product_id = p2c.product_id)
-				INNER JOIN `" . DB_PREFIX . "cyberpunks_product_field_value` fv ON (fv.product_id = p.product_id AND fv.field_id = '" . $flag_field_id . "' AND fv.value = '1')
+				INNER JOIN `" . DB_PREFIX . "cyberpunks_product_field_value` fv ON (fv.product_id = p.product_id AND fv.field_id = '" . $flag_field_id . "' AND fv.value = '1'" . $flag_language_sql . ")
 				WHERE p2c.category_id = '" . $category_id . "'
 					AND pd.language_id = '" . (int)$this->config->get('config_language_id') . "'
 					AND p2s.store_id = '" . (int)$this->config->get('config_store_id') . "'

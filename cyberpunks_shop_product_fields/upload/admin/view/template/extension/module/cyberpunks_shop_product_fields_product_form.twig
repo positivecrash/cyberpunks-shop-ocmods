@@ -49,7 +49,7 @@
   </div>
 {% endmacro %}
 
-{% macro product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, cyberpunks_product_field_repeater_thumbs, placeholder, summernote, button_repeater_add, button_repeater_remove) %}
+{% macro product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, cyberpunks_product_field_repeater_thumbs, placeholder, summernote, button_repeater_add, button_repeater_remove, languages) %}
 <div class="form-group">
   <label class="col-sm-2 control-label" for="input-cyberpunks-product-field-{{ field.field_id }}"{% if field.admin_hint %} data-toggle="tooltip" title="{{ field.admin_hint }}"{% endif %}>{{ field.label }}</label>
   <div class="col-sm-10">
@@ -80,10 +80,42 @@
         <option value="{{ option.value }}" {% if cyberpunks_product_field_values[field.field_id] is defined and cyberpunks_product_field_values[field.field_id] == option.value %}selected="selected"{% endif %}>{{ option.label }}</option>
         {% endfor %}
       </select>
-    {% elseif field.field_type == 'html' %}
-      <textarea name="cyberpunks_product_fields[{{ field.field_id }}]" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" data-toggle="summernote" data-lang="{{ summernote }}" class="form-control">{{ cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : '' }}</textarea>
-    {% elseif field.field_type == 'textarea' %}
-      <textarea name="cyberpunks_product_fields[{{ field.field_id }}]" rows="18" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" class="form-control" style="font-family:monospace;">{{ cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : '' }}</textarea>
+    {% elseif field.field_type == 'html' or field.field_type == 'textarea' or field.field_type == 'text' %}
+      {% set lang_values = cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : {} %}
+      {% if lang_values is not iterable %}
+        {% set lang_values = { 0: lang_values } %}
+      {% endif %}
+      {% if field.field_type == 'text' %}
+        {% for language in languages %}
+        {% set lang_value = lang_values[language.language_id] is defined ? lang_values[language.language_id] : (lang_values[0] is defined ? lang_values[0] : '') %}
+        <div class="input-group" style="margin-bottom:8px;">
+          <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+          <input type="text" name="cyberpunks_product_fields[{{ field.field_id }}][{{ language.language_id }}]" value="{{ lang_value }}" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}-{{ language.language_id }}" class="form-control" />
+        </div>
+        {% else %}
+        <p class="help-block">No store languages enabled.</p>
+        {% endfor %}
+      {% else %}
+        <ul class="nav nav-tabs" id="cyberpunks-pf-lang-{{ field.field_id }}">
+          {% for language in languages %}
+          <li{% if loop.first %} class="active"{% endif %}><a href="#cyberpunks-pf-{{ field.field_id }}-{{ language.language_id }}" data-toggle="tab"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /> {{ language.name }}</a></li>
+          {% endfor %}
+        </ul>
+        <div class="tab-content">
+          {% for language in languages %}
+          {% set lang_value = lang_values[language.language_id] is defined ? lang_values[language.language_id] : (lang_values[0] is defined ? lang_values[0] : '') %}
+          <div class="tab-pane{% if loop.first %} active{% endif %}" id="cyberpunks-pf-{{ field.field_id }}-{{ language.language_id }}">
+            {% if field.field_type == 'html' %}
+              <textarea name="cyberpunks_product_fields[{{ field.field_id }}][{{ language.language_id }}]" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}-{{ language.language_id }}" data-toggle="summernote" data-lang="{{ summernote }}" class="form-control">{{ lang_value }}</textarea>
+            {% else %}
+              <textarea name="cyberpunks_product_fields[{{ field.field_id }}][{{ language.language_id }}]" rows="18" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}-{{ language.language_id }}" class="form-control" style="font-family:monospace;">{{ lang_value }}</textarea>
+            {% endif %}
+          </div>
+          {% else %}
+          <p class="help-block">No store languages enabled.</p>
+          {% endfor %}
+        </div>
+      {% endif %}
     {% elseif field.field_type == 'image' %}
       <a href="" id="thumb-cyberpunks-product-field-{{ field.field_id }}" data-toggle="image" class="img-thumbnail">
         <img src="{{ cyberpunks_product_field_thumbs[field.field_id] is defined ? cyberpunks_product_field_thumbs[field.field_id] : placeholder }}" alt="" title="" data-placeholder="{{ placeholder }}"/>
@@ -136,7 +168,7 @@
 {% import _self as product_fields %}
 
 {% for field in cyberpunks_product_field_groups.ungrouped_fields %}
-{{ product_fields.product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, cyberpunks_product_field_repeater_thumbs|default({}), placeholder, summernote, button_repeater_add|default('Add item'), button_repeater_remove|default('Remove')) }}
+{{ product_fields.product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, cyberpunks_product_field_repeater_thumbs|default({}), placeholder, summernote, button_repeater_add|default('Add item'), button_repeater_remove|default('Remove'), languages|default([])) }}
 {% endfor %}
 
 {% for section in cyberpunks_product_field_groups.sections %}
@@ -144,7 +176,7 @@
 <fieldset>
   <legend>{{ section.title }}</legend>
   {% for field in section.fields %}
-  {{ product_fields.product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, cyberpunks_product_field_repeater_thumbs|default({}), placeholder, summernote, button_repeater_add|default('Add item'), button_repeater_remove|default('Remove')) }}
+  {{ product_fields.product_field_input(field, cyberpunks_product_field_values, cyberpunks_product_field_thumbs, cyberpunks_product_field_repeater_thumbs|default({}), placeholder, summernote, button_repeater_add|default('Add item'), button_repeater_remove|default('Remove'), languages|default([])) }}
   {% endfor %}
 </fieldset>
 {% endif %}

@@ -3,6 +3,152 @@
  * Palette color in-stock checks (usable from Cart\Cart without Loader).
  */
 class CyberpunksPaletteStock {
+	public static function isLocalizedLabelKey($field_key) {
+		return in_array((string)$field_key, array('display_name', 'pick_display_name'), true);
+	}
+
+	/**
+	 * Decode stored value: plain string (legacy) or JSON {"1":"EN","2":"NL"}.
+	 *
+	 * @return array language_id => string (may include 0 for legacy)
+	 */
+	public static function decodeLocalizedText($raw) {
+		$raw = trim((string)$raw);
+
+		if ($raw === '') {
+			return array();
+		}
+
+		if (isset($raw[0]) && $raw[0] === '{') {
+			$decoded = json_decode($raw, true);
+
+			if (is_array($decoded)) {
+				$out = array();
+
+				foreach ($decoded as $language_id => $text) {
+					if (is_array($text)) {
+						continue;
+					}
+
+					$text = trim((string)$text);
+
+					if ($text === '') {
+						continue;
+					}
+
+					$out[(int)$language_id] = $text;
+				}
+
+				if ($out) {
+					return $out;
+				}
+			}
+		}
+
+		return array(0 => $raw);
+	}
+
+	/**
+	 * @param array|string $map
+	 * @return string JSON map or plain string when empty
+	 */
+	public static function encodeLocalizedText($map) {
+		if (!is_array($map)) {
+			return trim((string)$map);
+		}
+
+		$clean = array();
+
+		foreach ($map as $language_id => $text) {
+			$language_id = (int)$language_id;
+
+			if ($language_id < 1 || is_array($text)) {
+				continue;
+			}
+
+			$text = trim((string)$text);
+
+			if ($text === '') {
+				continue;
+			}
+
+			$clean[(string)$language_id] = $text;
+		}
+
+		if (!$clean) {
+			return '';
+		}
+
+		return json_encode($clean, JSON_UNESCAPED_UNICODE);
+	}
+
+	/**
+	 * Pick best text for language_id (current → 0/legacy → first non-empty).
+	 */
+	public static function pickLocalizedText($raw, $language_id = 0) {
+		if (is_array($raw)) {
+			$map = array();
+
+			foreach ($raw as $lid => $text) {
+				if (is_array($text)) {
+					continue;
+				}
+
+				$text = trim((string)$text);
+
+				if ($text !== '') {
+					$map[(int)$lid] = $text;
+				}
+			}
+		} else {
+			$map = self::decodeLocalizedText($raw);
+		}
+
+		if (!$map) {
+			return '';
+		}
+
+		$language_id = (int)$language_id;
+
+		if ($language_id > 0 && !empty($map[$language_id])) {
+			return $map[$language_id];
+		}
+
+		if (!empty($map[0])) {
+			return $map[0];
+		}
+
+		return (string)reset($map);
+	}
+
+	/**
+	 * Expand legacy/single values so admin shows a field per active language.
+	 *
+	 * @param array $map
+	 * @param array $language_ids list of int
+	 * @return array
+	 */
+	public static function expandLocalizedTextForAdmin(array $map, array $language_ids) {
+		$legacy = isset($map[0]) ? trim((string)$map[0]) : '';
+		$out = array();
+
+		foreach ($language_ids as $language_id) {
+			$language_id = (int)$language_id;
+
+			if ($language_id < 1) {
+				continue;
+			}
+
+			if (isset($map[$language_id]) && trim((string)$map[$language_id]) !== '') {
+				$out[$language_id] = trim((string)$map[$language_id]);
+			} else {
+				$out[$language_id] = $legacy;
+			}
+		}
+
+		return $out;
+	}
+
 	public static function tablesExist($db) {
 		$query = $db->query("SHOW TABLES LIKE '" . $db->escape(DB_PREFIX . "cyberpunks_option_value_palette_color") . "'");
 
@@ -97,7 +243,7 @@ class CyberpunksPaletteStock {
 		return '';
 	}
 
-	public static function getCartProductPaletteAvailability($db, array $cart_product) {
+	public static function getCartProductPaletteAvailability($db, array $cart_product, $language_id = 0) {
 		$rows = array();
 
 		if (empty($cart_product['option']) || !is_array($cart_product['option']) || !self::tablesExist($db) || !self::paletteColorTableHasInStockColumn($db)) {
@@ -105,6 +251,7 @@ class CyberpunksPaletteStock {
 		}
 
 		$product_id = isset($cart_product['product_id']) ? (int)$cart_product['product_id'] : 0;
+		$language_id = (int)$language_id;
 
 		foreach ($cart_product['option'] as $option_row) {
 			$product_option_value_id = isset($option_row['product_option_value_id']) ? (int)$option_row['product_option_value_id'] : 0;
@@ -115,7 +262,7 @@ class CyberpunksPaletteStock {
 
 			$option_id = isset($option_row['option_id']) ? (int)$option_row['option_id'] : 0;
 			$fallback_name = isset($option_row['name']) ? trim((string)$option_row['name']) : '';
-			$option_name = self::resolveOptionDisplayName($db, $product_id, $option_id, $fallback_name);
+			$option_name = self::resolveOptionDisplayName($db, $product_id, $option_id, $fallback_name, $language_id);
 			$color_name = self::getProductOptionValueLabel($db, $product_option_value_id, isset($option_row['value']) ? $option_row['value'] : '');
 
 			if ($option_name === '') {
@@ -164,9 +311,10 @@ class CyberpunksPaletteStock {
 	/**
 	 * Product Display Name → option Display Name → option Pick Display Name (same order as catalog model).
 	 */
-	public static function resolveOptionDisplayName($db, $product_id, $option_id, $fallback_name = '') {
+	public static function resolveOptionDisplayName($db, $product_id, $option_id, $fallback_name = '', $language_id = 0) {
 		$product_id = (int)$product_id;
 		$option_id = (int)$option_id;
+		$language_id = (int)$language_id;
 
 		if ($option_id <= 0) {
 			return trim((string)$fallback_name);
@@ -181,7 +329,7 @@ class CyberpunksPaletteStock {
 				LIMIT 1");
 
 			if ($query->num_rows) {
-				$display_name = isset($query->row['display_name']) ? trim((string)$query->row['display_name']) : '';
+				$display_name = self::pickLocalizedText(isset($query->row['display_name']) ? $query->row['display_name'] : '', $language_id);
 
 				if ($display_name !== '') {
 					return $display_name;
@@ -204,16 +352,24 @@ class CyberpunksPaletteStock {
 
 			foreach ($query->rows as $row) {
 				if (!empty($row['field_key']) && trim((string)$row['value']) !== '') {
-					$values[$row['field_key']] = trim((string)$row['value']);
+					$values[$row['field_key']] = $row['value'];
 				}
 			}
 
 			if (!empty($values['display_name'])) {
-				return $values['display_name'];
+				$picked = self::pickLocalizedText($values['display_name'], $language_id);
+
+				if ($picked !== '') {
+					return $picked;
+				}
 			}
 
 			if (!empty($values['pick_display_name'])) {
-				return $values['pick_display_name'];
+				$picked = self::pickLocalizedText($values['pick_display_name'], $language_id);
+
+				if ($picked !== '') {
+					return $picked;
+				}
 			}
 		}
 

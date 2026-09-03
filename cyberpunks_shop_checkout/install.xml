@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Checkout</name>
 	<code>cyberpunks_shop_checkout</code>
-	<version>1.0.24</version>
+	<version>1.0.25</version>
 	<author>positivecrash</author>
 	<description>Unified checkout: facade API, hardening, review data for checkout and success pages.</description>
 
@@ -282,7 +282,14 @@
 					$min_days = (int)$m[1];
 					$max_days = (int)$m[2];
 					if ($min_days > 0 && $max_days > 0) {
-						$days_text = $min_days . '-' . $max_days . ' business days';
+						$days_range = $min_days . '-' . $max_days;
+						$days_text = $days_range . ' business days';
+						if (is_file(DIR_SYSTEM . 'library/cyberpunks_cb_lang.php')) {
+							require_once(DIR_SYSTEM . 'library/cyberpunks_cb_lang.php');
+							if (function_exists('cb_lang')) {
+								$days_text = call_user_func('cb_lang', '%s business days', $days_range);
+							}
+						}
 						$data['shipping_method_text'] = preg_replace('/\(\s*\d+\s*-\s*\d+\s*\)/', '(' . $days_text . ')', $raw_shipping_method, 1);
 					}
 				}

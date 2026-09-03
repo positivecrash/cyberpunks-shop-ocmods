@@ -2,21 +2,32 @@
 $_['heading_title'] = 'Cyberpunks Language Overrides';
 
 $_['text_extension'] = 'Extensions';
-$_['text_success'] = 'Success: You have updated language overrides.';
-$_['text_edit'] = 'Edit Storefront Language Overrides';
+$_['text_success'] = 'Success: Theme string saved.';
+$_['text_success_settings'] = 'Success: Settings saved.';
+$_['text_success_delete'] = 'Success: Theme string deleted.';
+$_['text_edit'] = 'Storefront Settings';
 $_['text_home'] = 'Home';
+$_['text_form'] = 'Edit Theme String';
+$_['text_cb_lang'] = 'Theme Strings (cb_lang)';
+$_['text_cb_lang_help'] = 'Add strings yourself. Original (EN) is the English text used in {{ cb_lang(\'…\') }} and on the EN storefront. Fill other languages below — do not duplicate English.';
+$_['text_source'] = 'Original (EN)';
+$_['text_comment'] = 'Comment';
+$_['text_translations'] = 'Translations (other languages)';
+$_['text_translations_help'] = 'English is the Original (EN) field above. Only add non-English translations here.';
+$_['text_no_translation_languages'] = 'No other storefront languages enabled.';
+$_['text_missing'] = 'Missing languages';
+$_['text_confirm'] = 'Delete this string?';
+$_['text_no_results'] = 'No theme strings yet. Click + to add one.';
 $_['text_override'] = 'Override';
 $_['text_original'] = 'Original';
-$_['text_key'] = 'Language Key';
 $_['text_total_labels'] = 'Cart Total Labels';
 $_['text_total_labels_help'] = 'Override order total labels by code wherever totals are rendered (cart, checkout, payment).';
 $_['text_total_code'] = 'Total Code';
-
-$_['text_language_strings'] = 'Catalog Language Strings';
-$_['text_language_strings_help'] = 'Overrides apply globally after each matching catalog language file is loaded. Keys are stored as route:key (e.g. error/not_found:heading_title).';
-
 $_['text_price_format'] = 'Price Format';
-$_['text_price_format_help'] = 'Storefront-wide thousands separator for currency->format() (product, cart, checkout, shipping, etc.).';
+$_['text_price_format_help'] = 'Storefront-wide thousands separator for currency->format().';
+$_['text_key'] = 'Language Key';
+$_['text_language_strings'] = 'OpenCart overrides';
+$_['text_language_strings_help'] = 'Override stock OpenCart / module catalog language keys (EN originals), cart total labels, and price format. Theme marketing copy uses the Theme Strings (cb_lang) tab.';
 $_['entry_thousand_point'] = 'Thousands Separator';
 $_['text_thousand_default'] = 'Default (from language file)';
 $_['text_thousand_space'] = 'Space (8 707)';
@@ -24,7 +35,16 @@ $_['text_thousand_comma'] = 'Comma (8,707)';
 $_['text_thousand_dot'] = 'Dot (8.707)';
 $_['text_thousand_nbsp'] = 'Non-breaking space';
 $_['text_thousand_none'] = 'None (8707)';
-
-$_['entry_override'] = 'Override Text';
-
+$_['entry_source'] = 'Original (EN)';
+$_['entry_comment'] = 'Comment';
+$_['entry_translation'] = 'Translation';
+$_['help_source'] = 'English source. Must match cb_lang(\'…\') in the theme exactly. Shown as-is when the storefront language is English.';
+$_['help_comment'] = 'Admin-only note: where this string is used.';
+$_['button_save'] = 'Save';
+$_['button_cancel'] = 'Cancel';
+$_['button_add'] = 'Add String';
+$_['button_edit'] = 'Edit';
+$_['button_delete'] = 'Delete';
 $_['error_permission'] = 'Warning: You do not have permission to modify this module!';
+$_['error_source'] = 'Warning: Original text is required.';
+$_['error_duplicate'] = 'Warning: A string with this original text already exists.';

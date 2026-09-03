@@ -259,26 +259,31 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 	}
 
 	/**
-	 * option_id => default label from Catalog → Options (field_key: display_name | pick_display_name).
+	 * option_id => [language_id => label] from Catalog → Options.
 	 */
 	public function getOptionLabelDefaults($field_key) {
 		$this->ensureSchema();
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
 
 		$field_key = (string)$field_key;
 		$map = array();
 
-		if ($field_key === '') {
+		if ($field_key === '' || !CyberpunksPaletteStock::isLocalizedLabelKey($field_key)) {
 			return $map;
 		}
+
+		$language_ids = $this->getActiveLanguageIds();
 
 		$query = $this->db->query("SELECT v.option_id, v.value FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_option_custom_field` f ON (v.field_id = f.field_id) WHERE v.option_value_id = '0' AND f.field_key = '" . $this->db->escape($field_key) . "' AND f.status = '1'");
 
 		foreach ($query->rows as $row) {
-			$value = trim((string)$row['value']);
+			$decoded = CyberpunksPaletteStock::decodeLocalizedText($row['value']);
 
-			if ($value !== '') {
-				$map[(int)$row['option_id']] = $value;
+			if (!$decoded) {
+				continue;
 			}
+
+			$map[(int)$row['option_id']] = CyberpunksPaletteStock::expandLocalizedTextForAdmin($decoded, $language_ids);
 		}
 
 		return $map;
@@ -290,10 +295,11 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 	}
 
 	/**
-	 * option_id => ['display_name' => '', 'pick_display_name' => ''] per-product overrides.
+	 * option_id => ['display_name' => [lang=>…], 'pick_display_name' => [lang=>…]]
 	 */
 	public function getProductOptionLabelMap($product_id) {
 		$this->ensureSchema();
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
 
 		$product_id = (int)$product_id;
 		$map = array();
@@ -302,13 +308,37 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 			return $map;
 		}
 
+		$language_ids = $this->getActiveLanguageIds();
 		$query = $this->db->query("SELECT * FROM `" . DB_PREFIX . "cyberpunks_product_option_label` WHERE product_id = '" . $product_id . "'");
 
 		foreach ($query->rows as $row) {
-			$display_name = isset($row['display_name']) ? trim((string)$row['display_name']) : '';
-			$pick_display_name = isset($row['pick_display_name']) ? trim((string)$row['pick_display_name']) : '';
+			$display_name = CyberpunksPaletteStock::expandLocalizedTextForAdmin(
+				CyberpunksPaletteStock::decodeLocalizedText(isset($row['display_name']) ? $row['display_name'] : ''),
+				$language_ids
+			);
+			$pick_display_name = CyberpunksPaletteStock::expandLocalizedTextForAdmin(
+				CyberpunksPaletteStock::decodeLocalizedText(isset($row['pick_display_name']) ? $row['pick_display_name'] : ''),
+				$language_ids
+			);
 
-			if ($display_name === '' && $pick_display_name === '') {
+			$has_display = false;
+			$has_pick = false;
+
+			foreach ($display_name as $text) {
+				if ($text !== '') {
+					$has_display = true;
+					break;
+				}
+			}
+
+			foreach ($pick_display_name as $text) {
+				if ($text !== '') {
+					$has_pick = true;
+					break;
+				}
+			}
+
+			if (!$has_display && !$has_pick) {
 				continue;
 			}
 
@@ -340,6 +370,7 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 	 */
 	public function saveProductOptionLabels($product_id, array $post) {
 		$this->ensureSchema();
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
 
 		$product_id = (int)$product_id;
 
@@ -363,8 +394,12 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 			}
 
 			$seen[$option_id] = true;
-			$display_name = isset($product_option['cyberpunks_display_name']) ? trim((string)$product_option['cyberpunks_display_name']) : '';
-			$pick_display_name = isset($product_option['cyberpunks_pick_display_name']) ? trim((string)$product_option['cyberpunks_pick_display_name']) : '';
+			$display_name = CyberpunksPaletteStock::encodeLocalizedText(
+				isset($product_option['cyberpunks_display_name']) ? $product_option['cyberpunks_display_name'] : ''
+			);
+			$pick_display_name = CyberpunksPaletteStock::encodeLocalizedText(
+				isset($product_option['cyberpunks_pick_display_name']) ? $product_option['cyberpunks_pick_display_name'] : ''
+			);
 
 			if ($display_name === '' && $pick_display_name === '') {
 				continue;
@@ -372,6 +407,17 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 
 			$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_product_option_label` SET product_id = '" . $product_id . "', option_id = '" . $option_id . "', display_name = '" . $this->db->escape($display_name) . "', pick_display_name = '" . $this->db->escape($pick_display_name) . "', date_modified = NOW()");
 		}
+	}
+
+	private function getActiveLanguageIds() {
+		$ids = array();
+		$query = $this->db->query("SELECT language_id FROM `" . DB_PREFIX . "language` WHERE status = '1' ORDER BY sort_order ASC, language_id ASC");
+
+		foreach ($query->rows as $row) {
+			$ids[] = (int)$row['language_id'];
+		}
+
+		return $ids;
 	}
 
 	/** @deprecated use saveProductOptionLabels */
@@ -579,12 +625,24 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 
 	public function getOptionFieldValues($option_id) {
 		$this->ensureSchema();
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
 
 		$data = array();
-		$query = $this->db->query("SELECT field_id, value FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` WHERE option_id = '" . (int)$option_id . "' AND option_value_id = '0'");
+		$language_ids = $this->getActiveLanguageIds();
+		$query = $this->db->query("SELECT v.field_id, v.value, f.field_key FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_option_custom_field` f ON (v.field_id = f.field_id) WHERE v.option_id = '" . (int)$option_id . "' AND v.option_value_id = '0'");
 
 		foreach ($query->rows as $row) {
-			$data[(int)$row['field_id']] = $row['value'];
+			$field_id = (int)$row['field_id'];
+			$field_key = isset($row['field_key']) ? (string)$row['field_key'] : '';
+
+			if (CyberpunksPaletteStock::isLocalizedLabelKey($field_key)) {
+				$data[$field_id] = CyberpunksPaletteStock::expandLocalizedTextForAdmin(
+					CyberpunksPaletteStock::decodeLocalizedText($row['value']),
+					$language_ids
+				);
+			} else {
+				$data[$field_id] = $row['value'];
+			}
 		}
 
 		return $data;
@@ -592,18 +650,36 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 
 	public function saveOptionFieldValues($option_id, $values) {
 		$this->ensureSchema();
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
 
 		$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` WHERE option_id = '" . (int)$option_id . "' AND option_value_id = '0'");
 
-		if (is_array($values)) {
-			foreach ($values as $field_id => $value) {
-				$field_id = (int)$field_id;
-				if ($field_id <= 0) {
-					continue;
-				}
+		if (!is_array($values)) {
+			return;
+		}
 
-				$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_option_custom_field_value` SET option_id = '" . (int)$option_id . "', option_value_id = '0', field_id = '" . (int)$field_id . "', value = '" . $this->db->escape((string)$value) . "', date_modified = NOW()");
+		$field_keys = array();
+		$field_query = $this->db->query("SELECT field_id, field_key FROM `" . DB_PREFIX . "cyberpunks_option_custom_field`");
+
+		foreach ($field_query->rows as $row) {
+			$field_keys[(int)$row['field_id']] = isset($row['field_key']) ? (string)$row['field_key'] : '';
+		}
+
+		foreach ($values as $field_id => $value) {
+			$field_id = (int)$field_id;
+			if ($field_id <= 0) {
+				continue;
 			}
+
+			$field_key = isset($field_keys[$field_id]) ? $field_keys[$field_id] : '';
+
+			if (CyberpunksPaletteStock::isLocalizedLabelKey($field_key)) {
+				$value = CyberpunksPaletteStock::encodeLocalizedText($value);
+			} else {
+				$value = (string)$value;
+			}
+
+			$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_option_custom_field_value` SET option_id = '" . (int)$option_id . "', option_value_id = '0', field_id = '" . (int)$field_id . "', value = '" . $this->db->escape($value) . "', date_modified = NOW()");
 		}
 	}
 

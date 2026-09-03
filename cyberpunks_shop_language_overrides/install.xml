@@ -2,28 +2,97 @@
 <modification>
 	<name>Cyberpunks Shop Language Overrides</name>
 	<code>cyberpunks_shop_language_overrides</code>
-	<version>1.5.2</version>
+	<version>1.7.6</version>
 	<author>positivecrash</author>
-	<description>Admin-managed storefront language overrides (catalog language files), cart total labels, and price thousand separator.</description>
+	<description>Minimal nl-nl core, URL locales, cb_lang theme strings (admin), shared SEO keywords, hreflang/og:locale, cart total labels, thousand separator.</description>
 
+	<!-- SEO decode: resolve keyword per current language -->
+	<file path="catalog/controller/startup/seo_url.php">
+		<operation error="skip">
+			<search><![CDATA[				$query = $this->db->query("SELECT * FROM " . DB_PREFIX . "seo_url WHERE keyword = '" . $this->db->escape($part) . "' AND store_id = '" . (int)$this->config->get('config_store_id') . "'");]]></search>
+			<add position="replace"><![CDATA[				$query = $this->db->query("SELECT * FROM " . DB_PREFIX . "seo_url WHERE keyword = '" . $this->db->escape($part) . "' AND store_id = '" . (int)$this->config->get('config_store_id') . "' AND language_id = '" . (int)$this->config->get('config_language_id') . "'");]]></add>
+		</operation>
+	</file>
+
+	<!-- Admin: same SEO keyword allowed across languages -->
+	<file path="admin/controller/catalog/product.php">
+		<operation error="skip">
+			<search><![CDATA[						if (count(array_keys($language, $keyword)) > 1) {]]></search>
+			<add position="replace"><![CDATA[						if (false) {]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[							if (($seo_url['store_id'] == $store_id) && (!isset($this->request->get['product_id']) || (($seo_url['query'] != 'product_id=' . $this->request->get['product_id'])))) {]]></search>
+			<add position="replace"><![CDATA[							if (($seo_url['store_id'] == $store_id) && ((int)$seo_url['language_id'] == (int)$language_id) && (!isset($this->request->get['product_id']) || (($seo_url['query'] != 'product_id=' . $this->request->get['product_id'])))) {]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/controller/catalog/category.php">
+		<operation error="skip">
+			<search><![CDATA[						if (count(array_keys($language, $keyword)) > 1) {]]></search>
+			<add position="replace"><![CDATA[						if (false) {]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[							if (($seo_url['store_id'] == $store_id) && (!isset($this->request->get['category_id']) || ($seo_url['query'] != 'category_id=' . $this->request->get['category_id']))) {]]></search>
+			<add position="replace"><![CDATA[							if (($seo_url['store_id'] == $store_id) && ((int)$seo_url['language_id'] == (int)$language_id) && (!isset($this->request->get['category_id']) || ($seo_url['query'] != 'category_id=' . $this->request->get['category_id']))) {]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/controller/catalog/information.php">
+		<operation error="skip">
+			<search><![CDATA[						if (count(array_keys($language, $keyword)) > 1) {]]></search>
+			<add position="replace"><![CDATA[						if (false) {]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[							if (($seo_url['store_id'] == $store_id) && (!isset($this->request->get['information_id']) || ($seo_url['query'] != 'information_id=' . $this->request->get['information_id']))) {]]></search>
+			<add position="replace"><![CDATA[							if (($seo_url['store_id'] == $store_id) && ((int)$seo_url['language_id'] == (int)$language_id) && (!isset($this->request->get['information_id']) || ($seo_url['query'] != 'information_id=' . $this->request->get['information_id']))) {]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/controller/catalog/manufacturer.php">
+		<operation error="skip">
+			<search><![CDATA[						if (count(array_keys($language, $keyword)) > 1) {]]></search>
+			<add position="replace"><![CDATA[						if (false) {]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[							if (($seo_url['store_id'] == $store_id) && (!isset($this->request->get['manufacturer_id']) || (($seo_url['query'] != 'manufacturer_id=' . $this->request->get['manufacturer_id'])))) {]]></search>
+			<add position="replace"><![CDATA[							if (($seo_url['store_id'] == $store_id) && ((int)$seo_url['language_id'] == (int)$language_id) && (!isset($this->request->get['manufacturer_id']) || (($seo_url['query'] != 'manufacturer_id=' . $this->request->get['manufacturer_id'])))) {]]></add>
+		</operation>
+	</file>
+
+	<!-- Locale startup -->
+	<file path="system/config/catalog.php">
+		<operation error="skip">
+			<search><![CDATA[	'startup/session',]]></search>
+			<add position="after"><![CDATA[
+	'extension/module/cyberpunks_locale/early',]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[	'startup/seo_url']]></search>
+			<add position="after"><![CDATA[,
+	'extension/module/cyberpunks_locale/late']]></add>
+		</operation>
+	</file>
+
+	<!-- cb_lang init + OC language-key overrides + thousand separator -->
 	<file path="catalog/controller/startup/startup.php">
 		<operation error="skip">
-			<search><![CDATA[		$language->load($code);
-		
-		$this->registry->set('language', $language);]]></search>
-			<add position="replace"><![CDATA[		$language->load($code);
-
+			<search><![CDATA[		$language->load($code);]]></search>
+			<add position="after"><![CDATA[
 		$cp_language_overrides_file = DIR_SYSTEM . 'library/cyberpunks_language_overrides.php';
 		if (is_file($cp_language_overrides_file)) {
 			require_once($cp_language_overrides_file);
-			CyberpunksLanguageOverrides::apply($language, $code, $this->config);
+			call_user_func(array('CyberpunksLanguageOverrides', 'apply'), $language, $code, $this->config);
 		}
-
-		$this->registry->set('language', $language);]]></add>
+]]></add>
 		</operation>
 		<operation error="skip">
 			<search><![CDATA[		$this->registry->set('language', $language);]]></search>
 			<add position="after"><![CDATA[
+		$cp_cb_lang_file = DIR_SYSTEM . 'library/cyberpunks_cb_lang.php';
+		if (is_file($cp_cb_lang_file)) {
+			require_once($cp_cb_lang_file);
+			call_user_func(array('CyberpunksCbLang', 'init'), $this->registry);
+		}
 		$cp_thousand_point = $this->config->get('module_cyberpunks_language_overrides_thousand_point');
 		$cp_thousand_map = array(
 			'space' => ' ',
@@ -44,9 +113,144 @@
 			<search><![CDATA[			$output = $this->registry->get('language')->load($route, $key);]]></search>
 			<add position="after"><![CDATA[
 			if (!$key) {
-				require_once(DIR_SYSTEM . 'library/cyberpunks_language_overrides.php');
-				CyberpunksLanguageOverrides::apply($this->registry->get('language'), $route, $this->registry->get('config'));
+				$cp_language_overrides_file = DIR_SYSTEM . 'library/cyberpunks_language_overrides.php';
+				if (is_file($cp_language_overrides_file)) {
+					require_once($cp_language_overrides_file);
+					call_user_func(array('CyberpunksLanguageOverrides', 'apply'), $this->registry->get('language'), $route, $this->registry->get('config'));
+				}
 			}
+]]></add>
+		</operation>
+	</file>
+
+	<!-- Do not hard-exit on missing Twig templates (prevents white screens). -->
+	<file path="system/library/template/twig.php">
+		<operation error="skip">
+			<search><![CDATA[exit();]]></search>
+			<add position="replace"><![CDATA[return '';]]></add>
+		</operation>
+	</file>
+
+	<!-- Register Twig function cb_lang -->
+	<file path="system/library/template/twig.php">
+		<operation error="skip">
+			<search><![CDATA[			$twig = new \Twig\Environment($loader, $config);]]></search>
+			<add position="after"><![CDATA[
+			if (is_file(DIR_SYSTEM . 'library/cyberpunks_cb_lang.php')) {
+				require_once(DIR_SYSTEM . 'library/cyberpunks_cb_lang.php');
+				call_user_func(array('CyberpunksCbLang', 'registerTwig'), $twig);
+			} else {
+				// Library not on disk (half-finished OCMOD install): keep cb_lang defined so themes still render.
+				$cp_cb_lang_passthrough = function ($source) {
+					$args = func_get_args();
+					array_shift($args);
+
+					return $args ? vsprintf((string)$source, $args) : (string)$source;
+				};
+
+				if (class_exists('\\Twig\\TwigFunction')) {
+					$twig->addFunction(new \Twig\TwigFunction('cb_lang', $cp_cb_lang_passthrough));
+				} elseif (class_exists('Twig_SimpleFunction')) {
+					$twig->addFunction(new \Twig_SimpleFunction('cb_lang', $cp_cb_lang_passthrough));
+				}
+			}
+]]></add>
+		</operation>
+	</file>
+
+	<!-- Header: hreflang + og:locale -->
+	<file path="catalog/controller/common/header.php">
+		<operation error="skip">
+			<search><![CDATA[		$data['language'] = $this->load->controller('common/language');]]></search>
+			<add position="before"><![CDATA[
+		$data['hreflangs'] = array();
+		$data['og_locale'] = '';
+		$data['og_locale_alternates'] = array();
+
+		$this->load->model('localisation/language');
+		$cyberpunks_languages = $this->model_localisation_language->getLanguages();
+		$cyberpunks_default_code = $this->config->get('config_language');
+
+		$url_data = $this->request->get;
+		unset($url_data['_route_']);
+		unset($url_data['language']);
+
+		if (!isset($url_data['route'])) {
+			$cyberpunks_route = 'common/home';
+		} else {
+			$cyberpunks_route = $url_data['route'];
+			unset($url_data['route']);
+		}
+
+		$cyberpunks_query = '';
+		if ($url_data) {
+			$cyberpunks_query = urldecode(http_build_query($url_data, '', '&'));
+		}
+
+		$cyberpunks_locale_map = function ($code) {
+			$parts = explode('-', strtolower((string)$code));
+			if (count($parts) >= 2) {
+				return $parts[0] . '_' . strtoupper($parts[1]);
+			}
+			return str_replace('-', '_', (string)$code);
+		};
+
+		$cyberpunks_prev_language_id = $this->config->get('config_language_id');
+		$cyberpunks_prev_language_code = isset($this->session->data['language']) ? $this->session->data['language'] : $cyberpunks_default_code;
+
+		foreach ($cyberpunks_languages as $cyberpunks_language) {
+			if (empty($cyberpunks_language['status'])) {
+				continue;
+			}
+
+			$code = $cyberpunks_language['code'];
+			$this->session->data['language'] = $code;
+			$this->config->set('config_language_id', (int)$cyberpunks_language['language_id']);
+
+			$href = $this->url->link($cyberpunks_route, $cyberpunks_query, true);
+
+			$data['hreflangs'][] = array(
+				'hreflang' => $code,
+				'href'     => str_replace('&amp;', '&', $href)
+			);
+
+			$locale = $cyberpunks_locale_map($code);
+
+			if ($code === $cyberpunks_prev_language_code) {
+				$data['og_locale'] = $locale;
+			} else {
+				$data['og_locale_alternates'][] = $locale;
+			}
+
+			if ($code === $cyberpunks_default_code) {
+				$data['hreflangs'][] = array(
+					'hreflang' => 'x-default',
+					'href'     => str_replace('&amp;', '&', $href)
+				);
+			}
+		}
+
+		$this->session->data['language'] = $cyberpunks_prev_language_code;
+		$this->config->set('config_language_id', $cyberpunks_prev_language_id);
+
+		if (!$data['og_locale'] && $cyberpunks_default_code) {
+			$data['og_locale'] = $cyberpunks_locale_map($cyberpunks_default_code);
+		}
+
+]]></add>
+		</operation>
+	</file>
+
+	<!-- Language switcher hrefs -->
+	<file path="catalog/controller/common/language.php">
+		<operation error="skip">
+			<search><![CDATA[		$results = $this->model_localisation_language->getLanguages();]]></search>
+			<add position="after"><![CDATA[
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_language_switcher.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_language_switcher.php');
+			$data['languages'] = CyberpunksLanguageSwitcher::build($this, $results);
+			$results = array();
+		}
 ]]></add>
 		</operation>
 	</file>
@@ -87,9 +291,6 @@
 				$cp_text_agree_args = substr_count($cp_text_agree_tpl, '%s');
 				$cp_text_agree_url = $this->url->link('information/information', 'information_id=' . $this->config->get('config_checkout_id'), true);
 
-				// OpenCart convention:
-				// - if text_agree has 1 placeholder: it expects the FULL HTML link (already formatted)
-				// - if it has 2 placeholders: it expects (url, title)
 				if ($cp_text_agree_args <= 0) {
 					$data['text_agree'] = $cp_text_agree_tpl;
 				} elseif ($cp_text_agree_args === 1) {

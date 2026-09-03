@@ -1,0 +1,70 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-cb-lang" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+          <li>{% if breadcrumb.href %}<a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a>{% else %}{{ breadcrumb.text }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+      <div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}</div>
+    {% endif %}
+
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_form }}</h3></div>
+      <div class="panel-body">
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-cb-lang" class="form-horizontal">
+          {% if string_id %}
+            <input type="hidden" name="string_id" value="{{ string_id }}" />
+          {% endif %}
+
+          <div class="form-group required">
+            <label class="col-sm-2 control-label" for="input-source">{{ entry_source }}</label>
+            <div class="col-sm-10">
+              <textarea name="source_text" rows="4" id="input-source" class="form-control" placeholder="Buy now">{{ source_text }}</textarea>
+              <p class="help-block">{{ help_source }}</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-comment">{{ entry_comment }}</label>
+            <div class="col-sm-10">
+              <input type="text" name="comment" value="{{ comment }}" id="input-comment" class="form-control" placeholder="Header top banner" />
+              <p class="help-block">{{ help_comment }}</p>
+            </div>
+          </div>
+
+          <fieldset>
+            <legend>{{ text_translations }}</legend>
+            <p class="help-block">{{ text_translations_help }}</p>
+            {% if languages %}
+              {% for language in languages %}
+                <div class="form-group">
+                  <label class="col-sm-2 control-label" for="input-translation-{{ language.language_id }}">
+                    <img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /> {{ language.name }}
+                    <div><small>{{ language.code }}</small></div>
+                  </label>
+                  <div class="col-sm-10">
+                    <textarea name="translations[{{ language.language_id }}]" rows="3" id="input-translation-{{ language.language_id }}" class="form-control">{% if translations[language.language_id] is defined %}{{ translations[language.language_id] }}{% endif %}</textarea>
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <p class="help-block">{{ text_no_translation_languages }}</p>
+            {% endif %}
+          </fieldset>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{{ footer }}

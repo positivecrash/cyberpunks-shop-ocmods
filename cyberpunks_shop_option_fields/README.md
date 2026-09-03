@@ -12,7 +12,7 @@ Replaces the separate `cyberpunks_shop_color_palettes` extension (merged in 1.4.
 - Attach palettes on **Catalog → Options**; option values pick a palette color
 - Storefront resolves `swatch_color`, `model_color`, and `color` from the linked palette color
 - **Product → Option**: optional **Slide #** per value → switches product gallery slide on the storefront (single number or comma-separated, e.g. `5,6`)
-- **Product → Option**: **Display Name** and **Pick Display Name** next to Required (fall back to Catalog → Options defaults when empty)
+- **Product → Option**: **Display Name** and **Pick Display Name** next to Required (fall back to Catalog → Options defaults when empty; **per language**)
 
 ## Admin
 
@@ -37,6 +37,10 @@ Replaces the separate `cyberpunks_shop_color_palettes` extension (merged in 1.4.
 (`oc_` is your `DB_PREFIX`.)
 
 ## Changelog
+
+### 1.8.0
+- **Display Name** / **Pick Display Name** are multilingual (flag inputs per language on Catalog → Options and Product → Option)
+- Stored as JSON per language; legacy plain strings still work as fallback
 
 ### 1.7.5
 - Cart palette availability label keeps Display Name casing from admin (no forced lowercase)

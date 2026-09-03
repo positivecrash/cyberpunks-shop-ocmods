@@ -14,7 +14,19 @@ class ModelExtensionModuleCyberpunksShopMenu extends Model {
 		$items = array();
 
 		foreach ($raw as $row) {
-			if (empty($row['status']) || empty($row['name'])) {
+			$category_id = isset($row['category_id']) ? (int)$row['category_id'] : 0;
+			$name = isset($row['name']) ? trim((string)$row['name']) : '';
+
+			// Prefer live category name for current storefront language (admin Name is only a fallback).
+			if ($category_id > 0) {
+				$translated = $this->getCategoryName($category_id);
+
+				if ($translated !== '') {
+					$name = $translated;
+				}
+			}
+
+			if (empty($row['status']) || $name === '') {
 				continue;
 			}
 
@@ -24,17 +36,21 @@ class ModelExtensionModuleCyberpunksShopMenu extends Model {
 				$panel = 'none';
 			}
 
+			if ($category_id > 0) {
+				$href = $this->url->link('product/category', 'path=' . $category_id);
+			} else {
+				$href = $this->resolveHref(isset($row['href']) ? $row['href'] : '');
+			}
+
 			$item = array(
-				'name'     => (string)$row['name'],
-				'href'     => $this->resolveHref(isset($row['href']) ? $row['href'] : ''),
+				'name'     => $name,
+				'href'     => $href,
 				'panel'    => $panel,
 				'products' => array(),
 				'links'    => array()
 			);
 
 			if ($panel === 'products') {
-				$category_id = isset($row['category_id']) ? (int)$row['category_id'] : 0;
-
 				if ($category_id > 0) {
 					$item['products'] = $this->getFeaturedProductsByCategory($category_id);
 				}
@@ -55,6 +71,25 @@ class ModelExtensionModuleCyberpunksShopMenu extends Model {
 		}
 
 		return $items;
+	}
+
+	private function getCategoryName($category_id) {
+		$category_id = (int)$category_id;
+
+		if ($category_id < 1) {
+			return '';
+		}
+
+		$query = $this->db->query("SELECT name FROM `" . DB_PREFIX . "category_description`
+			WHERE category_id = '" . (int)$category_id . "'
+				AND language_id = '" . (int)$this->config->get('config_language_id') . "'
+			LIMIT 1");
+
+		if (!$query->num_rows) {
+			return '';
+		}
+
+		return html_entity_decode((string)$query->row['name'], ENT_QUOTES, 'UTF-8');
 	}
 
 	private function resolveHref($href) {

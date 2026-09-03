@@ -241,6 +241,25 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 	}
 
 	/**
+	 * Resolve display_name / pick_display_name JSON (or legacy plain) to current language.
+	 */
+	public function localizeOptionFieldValues(array $cyberpunks_fields) {
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
+		$language_id = (int)$this->config->get('config_language_id');
+
+		foreach (array('display_name', 'pick_display_name') as $key) {
+			if (!isset($cyberpunks_fields[$key])) {
+				continue;
+			}
+
+			$cyberpunks_fields[$key] = CyberpunksPaletteStock::pickLocalizedText($cyberpunks_fields[$key], $language_id);
+		}
+
+		return $cyberpunks_fields;
+	}
+
+	/**
 	 * Per-product Display Name / Pick Display Name (Product → Option, next to Required).
 	 * Overrides Catalog → Options defaults when set.
 	 */
@@ -252,6 +271,8 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 			return $cyberpunks_fields;
 		}
 
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
+
 		$query = $this->db->query("SELECT * FROM `" . DB_PREFIX . "cyberpunks_product_option_label`
 			WHERE product_id = '" . $product_id . "'
 			AND option_id = '" . $option_id . "'
@@ -261,8 +282,9 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 			return $cyberpunks_fields;
 		}
 
-		$display_name = isset($query->row['display_name']) ? trim((string)$query->row['display_name']) : '';
-		$pick_display_name = isset($query->row['pick_display_name']) ? trim((string)$query->row['pick_display_name']) : '';
+		$language_id = (int)$this->config->get('config_language_id');
+		$display_name = CyberpunksPaletteStock::pickLocalizedText(isset($query->row['display_name']) ? $query->row['display_name'] : '', $language_id);
+		$pick_display_name = CyberpunksPaletteStock::pickLocalizedText(isset($query->row['pick_display_name']) ? $query->row['pick_display_name'] : '', $language_id);
 
 		if ($display_name !== '') {
 			$cyberpunks_fields['display_name'] = $display_name;
@@ -285,51 +307,15 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 	 * Returns empty string when nothing is configured (caller applies its own fallback).
 	 */
 	public function resolveDisplayName($product_id, $option_id, $fallback_name = '') {
-		$product_id = (int)$product_id;
-		$option_id = (int)$option_id;
+		require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
 
-		if ($option_id <= 0) {
-			return '';
-		}
-
-		if ($product_id > 0 && $this->labelTableExists()) {
-			$query = $this->db->query("SELECT * FROM `" . DB_PREFIX . "cyberpunks_product_option_label`
-				WHERE product_id = '" . $product_id . "'
-				AND option_id = '" . $option_id . "'
-				LIMIT 1");
-
-			if ($query->num_rows) {
-				$value = isset($query->row['display_name']) ? trim((string)$query->row['display_name']) : '';
-
-				if ($value !== '') {
-					return $value;
-				}
-			}
-		}
-
-		$fields_table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_option_custom_field_value") . "'");
-
-		if ($fields_table->num_rows) {
-			$query = $this->db->query("SELECT f.field_key, v.value FROM `" . DB_PREFIX . "cyberpunks_option_custom_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_option_custom_field` f ON (v.field_id = f.field_id) WHERE v.option_id = '" . $option_id . "' AND v.option_value_id = '0' AND f.status = '1' AND f.field_key IN ('display_name', 'pick_display_name')");
-
-			$values = array();
-
-			foreach ($query->rows as $row) {
-				if (!empty($row['field_key']) && trim((string)$row['value']) !== '') {
-					$values[$row['field_key']] = trim((string)$row['value']);
-				}
-			}
-
-			if (!empty($values['display_name'])) {
-				return $values['display_name'];
-			}
-
-			if (!empty($values['pick_display_name'])) {
-				return $values['pick_display_name'];
-			}
-		}
-
-		return '';
+		return CyberpunksPaletteStock::resolveOptionDisplayName(
+			$this->db,
+			(int)$product_id,
+			(int)$option_id,
+			$fallback_name,
+			(int)$this->config->get('config_language_id')
+		);
 	}
 
 	private function paletteColorTableHasInStockColumn() {

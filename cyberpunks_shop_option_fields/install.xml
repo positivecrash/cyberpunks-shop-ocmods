@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Option Fields</name>
 	<code>cyberpunks_shop_option_fields</code>
-	<version>1.7.5</version>
+	<version>1.8.0</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -298,6 +298,18 @@
                     <option value="1" {% if cyberpunks_option_custom_field_values[field.field_id] is defined and cyberpunks_option_custom_field_values[field.field_id] == '1' %}selected="selected"{% endif %}>true</option>
                     <option value="0" {% if cyberpunks_option_custom_field_values[field.field_id] is not defined or cyberpunks_option_custom_field_values[field.field_id] == '0' %}selected="selected"{% endif %}>false</option>
                   </select>
+                  {% elseif field.field_key == 'display_name' or field.field_key == 'pick_display_name' %}
+                  {% set lang_values = cyberpunks_option_custom_field_values[field.field_id] is defined ? cyberpunks_option_custom_field_values[field.field_id] : {} %}
+                  {% if lang_values is not iterable %}
+                    {% set lang_values = { 0: lang_values } %}
+                  {% endif %}
+                  {% for language in languages %}
+                  {% set lang_value = lang_values[language.language_id] is defined ? lang_values[language.language_id] : (lang_values[0] is defined ? lang_values[0] : '') %}
+                  <div class="input-group" style="margin-bottom:6px;">
+                    <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                    <input type="text" name="cyberpunks_option_custom_fields[{{ field.field_id }}][{{ language.language_id }}]" value="{{ lang_value }}" class="form-control" />
+                  </div>
+                  {% endfor %}
                   {% else %}
                   <input type="text" name="cyberpunks_option_custom_fields[{{ field.field_id }}]" value="{{ cyberpunks_option_custom_field_values[field.field_id] is defined ? cyberpunks_option_custom_field_values[field.field_id] : '' }}" class="form-control" />
                   {% endif %}
@@ -675,6 +687,7 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 			if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_option_fields.php')) {
 				$this->load->model('extension/module/cyberpunks_shop_option_fields');
 				$cyberpunks_option_mode = $this->model_extension_module_cyberpunks_shop_option_fields->getOptionMode((int)$product_option['option_id']);
+				$cyberpunks_option_fields = $this->model_extension_module_cyberpunks_shop_option_fields->localizeOptionFieldValues($cyberpunks_option_fields);
 				$cyberpunks_option_fields = $this->model_extension_module_cyberpunks_shop_option_fields->mergeOptionLabels($cyberpunks_option_fields, (int)$product_id, (int)$product_option['option_id']);
 			}
 ]]></add>
@@ -899,7 +912,7 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 				if (is_file(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php')) {
 					require_once(DIR_SYSTEM . 'library/cyberpunks_palette_stock.php');
 					$cyberpunks_palette_line_ok = (CyberpunksPaletteStock::validateCartProductPaletteStock($this->db, $product) === '');
-					$cyberpunks_palette_option_availability = CyberpunksPaletteStock::getCartProductPaletteAvailability($this->db, $product);
+					$cyberpunks_palette_option_availability = CyberpunksPaletteStock::getCartProductPaletteAvailability($this->db, $product, (int)$this->config->get('config_language_id'));
 				}
 
 				$cyberpunks_product_stock = ($product['stock'] && $cyberpunks_palette_line_ok);
@@ -1007,15 +1020,37 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 			<search trim="false"><![CDATA[                        {% if product_option.type == 'text' %}]]></search>
 			<add position="before"><![CDATA[
                         <div class="form-group">
-                          <label class="col-sm-2 control-label" for="input-cyberpunks-display-name{{ option_row }}"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label }}">{{ entry_cyberpunks_display_name }}</span></label>
+                          <label class="col-sm-2 control-label"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label }}">{{ entry_cyberpunks_display_name }}</span></label>
                           <div class="col-sm-10">
-                            <input type="text" name="product_option[{{ option_row }}][cyberpunks_display_name]" value="{{ product_option.cyberpunks_display_name|default('') }}" placeholder="{{ product_option.cyberpunks_display_name_default|default(help_cyberpunks_option_label) }}" id="input-cyberpunks-display-name{{ option_row }}" class="form-control"/>
+                            {% set display_values = product_option.cyberpunks_display_name|default({}) %}
+                            {% if display_values is not iterable %}{% set display_values = { 0: display_values } %}{% endif %}
+                            {% set display_defaults = product_option.cyberpunks_display_name_default|default({}) %}
+                            {% if display_defaults is not iterable %}{% set display_defaults = { 0: display_defaults } %}{% endif %}
+                            {% for language in languages %}
+                            {% set lang_value = display_values[language.language_id] is defined ? display_values[language.language_id] : '' %}
+                            {% set lang_placeholder = display_defaults[language.language_id] is defined and display_defaults[language.language_id] ? display_defaults[language.language_id] : (display_defaults[0] is defined and display_defaults[0] ? display_defaults[0] : help_cyberpunks_option_label) %}
+                            <div class="input-group" style="margin-bottom:6px;">
+                              <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                              <input type="text" name="product_option[{{ option_row }}][cyberpunks_display_name][{{ language.language_id }}]" value="{{ lang_value }}" placeholder="{{ lang_placeholder }}" id="input-cyberpunks-display-name{{ option_row }}-{{ language.language_id }}" class="form-control"/>
+                            </div>
+                            {% endfor %}
                           </div>
                         </div>
                         <div class="form-group">
-                          <label class="col-sm-2 control-label" for="input-cyberpunks-pick-display-name{{ option_row }}"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label }}">{{ entry_cyberpunks_pick_display_name }}</span></label>
+                          <label class="col-sm-2 control-label"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label }}">{{ entry_cyberpunks_pick_display_name }}</span></label>
                           <div class="col-sm-10">
-                            <input type="text" name="product_option[{{ option_row }}][cyberpunks_pick_display_name]" value="{{ product_option.cyberpunks_pick_display_name|default('') }}" placeholder="{{ product_option.cyberpunks_pick_display_name_default|default(help_cyberpunks_option_label) }}" id="input-cyberpunks-pick-display-name{{ option_row }}" class="form-control"/>
+                            {% set pick_values = product_option.cyberpunks_pick_display_name|default({}) %}
+                            {% if pick_values is not iterable %}{% set pick_values = { 0: pick_values } %}{% endif %}
+                            {% set pick_defaults = product_option.cyberpunks_pick_display_name_default|default({}) %}
+                            {% if pick_defaults is not iterable %}{% set pick_defaults = { 0: pick_defaults } %}{% endif %}
+                            {% for language in languages %}
+                            {% set lang_value = pick_values[language.language_id] is defined ? pick_values[language.language_id] : '' %}
+                            {% set lang_placeholder = pick_defaults[language.language_id] is defined and pick_defaults[language.language_id] ? pick_defaults[language.language_id] : (pick_defaults[0] is defined and pick_defaults[0] ? pick_defaults[0] : help_cyberpunks_option_label) %}
+                            <div class="input-group" style="margin-bottom:6px;">
+                              <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                              <input type="text" name="product_option[{{ option_row }}][cyberpunks_pick_display_name][{{ language.language_id }}]" value="{{ lang_value }}" placeholder="{{ lang_placeholder }}" id="input-cyberpunks-pick-display-name{{ option_row }}-{{ language.language_id }}" class="form-control"/>
+                            </div>
+                            {% endfor %}
                           </div>
                         </div>
 ]]></add>
@@ -1024,15 +1059,33 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 		<operation error="skip">
 			<search trim="false"><![CDATA[		  if (item['type'] == 'text') {]]></search>
 			<add position="before"><![CDATA[
-		  var cyberpunksDisplayPlaceholder = (cyberpunksDisplayNameDefaults && cyberpunksDisplayNameDefaults[item['value']]) ? String(cyberpunksDisplayNameDefaults[item['value']]) : '{{ help_cyberpunks_option_label|e('js') }}';
-		  var cyberpunksPickPlaceholder = (cyberpunksPickDisplayNameDefaults && cyberpunksPickDisplayNameDefaults[item['value']]) ? String(cyberpunksPickDisplayNameDefaults[item['value']]) : '{{ help_cyberpunks_option_label|e('js') }}';
+		  var cyberpunksDisplayMap = (cyberpunksDisplayNameDefaults && cyberpunksDisplayNameDefaults[item['value']]) ? cyberpunksDisplayNameDefaults[item['value']] : {};
+		  var cyberpunksPickMap = (cyberpunksPickDisplayNameDefaults && cyberpunksPickDisplayNameDefaults[item['value']]) ? cyberpunksPickDisplayNameDefaults[item['value']] : {};
+		  if (typeof cyberpunksDisplayMap !== 'object' || $.isArray(cyberpunksDisplayMap)) { cyberpunksDisplayMap = {}; }
+		  if (typeof cyberpunksPickMap !== 'object' || $.isArray(cyberpunksPickMap)) { cyberpunksPickMap = {}; }
 		  html += '	<div class="form-group">';
-		  html += '	  <label class="col-sm-2 control-label" for="input-cyberpunks-display-name' + option_row + '"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label|e('js') }}">{{ entry_cyberpunks_display_name|e('js') }}</span></label>';
-		  html += '	  <div class="col-sm-10"><input type="text" name="product_option[' + option_row + '][cyberpunks_display_name]" value="" placeholder="' + $('<div/>').text(cyberpunksDisplayPlaceholder).html() + '" id="input-cyberpunks-display-name' + option_row + '" class="form-control" /></div>';
+		  html += '	  <label class="col-sm-2 control-label"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label|e('js') }}">{{ entry_cyberpunks_display_name|e('js') }}</span></label>';
+		  html += '	  <div class="col-sm-10">';
+		  (window.cyberpunksLanguages || []).forEach(function(language) {
+			var ph = cyberpunksDisplayMap[language.language_id] || cyberpunksDisplayMap[0] || '{{ help_cyberpunks_option_label|e('js') }}';
+			html += '	    <div class="input-group" style="margin-bottom:6px;">';
+			html += '	      <span class="input-group-addon"><img src="language/' + language.code + '/' + language.code + '.png" title="' + $('<div/>').text(language.name).html() + '" /></span>';
+			html += '	      <input type="text" name="product_option[' + option_row + '][cyberpunks_display_name][' + language.language_id + ']" value="" placeholder="' + $('<div/>').text(ph).html() + '" id="input-cyberpunks-display-name' + option_row + '-' + language.language_id + '" class="form-control" />';
+			html += '	    </div>';
+		  });
+		  html += '	  </div>';
 		  html += '	</div>';
 		  html += '	<div class="form-group">';
-		  html += '	  <label class="col-sm-2 control-label" for="input-cyberpunks-pick-display-name' + option_row + '"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label|e('js') }}">{{ entry_cyberpunks_pick_display_name|e('js') }}</span></label>';
-		  html += '	  <div class="col-sm-10"><input type="text" name="product_option[' + option_row + '][cyberpunks_pick_display_name]" value="" placeholder="' + $('<div/>').text(cyberpunksPickPlaceholder).html() + '" id="input-cyberpunks-pick-display-name' + option_row + '" class="form-control" /></div>';
+		  html += '	  <label class="col-sm-2 control-label"><span data-toggle="tooltip" title="{{ help_cyberpunks_option_label|e('js') }}">{{ entry_cyberpunks_pick_display_name|e('js') }}</span></label>';
+		  html += '	  <div class="col-sm-10">';
+		  (window.cyberpunksLanguages || []).forEach(function(language) {
+			var ph = cyberpunksPickMap[language.language_id] || cyberpunksPickMap[0] || '{{ help_cyberpunks_option_label|e('js') }}';
+			html += '	    <div class="input-group" style="margin-bottom:6px;">';
+			html += '	      <span class="input-group-addon"><img src="language/' + language.code + '/' + language.code + '.png" title="' + $('<div/>').text(language.name).html() + '" /></span>';
+			html += '	      <input type="text" name="product_option[' + option_row + '][cyberpunks_pick_display_name][' + language.language_id + ']" value="" placeholder="' + $('<div/>').text(ph).html() + '" id="input-cyberpunks-pick-display-name' + option_row + '-' + language.language_id + '" class="form-control" />';
+			html += '	    </div>';
+		  });
+		  html += '	  </div>';
 		  html += '	</div>';
 
 ]]></add>
@@ -1049,6 +1102,11 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
   if (!cyberpunksPickDisplayNameDefaults || $.isArray(cyberpunksPickDisplayNameDefaults)) {
 	  cyberpunksPickDisplayNameDefaults = {};
   }
+  window.cyberpunksLanguages = [
+  {% for language in languages %}
+	{ language_id: {{ language.language_id }}, code: '{{ language.code|e('js') }}', name: '{{ language.name|e('js') }}' }{% if not loop.last %},{% endif %}
+  {% endfor %}
+  ];
 ]]></add>
 		</operation>
 

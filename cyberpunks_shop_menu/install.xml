@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Menu</name>
 	<code>cyberpunks_shop_menu</code>
-	<version>1.0.2</version>
+	<version>1.0.3</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 	<description>Header mega menu: items (name+href) with optional panel — featured products by category, or links list. Data only; markup in theme.</description>

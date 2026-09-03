@@ -3,7 +3,8 @@
   <div class="page-header">
     <div class="container-fluid">
       <div class="pull-right">
-        <button type="submit" form="form-language-overrides" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ add }}" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary tab-only-cb-lang"><i class="fa fa-plus"></i></a>
+        <button type="submit" form="form-language-settings" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary tab-only-oc-overrides"><i class="fa fa-save"></i></button>
         <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
       </div>
       <h1>{{ heading_title }}</h1>
@@ -21,88 +22,151 @@
     {% if success %}
       <div class="alert alert-success"><i class="fa fa-check-circle"></i> {{ success }}</div>
     {% endif %}
+    {% if missing_files %}
+      <div class="alert alert-danger">
+        <i class="fa fa-exclamation-triangle"></i> Incomplete install: the following files were not copied to the server. Upload them manually from the ocmod zip (<code>upload/</code>), then run Extensions &rarr; Modifications &rarr; Refresh.
+        <ul style="margin:8px 0 0;">
+          {% for missing_file in missing_files %}
+            <li><code>{{ missing_file }}</code></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
 
     <div class="panel panel-default">
-      <div class="panel-heading">
-        <h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3>
-      </div>
+      <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-pencil"></i> {{ heading_title }}</h3></div>
       <div class="panel-body">
-        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-language-overrides" class="form-horizontal">
-          <fieldset style="margin-bottom: 20px;">
-            <legend>{{ text_price_format }}</legend>
-            <p class="help-block">{{ text_price_format_help }}</p>
-            <div class="form-group">
-              <label class="col-sm-3 control-label" for="input-thousand-point">{{ entry_thousand_point }}</label>
-              <div class="col-sm-9">
-                <select name="module_cyberpunks_language_overrides_thousand_point" id="input-thousand-point" class="form-control">
-                  {% for value, label in thousand_point_options %}
-                    <option value="{{ value }}"{% if thousand_point == value %} selected="selected"{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-          </fieldset>
-
-          <fieldset style="margin-bottom: 20px;">
-            <legend>{{ text_total_labels }}</legend>
-            <p class="help-block">{{ text_total_labels_help }}</p>
+        <ul class="nav nav-tabs">
+          <li class="active"><a href="#tab-cb-lang" data-toggle="tab">{{ text_cb_lang }}</a></li>
+          <li><a href="#tab-oc-overrides" data-toggle="tab">{{ text_language_strings }}</a></li>
+        </ul>
+        <div class="tab-content">
+          <div class="tab-pane active" id="tab-cb-lang">
+            <p class="help-block">{{ text_cb_lang_help }}</p>
             <div class="table-responsive">
               <table class="table table-bordered table-hover">
                 <thead>
                   <tr>
-                    <td class="text-left" style="width: 30%;">{{ text_total_code }}</td>
-                    <td class="text-left" style="width: 30%;">{{ text_original }}</td>
-                    <td class="text-left" style="width: 40%;">{{ text_override }}</td>
+                    <td class="text-left">{{ text_source }}</td>
+                    <td class="text-left">{{ text_comment }}</td>
+                    <td class="text-left">{{ text_missing }}</td>
+                    <td class="text-right" style="width: 120px;">Action</td>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for row in total_labels %}
-                    <tr{% if row.has_override %} class="info"{% endif %}>
-                      <td><code>{{ row.code }}</code></td>
-                      <td>{{ row.default }}</td>
-                      <td>
-                        <input type="text" name="module_cyberpunks_language_overrides_total_labels[{{ row.code }}]" value="{{ row.override }}" class="form-control" placeholder="Leave empty to use original" />
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </fieldset>
-
-          {% for group in language_groups %}
-            <fieldset style="margin-bottom: 20px;">
-              <legend>{{ group.title }}</legend>
-              {% if group.route %}
-                <p class="help-block"><code>catalog/language/en-gb/{{ group.route }}.php</code></p>
-              {% endif %}
-              <div class="table-responsive">
-                <table class="table table-bordered table-hover">
-                  <thead>
-                    <tr>
-                      <td class="text-left" style="width: 20%;">{{ text_key }}</td>
-                      <td class="text-left" style="width: 35%;">{{ text_original }}</td>
-                      <td class="text-left" style="width: 45%;">{{ text_override }}</td>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in group.strings %}
-                      <tr{% if row.has_override %} class="info"{% endif %}>
-                        <td><code>{{ row.key }}</code></td>
-                        <td>{{ row.original }}</td>
-                        <td>
-                          <input type="text" name="module_cyberpunks_language_overrides_map[{{ row.map_key }}]" value="{{ row.override }}" class="form-control" placeholder="Leave empty to use original" />
+                  {% if strings %}
+                    {% for row in strings %}
+                      <tr>
+                        <td><code style="white-space: pre-wrap;">{{ row.source_text|slice(0, 160) }}{% if row.source_text|length > 160 %}…{% endif %}</code></td>
+                        <td>{{ row.comment }}</td>
+                        <td>{% if row.missing %}{{ row.missing|join(', ') }}{% else %}—{% endif %}</td>
+                        <td class="text-right">
+                          <a href="{{ row.edit }}" data-toggle="tooltip" title="{{ button_edit }}" class="btn btn-primary btn-xs"><i class="fa fa-pencil"></i></a>
+                          <a href="{{ row.delete }}" data-toggle="tooltip" title="{{ button_delete }}" class="btn btn-danger btn-xs" onclick="return confirm('{{ text_confirm }}');"><i class="fa fa-trash-o"></i></a>
                         </td>
                       </tr>
                     {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </fieldset>
-          {% endfor %}
-        </form>
+                  {% else %}
+                    <tr><td class="text-center" colspan="4">{{ text_no_results }}</td></tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tab-pane" id="tab-oc-overrides">
+            <form action="{{ action_settings }}" method="post" enctype="multipart/form-data" id="form-language-settings" class="form-horizontal">
+              <input type="hidden" name="save_settings" value="1" />
+              <p class="help-block">{{ text_language_strings_help }}</p>
+
+              <fieldset style="margin-bottom: 20px;">
+                <legend>{{ text_price_format }}</legend>
+                <p class="help-block">{{ text_price_format_help }}</p>
+                <div class="form-group">
+                  <label class="col-sm-3 control-label" for="input-thousand-point">{{ entry_thousand_point }}</label>
+                  <div class="col-sm-9">
+                    <select name="module_cyberpunks_language_overrides_thousand_point" id="input-thousand-point" class="form-control">
+                      {% for value, label in thousand_point_options %}
+                        <option value="{{ value }}"{% if thousand_point == value %} selected="selected"{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset style="margin-bottom: 20px;">
+                <legend>{{ text_total_labels }}</legend>
+                <p class="help-block">{{ text_total_labels_help }}</p>
+                <div class="table-responsive">
+                  <table class="table table-bordered table-hover">
+                    <thead>
+                      <tr>
+                        <td class="text-left" style="width: 30%;">{{ text_total_code }}</td>
+                        <td class="text-left" style="width: 30%;">{{ text_original }}</td>
+                        <td class="text-left" style="width: 40%;">{{ text_override }}</td>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in total_labels %}
+                        <tr{% if row.has_override %} class="info"{% endif %}>
+                          <td><code>{{ row.code }}</code></td>
+                          <td>{{ row.default }}</td>
+                          <td>
+                            <input type="text" name="module_cyberpunks_language_overrides_total_labels[{{ row.code }}]" value="{{ row.override }}" class="form-control" placeholder="Leave empty to use original" />
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </fieldset>
+
+              {% for group in language_groups %}
+                <fieldset style="margin-bottom: 20px;">
+                  <legend>{{ group.title }}</legend>
+                  {% if group.route %}
+                    <p class="help-block"><code>catalog/language/en-gb/{{ group.route }}.php</code></p>
+                  {% endif %}
+                  <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                      <thead>
+                        <tr>
+                          <td class="text-left" style="width: 20%;">{{ text_key }}</td>
+                          <td class="text-left" style="width: 35%;">{{ text_original }}</td>
+                          <td class="text-left" style="width: 45%;">{{ text_override }}</td>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for row in group.strings %}
+                          <tr{% if row.has_override %} class="info"{% endif %}>
+                            <td><code>{{ row.key }}</code></td>
+                            <td>{{ row.original }}</td>
+                            <td>
+                              <input type="text" name="module_cyberpunks_language_overrides_map[{{ row.map_key }}]" value="{{ row.override }}" class="form-control" placeholder="Leave empty to use original" />
+                            </td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </fieldset>
+              {% endfor %}
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
+<script type="text/javascript"><!--
+(function () {
+  function syncHeaderButtons() {
+    var onCb = $('#tab-cb-lang').hasClass('active');
+    $('.tab-only-cb-lang').toggle(onCb);
+    $('.tab-only-oc-overrides').toggle(!onCb);
+  }
+  $('a[data-toggle="tab"]').on('shown.bs.tab', syncHeaderButtons);
+  syncHeaderButtons();
+})();
+//--></script>
 {{ footer }}

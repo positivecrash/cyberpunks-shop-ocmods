@@ -8,8 +8,8 @@ Each top-level item:
 
 | Field | Description |
 |-------|-------------|
-| Name | Label |
-| Link | Top URL (also “View all” for product panels) |
+| Name | Label (fallback). If Category is set, storefront uses the category name for the **current language**. |
+| Link | Top URL (also “View all” for product panels). With Category set, storefront builds the category URL for the current language. |
 | Panel | `none` / `products` / `links` |
 | Category | For `products` — featured products in that category |
 | Links | For `links` — name + href rows |

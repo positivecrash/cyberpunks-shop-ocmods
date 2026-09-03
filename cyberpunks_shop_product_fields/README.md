@@ -10,13 +10,13 @@ Sections are admin-only grouping: each section has its own sort order, and field
 
 | Type | UI |
 |------|-----|
-| Text | single-line input |
-| Textarea (HTML) | multiline HTML (icons via shortcodes) |
+| Text | single-line input **per language** |
+| Textarea (HTML) | multiline HTML **per language** (icons via shortcodes) |
 | Image | OpenCart file manager thumb picker |
-| Checkbox | yes/no |
+| Checkbox | yes/no (shared across languages) |
 | Checkbox list | multi-select checkboxes (`value` or `value\|Label` per line) |
 | Select | dropdown (`value` or `value\|Label` per line) |
-| Editor | Summernote WYSIWYG |
+| Editor | Summernote WYSIWYG **per language** |
 | **List (repeater)** | add/remove rows; each row has sub-fields defined in **Select values** |
 
 ### List (repeater) — sub-field schema
@@ -62,6 +62,13 @@ Home sections list categories that have products with checkbox key `featured` = 
 Textarea HTML + `[[icon:name]]` shortcodes + `[[option:key]]` for Common Options values. Theme: `{{ fields.page_content|raw }}`.
 
 ## Changelog
+
+### 1.6.0
+- **Multilingual Text / Textarea (HTML) / Editor** on product Custom tab — one input per store language (flag addon)
+- Values stored per `language_id`; catalog resolves current language with fallback to legacy shared value
+
+### 1.6.1
+- Catalog-side backward compatible migration: adds `language_id` to `cyberpunks_product_field_value` automatically if missing, preventing white-screen errors after fresh OCMOD installs.
 
 ### 1.5.6
 - Removed gallery-specific `model3d_gallery` builder from catalog model (theme reads `fields['3dmodels']` directly)
