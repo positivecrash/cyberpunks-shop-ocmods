@@ -29,6 +29,9 @@ class ModelExtensionModuleCyberpunksLanguageOverrides extends Model {
 			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 		}
 
+		// Ensure route-based SEO URLs (cart, checkout, etc.) exist for all active languages.
+		$this->ensureRouteSeoUrls();
+
 		// OpenCart htmlspecialchars()'s request->post — undo so hashes match cb_lang('…').
 		$this->repairHtmlEncodedStrings();
 	}
@@ -240,6 +243,43 @@ class ModelExtensionModuleCyberpunksLanguageOverrides extends Model {
 		if (is_file(DIR_SYSTEM . 'library/cyberpunks_cb_lang.php')) {
 			require_once(DIR_SYSTEM . 'library/cyberpunks_cb_lang.php');
 			CyberpunksCbLang::flushCache();
+		}
+	}
+
+	/**
+	 * Copy ALL route-based SEO URLs to every active language.
+	 * Automatically covers new languages added later — no hardcoded route list.
+	 */
+	private function ensureRouteSeoUrls() {
+		$languages = $this->db->query("SELECT language_id FROM `" . DB_PREFIX . "language` WHERE status = '1'");
+		$all_routes = $this->db->query("SELECT DISTINCT store_id, `query`, keyword, language_id FROM `" . DB_PREFIX . "seo_url` WHERE `query` LIKE 'route=%'");
+
+		$groups = array();
+		foreach ($all_routes->rows as $row) {
+			$key = (int)$row['store_id'] . '|' . $row['query'];
+			if (!isset($groups[$key])) {
+				$groups[$key] = array(
+					'store_id' => (int)$row['store_id'],
+					'query'    => $row['query'],
+					'keyword'  => $row['keyword'],
+					'have'     => array(),
+				);
+			}
+			$groups[$key]['have'][(int)$row['language_id']] = true;
+		}
+
+		foreach ($groups as $g) {
+			foreach ($languages->rows as $lang) {
+				$lid = (int)$lang['language_id'];
+				if (isset($g['have'][$lid])) {
+					continue;
+				}
+				$this->db->query("INSERT INTO `" . DB_PREFIX . "seo_url` SET
+					store_id = '" . $g['store_id'] . "',
+					language_id = '" . $lid . "',
+					`query` = '" . $this->db->escape($g['query']) . "',
+					keyword = '" . $this->db->escape($g['keyword']) . "'");
+			}
 		}
 	}
 

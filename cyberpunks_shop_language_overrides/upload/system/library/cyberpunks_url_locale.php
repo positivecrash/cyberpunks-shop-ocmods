@@ -152,6 +152,11 @@ class CyberpunksUrlLocale {
 			return;
 		}
 
+		// Cart and checkout stay on default URLs without locale prefix.
+		if (self::isSkippedPath($path)) {
+			return;
+		}
+
 		$code = isset($session->data['language']) ? $session->data['language'] : $config->get('config_language');
 		$short = self::shortFromCode($code);
 
@@ -182,6 +187,41 @@ class CyberpunksUrlLocale {
 		}
 	}
 
+	/**
+	 * Routes that must stay on the default language URL (no /nl/ prefix).
+	 * Cart and checkout rely on non-SEO AJAX endpoints and break with locale prefixes.
+	 */
+	private static $skipPrefixPatterns = array(
+		'/checkout',
+		'/cart',
+		'/payment',
+		'/order-success',
+	);
+
+	private static function isSkippedPath($path) {
+		$path = strtolower(trim((string)$path, '/'));
+
+		foreach (self::$skipPrefixPatterns as $pattern) {
+			$pattern = ltrim($pattern, '/');
+
+			if ($path === $pattern || strpos($path, $pattern . '/') === 0) {
+				return true;
+			}
+
+			// Also match when locale prefix is already present: /nl/checkout → checkout
+			$parts = explode('/', $path, 2);
+			if (count($parts) === 2 && strlen($parts[0]) === 2) {
+				$rest = $parts[1];
+
+				if ($rest === $pattern || strpos($rest, $pattern . '/') === 0) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
 	public static function applyPrefix($link, $code) {
 		$short = self::shortFromCode($code);
 
@@ -200,6 +240,11 @@ class CyberpunksUrlLocale {
 		// Non-SEO OpenCart links keep index.php in the path — use ?language= instead of /nl/index.php
 		if (stripos($path, 'index.php') !== false) {
 			return self::applyLanguageQuery($url_info, $code);
+		}
+
+		// Cart and checkout stay on default URLs without locale prefix.
+		if (self::isSkippedPath($path)) {
+			return $link;
 		}
 
 		$path_trim = trim($path, '/');
