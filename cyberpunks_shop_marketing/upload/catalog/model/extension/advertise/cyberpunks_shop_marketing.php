@@ -148,41 +148,76 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 			return '';
 		}
 
-		$message = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_consent_message'));
-		$privacy_label = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_consent_privacy_label'));
-		$privacy_url = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_consent_privacy_url'));
-		$deny_label = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_consent_deny_label'));
-		$grant_label = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_consent_grant_label'));
+		try {
+			$message = $this->resolveLocalizedText($this->config->get('advertise_cyberpunks_shop_marketing_consent_message'));
+			$privacy_label = $this->resolveLocalizedText($this->config->get('advertise_cyberpunks_shop_marketing_consent_privacy_label'));
+			$privacy_url = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_consent_privacy_url'));
+			$deny_label = $this->resolveLocalizedText($this->config->get('advertise_cyberpunks_shop_marketing_consent_deny_label'));
+			$grant_label = $this->resolveLocalizedText($this->config->get('advertise_cyberpunks_shop_marketing_consent_grant_label'));
 
-		if ($message === '') {
-			$message = "We'd like to taste your cookies, if you are okay with that.";
+			// Incomplete admin config: do not break the page with an empty/broken banner.
+			if ($message === '' || ($deny_label === '' && $grant_label === '')) {
+				return '';
+			}
+
+			$message_html = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
+			$privacy_html = '';
+
+			if ($privacy_url !== '' && $privacy_label !== '') {
+				$privacy_html = ' <a href="' . htmlspecialchars($privacy_url, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($privacy_label, ENT_QUOTES, 'UTF-8') . '</a>';
+			}
+
+			$deny_button_html = '';
+			if ($deny_label !== '') {
+				$deny_button_html = '<button type="button" class="button button-bordered button-inline" data-google-consent="deny">' . htmlspecialchars($deny_label, ENT_QUOTES, 'UTF-8') . '</button>';
+			}
+
+			$grant_button_html = '';
+			if ($grant_label !== '') {
+				$grant_button_html = '<button type="button" class="button button-green button-inline" data-google-consent="grant">' . htmlspecialchars($grant_label, ENT_QUOTES, 'UTF-8') . '</button>';
+			}
+
+			return $this->renderCatalogTemplate('view/javascript/cyberpunks_google_consent_banner.html', array(
+				'message_html' => $message_html,
+				'privacy_html' => $privacy_html,
+				'deny_button_html' => $deny_button_html,
+				'grant_button_html' => $grant_button_html,
+			));
+		} catch (Exception $e) {
+			return '';
+		} catch (Throwable $e) {
+			return '';
 		}
-		if ($privacy_label === '') {
-			$privacy_label = 'Privacy Policy';
-		}
-		if ($privacy_url === '') {
-			$privacy_url = '/privacy-policy';
-		}
-		if ($deny_label === '') {
-			$deny_label = 'No thanks';
-		}
-		if ($grant_label === '') {
-			$grant_label = 'OK';
+	}
+
+	/**
+	 * Resolve consent text for the current storefront language.
+	 * Supports legacy plain string and language_id => text map. No hardcoded defaults.
+	 */
+	private function resolveLocalizedText($value) {
+		if ($value === null) {
+			return '';
 		}
 
-		$message_html = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
-		$privacy_label_html = htmlspecialchars($privacy_label, ENT_QUOTES, 'UTF-8');
-		$privacy_url_html = htmlspecialchars($privacy_url, ENT_QUOTES, 'UTF-8');
-		$deny_html = htmlspecialchars($deny_label, ENT_QUOTES, 'UTF-8');
-		$grant_html = htmlspecialchars($grant_label, ENT_QUOTES, 'UTF-8');
+		$language_id = (int)$this->config->get('config_language_id');
 
-		return $this->renderCatalogTemplate('view/javascript/cyberpunks_google_consent_banner.html', array(
-			'message_html' => $message_html,
-			'privacy_url_html' => $privacy_url_html,
-			'privacy_label_html' => $privacy_label_html,
-			'deny_html' => $deny_html,
-			'grant_html' => $grant_html,
-		));
+		if (is_string($value) && $value !== '' && ($value[0] === '{' || $value[0] === '[')) {
+			$decoded = json_decode($value, true);
+
+			if (is_array($decoded)) {
+				$value = $decoded;
+			}
+		}
+
+		if (is_array($value)) {
+			if ($language_id > 0 && isset($value[$language_id])) {
+				return trim((string)$value[$language_id]);
+			}
+
+			return '';
+		}
+
+		return trim((string)$value);
 	}
 
 	public function renderGtmHeadSnippet() {

@@ -1,9 +1,9 @@
 <div id="cyberpunks-google-consent" class="google-consent" hidden role="dialog" aria-modal="true" aria-labelledby="cyberpunks-google-consent-text">
 	<div class="google-consent__panel content-medium">
-		<p id="cyberpunks-google-consent-text" class="google-consent__text">{{message_html}} See <a href="{{privacy_url_html}}">{{privacy_label_html}}</a>.</p>
+		<p id="cyberpunks-google-consent-text" class="google-consent__text">{{message_html}}{{privacy_html}}</p>
 		<div class="google-consent__actions">
-			<button type="button" class="button button-bordered button-inline" data-google-consent="deny">{{deny_html}}</button>
-			<button type="button" class="button button-green button-inline" data-google-consent="grant">{{grant_html}}</button>
+			{{deny_button_html}}
+			{{grant_button_html}}
 		</div>
 	</div>
 </div>

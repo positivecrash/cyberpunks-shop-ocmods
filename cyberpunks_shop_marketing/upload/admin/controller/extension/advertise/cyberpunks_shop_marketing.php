@@ -53,6 +53,21 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		$this->load->language('extension/advertise/cyberpunks_shop_marketing');
 		$this->document->setTitle($this->language->get('heading_title'));
 		$this->load->model('setting/setting');
+		$this->load->model('localisation/language');
+
+		$languages = array();
+		foreach ($this->model_localisation_language->getLanguages() as $language) {
+			if (empty($language['status'])) {
+				continue;
+			}
+
+			$languages[] = array(
+				'language_id' => (int)$language['language_id'],
+				'name'        => $language['name'],
+				'code'        => $language['code']
+			);
+		}
+		$data['languages'] = $languages;
 
 		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
 			$this->model_setting_setting->editSetting('advertise_cyberpunks_shop_marketing', $this->buildSettingsFromPost(), $this->store_id);
@@ -97,12 +112,21 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		$data['action'] = $this->url->link('extension/advertise/cyberpunks_shop_marketing', 'user_token=' . $this->session->data['user_token'] . '&store_id=' . $this->store_id, true);
 		$data['cancel'] = $this->url->link('extension/extension/advertise', 'user_token=' . $this->session->data['user_token'], true);
 
+		$localized_fields = $this->localizedTextFields();
+		$stored = $this->model_setting_setting->getSetting('advertise_cyberpunks_shop_marketing', $this->store_id);
+
 		foreach ($this->settingFields() as $field) {
 			if (isset($this->request->post[$field])) {
 				$data[$field] = $this->request->post[$field];
+			} elseif (array_key_exists($field, $stored)) {
+				$data[$field] = $stored[$field];
 			} else {
-				$value = $this->model_setting_setting->getSettingValue($field, $this->store_id);
-				$data[$field] = ($value === null || $value === '') ? $this->legacySettingValue($field) : $value;
+				$legacy = $this->legacySettingValue($field);
+				$data[$field] = ($legacy === null || $legacy === '') ? '' : $legacy;
+			}
+
+			if (in_array($field, $localized_fields, true)) {
+				$data[$field] = $this->expandLocalizedText($data[$field], $languages);
 			}
 		}
 
@@ -110,19 +134,17 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 			$data['advertise_cyberpunks_shop_marketing_item_id_field'] = 'model';
 		}
 
-		$consent_defaults = array(
-			'advertise_cyberpunks_shop_marketing_consent_status'        => 1,
-			'advertise_cyberpunks_shop_marketing_consent_message'       => "We'd like to taste your cookies, if you are okay with that.",
-			'advertise_cyberpunks_shop_marketing_consent_privacy_label' => 'Privacy Policy',
-			'advertise_cyberpunks_shop_marketing_consent_privacy_url'   => '/privacy-policy',
-			'advertise_cyberpunks_shop_marketing_consent_deny_label'    => 'No thanks',
-			'advertise_cyberpunks_shop_marketing_consent_grant_label'   => 'OK',
-			'advertise_cyberpunks_shop_marketing_consent_expiry_days'   => 30,
-		);
+		if ($data['advertise_cyberpunks_shop_marketing_consent_status'] === '' || $data['advertise_cyberpunks_shop_marketing_consent_status'] === null) {
+			$data['advertise_cyberpunks_shop_marketing_consent_status'] = 1;
+		}
 
-		foreach ($consent_defaults as $field => $default) {
-			if ($data[$field] === '' || $data[$field] === null) {
-				$data[$field] = $default;
+		if ($data['advertise_cyberpunks_shop_marketing_consent_expiry_days'] === '' || $data['advertise_cyberpunks_shop_marketing_consent_expiry_days'] === null) {
+			$data['advertise_cyberpunks_shop_marketing_consent_expiry_days'] = 30;
+		}
+
+		foreach ($localized_fields as $field) {
+			if (!is_array($data[$field])) {
+				$data[$field] = $this->expandLocalizedText($data[$field], $languages);
 			}
 		}
 
@@ -255,11 +277,11 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 			'advertise_cyberpunks_shop_marketing_gtm_event_purchase'        => 1,
 			'advertise_cyberpunks_shop_marketing_gtm_event_view_item'       => 1,
 			'advertise_cyberpunks_shop_marketing_consent_status'           => 1,
-			'advertise_cyberpunks_shop_marketing_consent_message'           => "We'd like to taste your cookies, if you are okay with that.",
-			'advertise_cyberpunks_shop_marketing_consent_privacy_label'    => 'Privacy Policy',
-			'advertise_cyberpunks_shop_marketing_consent_privacy_url'      => '/privacy-policy',
-			'advertise_cyberpunks_shop_marketing_consent_deny_label'      => 'No thanks',
-			'advertise_cyberpunks_shop_marketing_consent_grant_label'       => 'OK',
+			'advertise_cyberpunks_shop_marketing_consent_message'           => array(),
+			'advertise_cyberpunks_shop_marketing_consent_privacy_label'    => array(),
+			'advertise_cyberpunks_shop_marketing_consent_privacy_url'      => '',
+			'advertise_cyberpunks_shop_marketing_consent_deny_label'      => array(),
+			'advertise_cyberpunks_shop_marketing_consent_grant_label'       => array(),
 			'advertise_cyberpunks_shop_marketing_consent_expiry_days'      => 30,
 			'advertise_cyberpunks_shop_marketing_matomo_status'             => 0,
 			'advertise_cyberpunks_shop_marketing_matomo_server'             => '',
@@ -271,6 +293,79 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		);
 	}
 
+	private function localizedTextFields() {
+		return array(
+			'advertise_cyberpunks_shop_marketing_consent_message',
+			'advertise_cyberpunks_shop_marketing_consent_privacy_label',
+			'advertise_cyberpunks_shop_marketing_consent_deny_label',
+			'advertise_cyberpunks_shop_marketing_consent_grant_label',
+		);
+	}
+
+	/**
+	 * Expand stored value into language_id => text for the admin form.
+	 */
+	private function expandLocalizedText($value, $languages) {
+		$map = array();
+
+		foreach ($languages as $language) {
+			$map[(int)$language['language_id']] = '';
+		}
+
+		if (is_string($value) && $value !== '' && ($value[0] === '{' || $value[0] === '[')) {
+			$decoded = json_decode($value, true);
+
+			if (is_array($decoded)) {
+				$value = $decoded;
+			}
+		}
+
+		if (is_array($value)) {
+			foreach ($value as $lid => $text) {
+				$lid = (int)$lid;
+
+				if (isset($map[$lid])) {
+					$map[$lid] = trim((string)$text);
+				}
+			}
+
+			return $map;
+		}
+
+		$legacy = trim((string)$value);
+
+		if ($legacy !== '' && $languages) {
+			$map[(int)$languages[0]['language_id']] = $legacy;
+		}
+
+		return $map;
+	}
+
+	private function normalizeLocalizedText($value) {
+		$map = array();
+
+		if (is_array($value)) {
+			foreach ($value as $lid => $text) {
+				$lid = (int)$lid;
+				$text = trim((string)$text);
+
+				if ($lid < 1 || $text === '') {
+					continue;
+				}
+
+				$map[$lid] = $text;
+			}
+		} else {
+			$text = trim((string)$value);
+
+			if ($text !== '') {
+				$map[(int)$this->config->get('config_language_id')] = $text;
+			}
+		}
+
+		return $map;
+	}
+
 	private function buildSettingsFromPost() {
 		return array(
 			'advertise_cyberpunks_shop_marketing_status'                    => !empty($this->request->post['advertise_cyberpunks_shop_marketing_status']) ? 1 : 0,
@@ -279,11 +374,11 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 			'advertise_cyberpunks_shop_marketing_gtm_event_purchase'        => !empty($this->request->post['advertise_cyberpunks_shop_marketing_gtm_event_purchase']) ? 1 : 0,
 			'advertise_cyberpunks_shop_marketing_gtm_event_view_item'       => !empty($this->request->post['advertise_cyberpunks_shop_marketing_gtm_event_view_item']) ? 1 : 0,
 			'advertise_cyberpunks_shop_marketing_consent_status'            => !empty($this->request->post['advertise_cyberpunks_shop_marketing_consent_status']) ? 1 : 0,
-			'advertise_cyberpunks_shop_marketing_consent_message'           => isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_message']) ? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_consent_message']) : '',
-			'advertise_cyberpunks_shop_marketing_consent_privacy_label'    => isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_privacy_label']) ? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_consent_privacy_label']) : '',
+			'advertise_cyberpunks_shop_marketing_consent_message'           => $this->normalizeLocalizedText(isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_message']) ? $this->request->post['advertise_cyberpunks_shop_marketing_consent_message'] : array()),
+			'advertise_cyberpunks_shop_marketing_consent_privacy_label'    => $this->normalizeLocalizedText(isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_privacy_label']) ? $this->request->post['advertise_cyberpunks_shop_marketing_consent_privacy_label'] : array()),
 			'advertise_cyberpunks_shop_marketing_consent_privacy_url'      => isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_privacy_url']) ? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_consent_privacy_url']) : '',
-			'advertise_cyberpunks_shop_marketing_consent_deny_label'       => isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_deny_label']) ? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_consent_deny_label']) : '',
-			'advertise_cyberpunks_shop_marketing_consent_grant_label'       => isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_grant_label']) ? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_consent_grant_label']) : '',
+			'advertise_cyberpunks_shop_marketing_consent_deny_label'       => $this->normalizeLocalizedText(isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_deny_label']) ? $this->request->post['advertise_cyberpunks_shop_marketing_consent_deny_label'] : array()),
+			'advertise_cyberpunks_shop_marketing_consent_grant_label'       => $this->normalizeLocalizedText(isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_grant_label']) ? $this->request->post['advertise_cyberpunks_shop_marketing_consent_grant_label'] : array()),
 			'advertise_cyberpunks_shop_marketing_consent_expiry_days'      => isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_expiry_days']) ? (int)$this->request->post['advertise_cyberpunks_shop_marketing_consent_expiry_days'] : 30,
 			'advertise_cyberpunks_shop_marketing_matomo_status'             => !empty($this->request->post['advertise_cyberpunks_shop_marketing_matomo_status']) ? 1 : 0,
 			'advertise_cyberpunks_shop_marketing_matomo_server'             => isset($this->request->post['advertise_cyberpunks_shop_marketing_matomo_server']) ? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_matomo_server']) : '',

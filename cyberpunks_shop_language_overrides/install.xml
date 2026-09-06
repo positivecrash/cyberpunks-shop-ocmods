@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Language Overrides</name>
 	<code>cyberpunks_shop_language_overrides</code>
-	<version>1.7.8</version>
+	<version>1.7.9</version>
 	<author>positivecrash</author>
 	<description>Minimal nl-nl core, URL locales, cb_lang theme strings (admin), shared SEO keywords, hreflang/og:locale, cart total labels, thousand separator.</description>
 

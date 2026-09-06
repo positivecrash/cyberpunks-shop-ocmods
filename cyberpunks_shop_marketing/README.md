@@ -21,6 +21,10 @@ Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag i
 
 ## Changelog
 
+### 1.3.0
+- Consent banner text fields (message, privacy/deny/grant labels) support all active store languages
+- No hardcoded English fallbacks; incomplete consent text skips banner render (site stays up)
+
 ### 1.2.8
 - Consent banner buttons: drop `button-small` class (match theme button sizing)
 

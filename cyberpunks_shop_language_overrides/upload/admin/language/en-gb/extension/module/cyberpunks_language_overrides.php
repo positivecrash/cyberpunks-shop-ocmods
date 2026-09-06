@@ -48,3 +48,5 @@ $_['button_delete'] = 'Delete';
 $_['error_permission'] = 'Warning: You do not have permission to modify this module!';
 $_['error_source'] = 'Warning: Original text is required.';
 $_['error_duplicate'] = 'Warning: A string with this original text already exists.';
+$_['error_duplicate_detail'] = 'Warning: duplicate original text already exists: “%s”.';
+$_['text_open_duplicate'] = 'Open existing string';

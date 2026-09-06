@@ -8,11 +8,11 @@ Each top-level item:
 
 | Field | Description |
 |-------|-------------|
-| Name | Label (fallback). If Category is set, storefront uses the category name for the **current language**. |
+| Name | Label per **active store language** (admin inputs with language flags). Storefront shows the name for the current language. |
 | Link | Top URL (also “View all” for product panels). With Category set, storefront builds the category URL for the current language. |
 | Panel | `none` / `products` / `links` |
-| Category | For `products` — featured products in that category |
-| Links | For `links` — name + href rows |
+| Category | For `products` — featured products in that category; choosing a category prefills Name (all languages from category descriptions) and Link |
+| Links | For `links` — multilingual Name + href rows |
 | Sort / Status | Order and enable |
 
 Featured products need Product Fields: checkbox `featured`, optional `featured_order`, `category_title`, `category_image`, `featured_price_label`.

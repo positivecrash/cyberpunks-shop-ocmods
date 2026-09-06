@@ -48,3 +48,5 @@ $_['button_delete'] = 'Verwijderen';
 $_['error_permission'] = 'Waarschuwing: je hebt geen rechten om deze module te wijzigen!';
 $_['error_source'] = 'Waarschuwing: originele tekst is verplicht.';
 $_['error_duplicate'] = 'Waarschuwing: een string met deze brontekst bestaat al.';
+$_['error_duplicate_detail'] = 'Waarschuwing: dubbele originele tekst bestaat al: “%s”.';
+$_['text_open_duplicate'] = 'Open bestaande string';

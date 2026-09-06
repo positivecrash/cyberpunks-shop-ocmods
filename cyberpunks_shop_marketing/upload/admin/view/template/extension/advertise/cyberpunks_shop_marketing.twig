@@ -99,16 +99,28 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-consent-message">{{ entry_consent_message }}</label>
+            <label class="col-sm-2 control-label">{{ entry_consent_message }}</label>
             <div class="col-sm-10">
-              <textarea name="advertise_cyberpunks_shop_marketing_consent_message" rows="3" id="input-consent-message" class="form-control">{{ advertise_cyberpunks_shop_marketing_consent_message }}</textarea>
+              {% for language in languages %}
+              <div class="input-group" style="margin-bottom:8px;">
+                <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                <textarea name="advertise_cyberpunks_shop_marketing_consent_message[{{ language.language_id }}]" rows="3" class="form-control">{{ advertise_cyberpunks_shop_marketing_consent_message[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_message[language.language_id] : '' }}</textarea>
+              </div>
+              {% else %}
+              <p class="help-block">No store languages enabled.</p>
+              {% endfor %}
               <p class="help-block">{{ help_consent_message }}</p>
             </div>
           </div>
           <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-consent-privacy-label">{{ entry_consent_privacy_label }}</label>
+            <label class="col-sm-2 control-label">{{ entry_consent_privacy_label }}</label>
             <div class="col-sm-10">
-              <input type="text" name="advertise_cyberpunks_shop_marketing_consent_privacy_label" value="{{ advertise_cyberpunks_shop_marketing_consent_privacy_label }}" id="input-consent-privacy-label" class="form-control" />
+              {% for language in languages %}
+              <div class="input-group" style="margin-bottom:8px;">
+                <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                <input type="text" name="advertise_cyberpunks_shop_marketing_consent_privacy_label[{{ language.language_id }}]" value="{{ advertise_cyberpunks_shop_marketing_consent_privacy_label[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_privacy_label[language.language_id] : '' }}" class="form-control" />
+              </div>
+              {% endfor %}
             </div>
           </div>
           <div class="form-group">
@@ -119,15 +131,25 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-consent-deny-label">{{ entry_consent_deny_label }}</label>
+            <label class="col-sm-2 control-label">{{ entry_consent_deny_label }}</label>
             <div class="col-sm-10">
-              <input type="text" name="advertise_cyberpunks_shop_marketing_consent_deny_label" value="{{ advertise_cyberpunks_shop_marketing_consent_deny_label }}" id="input-consent-deny-label" class="form-control" style="max-width:280px" />
+              {% for language in languages %}
+              <div class="input-group" style="margin-bottom:8px; max-width:360px;">
+                <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                <input type="text" name="advertise_cyberpunks_shop_marketing_consent_deny_label[{{ language.language_id }}]" value="{{ advertise_cyberpunks_shop_marketing_consent_deny_label[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_deny_label[language.language_id] : '' }}" class="form-control" />
+              </div>
+              {% endfor %}
             </div>
           </div>
           <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-consent-grant-label">{{ entry_consent_grant_label }}</label>
+            <label class="col-sm-2 control-label">{{ entry_consent_grant_label }}</label>
             <div class="col-sm-10">
-              <input type="text" name="advertise_cyberpunks_shop_marketing_consent_grant_label" value="{{ advertise_cyberpunks_shop_marketing_consent_grant_label }}" id="input-consent-grant-label" class="form-control" style="max-width:280px" />
+              {% for language in languages %}
+              <div class="input-group" style="margin-bottom:8px; max-width:360px;">
+                <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                <input type="text" name="advertise_cyberpunks_shop_marketing_consent_grant_label[{{ language.language_id }}]" value="{{ advertise_cyberpunks_shop_marketing_consent_grant_label[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_grant_label[language.language_id] : '' }}" class="form-control" />
+              </div>
+              {% endfor %}
             </div>
           </div>
           <div class="form-group">

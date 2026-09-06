@@ -162,7 +162,9 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
 			$result = $this->model_extension_module_cyberpunks_language_overrides->saveString($this->request->post);
 
-			if ($result === 'duplicate') {
+			if (is_array($result) && isset($result['error']) && $result['error'] === 'duplicate') {
+				$this->error['warning'] = $this->formatDuplicateWarning($result);
+			} elseif ($result === 'duplicate') {
 				$this->error['warning'] = $this->language->get('error_duplicate');
 			} elseif ($result === false) {
 				$this->error['warning'] = $this->language->get('error_source');
@@ -183,7 +185,9 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
 			$result = $this->model_extension_module_cyberpunks_language_overrides->saveString($this->request->post);
 
-			if ($result === 'duplicate') {
+			if (is_array($result) && isset($result['error']) && $result['error'] === 'duplicate') {
+				$this->error['warning'] = $this->formatDuplicateWarning($result);
+			} elseif ($result === 'duplicate') {
 				$this->error['warning'] = $this->language->get('error_duplicate');
 			} elseif ($result === false) {
 				$this->error['warning'] = $this->language->get('error_source');
@@ -194,6 +198,33 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		}
 
 		$this->getForm();
+	}
+
+	private function formatDuplicateWarning($dup) {
+		$source = isset($dup['source_text']) ? (string)$dup['source_text'] : '';
+		$string_id = isset($dup['string_id']) ? (int)$dup['string_id'] : 0;
+		$preview = $source;
+
+		if (function_exists('utf8_strlen') && utf8_strlen($preview) > 120) {
+			$preview = utf8_substr($preview, 0, 117) . '...';
+		} elseif (strlen($preview) > 120) {
+			$preview = substr($preview, 0, 117) . '...';
+		}
+
+		$edit_href = $string_id > 0
+			? $this->url->link('extension/module/cyberpunks_language_overrides/edit', 'user_token=' . $this->session->data['user_token'] . '&string_id=' . $string_id, true)
+			: '';
+
+		$message = sprintf(
+			$this->language->get('error_duplicate_detail'),
+			htmlspecialchars($preview, ENT_QUOTES, 'UTF-8')
+		);
+
+		if ($edit_href !== '') {
+			$message .= ' <a href="' . $edit_href . '">' . $this->language->get('text_open_duplicate') . '</a>';
+		}
+
+		return $message;
 	}
 
 	public function delete() {

@@ -52,12 +52,17 @@
               <div class="panel-body">
                 <div class="form-group">
                   <label class="col-sm-2 control-label">{{ entry_name }}</label>
-                  <div class="col-sm-4">
-                    <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][name]" value="{{ item.name }}" class="form-control" />
+                  <div class="col-sm-4 menu-name-fields">
+                    {% for language in languages %}
+                    <div class="input-group" style="margin-bottom:6px;">
+                      <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                      <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][name][{{ language.language_id }}]" value="{{ item.name[language.language_id] is defined ? item.name[language.language_id] : '' }}" class="form-control menu-name-input" data-language-id="{{ language.language_id }}" />
+                    </div>
+                    {% endfor %}
                   </div>
                   <label class="col-sm-2 control-label">{{ entry_href }}</label>
                   <div class="col-sm-4">
-                    <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][href]" value="{{ item.href }}" class="form-control" placeholder="/category" />
+                    <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][href]" value="{{ item.href }}" class="form-control menu-href-input" placeholder="/category" />
                   </div>
                 </div>
                 <div class="form-group">
@@ -110,7 +115,14 @@
                       {% if item.links %}
                       {% for link in item.links %}
                       <tr>
-                        <td><input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][links][{{ link_row }}][name]" value="{{ link.name }}" class="form-control" /></td>
+                        <td class="menu-link-name-fields">
+                          {% for language in languages %}
+                          <div class="input-group" style="margin-bottom:6px;">
+                            <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                            <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][links][{{ link_row }}][name][{{ language.language_id }}]" value="{{ link.name[language.language_id] is defined ? link.name[language.language_id] : '' }}" class="form-control" />
+                          </div>
+                          {% endfor %}
+                        </td>
                         <td><input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][links][{{ link_row }}][href]" value="{{ link.href }}" class="form-control" /></td>
                         <td class="text-center"><button type="button" class="btn btn-danger" onclick="$(this).closest('tr').remove();"><i class="fa fa-minus-circle"></i></button></td>
                       </tr>
@@ -142,6 +154,7 @@
 <script type="text/javascript"><!--
 var item_row = {{ items|length }};
 var menuCategories = {{ categories_json|raw }};
+var menuLanguages = {{ languages_json|raw }};
 
 function menuCategoryById(id) {
   id = String(id);
@@ -153,13 +166,36 @@ function menuCategoryById(id) {
   return null;
 }
 
+function buildNameFieldsHtml(namePrefix, titles) {
+  titles = titles || {};
+  var html = '';
+  for (var i = 0; i < menuLanguages.length; i++) {
+    var lang = menuLanguages[i];
+    var lid = String(lang.language_id);
+    var val = titles[lid] != null ? titles[lid] : (titles[lang.language_id] != null ? titles[lang.language_id] : '');
+    html += '<div class="input-group" style="margin-bottom:6px;">';
+    html += '<span class="input-group-addon"><img src="language/' + lang.code + '/' + lang.code + '.png" title="' + $('<div>').text(lang.name).html() + '" /></span>';
+    html += '<input type="text" name="' + namePrefix + '[' + lid + ']" value="' + $('<div>').text(val).html() + '" class="form-control menu-name-input" data-language-id="' + lid + '" />';
+    html += '</div>';
+  }
+  return html;
+}
+
 function applyCategoryToItem($item, categoryId) {
   var cat = menuCategoryById(categoryId);
   if (!cat) {
     return;
   }
-  $item.find('input[name*="[name]"]').first().val(cat.title);
-  $item.find('input[name*="[href]"]').first().val(cat.href);
+  $item.find('.menu-href-input').first().val(cat.href || '');
+  var titles = cat.titles || {};
+  $item.find('.menu-name-fields .menu-name-input').each(function() {
+    var lid = String($(this).data('language-id'));
+    if (titles[lid] != null) {
+      $(this).val(titles[lid]);
+    } else if (titles[parseInt(lid, 10)] != null) {
+      $(this).val(titles[parseInt(lid, 10)]);
+    }
+  });
 }
 
 function toggleMenuPanels($item) {
@@ -188,7 +224,7 @@ $('#menu-items').on('click', '.btn-add-link', function() {
   var i = $btn.data('item-row');
   var l = parseInt($btn.attr('data-link-row'), 10) || 0;
   var html = '<tr>';
-  html += '<td><input type="text" name="module_cyberpunks_shop_menu_items[' + i + '][links][' + l + '][name]" value="" class="form-control" /></td>';
+  html += '<td class="menu-link-name-fields">' + buildNameFieldsHtml('module_cyberpunks_shop_menu_items[' + i + '][links][' + l + '][name]', {}) + '</td>';
   html += '<td><input type="text" name="module_cyberpunks_shop_menu_items[' + i + '][links][' + l + '][href]" value="" class="form-control" /></td>';
   html += '<td class="text-center"><button type="button" class="btn btn-danger" onclick="$(this).closest(\'tr\').remove();"><i class="fa fa-minus-circle"></i></button></td>';
   html += '</tr>';
@@ -209,9 +245,9 @@ $('#button-add-item').on('click', function() {
   html += '  </h3></div><div class="panel-body">';
   html += '  <div class="form-group">';
   html += '    <label class="col-sm-2 control-label">{{ entry_name|e('js') }}</label>';
-  html += '    <div class="col-sm-4"><input type="text" name="module_cyberpunks_shop_menu_items[' + item_row + '][name]" value="" class="form-control" /></div>';
+  html += '    <div class="col-sm-4 menu-name-fields">' + buildNameFieldsHtml('module_cyberpunks_shop_menu_items[' + item_row + '][name]', {}) + '</div>';
   html += '    <label class="col-sm-2 control-label">{{ entry_href|e('js') }}</label>';
-  html += '    <div class="col-sm-4"><input type="text" name="module_cyberpunks_shop_menu_items[' + item_row + '][href]" value="" class="form-control" /></div>';
+  html += '    <div class="col-sm-4"><input type="text" name="module_cyberpunks_shop_menu_items[' + item_row + '][href]" value="" class="form-control menu-href-input" /></div>';
   html += '  </div>';
   html += '  <div class="form-group">';
   html += '    <label class="col-sm-2 control-label">{{ entry_panel|e('js') }}</label>';

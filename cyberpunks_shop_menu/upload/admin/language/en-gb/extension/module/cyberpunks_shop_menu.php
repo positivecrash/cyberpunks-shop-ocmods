@@ -22,7 +22,7 @@ $_['entry_sort_order'] = 'Sort order';
 $_['entry_item_status'] = 'Enabled';
 
 $_['help_href'] = 'Filled automatically when you pick a category (you can still edit). Also used as “View all”.';
-$_['help_products'] = 'Featured products (custom field featured=1) from the selected category. Name and Link are filled from the category.';
+$_['help_products'] = 'Featured products (custom field featured=1) from the selected category. Choosing a category prefills Name (per language) and Link — edit Name as needed.';
 
 $_['button_add_item'] = 'Add menu item';
 $_['button_add_link'] = 'Add link';

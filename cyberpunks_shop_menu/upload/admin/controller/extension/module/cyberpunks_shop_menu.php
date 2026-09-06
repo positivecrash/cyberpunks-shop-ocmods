@@ -22,6 +22,22 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 		$this->document->setTitle($this->language->get('heading_title'));
 		$this->load->model('setting/setting');
 		$this->load->model('catalog/category');
+		$this->load->model('localisation/language');
+
+		$languages = $this->model_localisation_language->getLanguages();
+		$data['languages'] = array();
+
+		foreach ($languages as $language) {
+			if (empty($language['status'])) {
+				continue;
+			}
+
+			$data['languages'][] = array(
+				'language_id' => (int)$language['language_id'],
+				'name'        => $language['name'],
+				'code'        => $language['code']
+			);
+		}
 
 		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
 			$items = $this->normalizeItems(isset($this->request->post['module_cyberpunks_shop_menu_items']) ? $this->request->post['module_cyberpunks_shop_menu_items'] : array());
@@ -64,10 +80,10 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 		}
 
 		if (isset($this->request->post['module_cyberpunks_shop_menu_items'])) {
-			$data['items'] = $this->request->post['module_cyberpunks_shop_menu_items'];
+			$data['items'] = $this->expandItemsForForm($this->request->post['module_cyberpunks_shop_menu_items'], $data['languages']);
 		} else {
 			$items = $this->config->get('module_cyberpunks_shop_menu_items');
-			$data['items'] = is_array($items) ? $items : array();
+			$data['items'] = $this->expandItemsForForm(is_array($items) ? $items : array(), $data['languages']);
 		}
 
 		$data['categories'] = array();
@@ -75,18 +91,18 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 
 		foreach ($categories as $category) {
 			$category_id = (int)$category['category_id'];
-			$info = $this->model_catalog_category->getCategory($category_id);
-			$title = ($info && !empty($info['name'])) ? $info['name'] : html_entity_decode(strip_tags($category['name']), ENT_QUOTES, 'UTF-8');
+			$titles = $this->getCategoryTitlesByLanguage($category_id);
 
 			$data['categories'][] = array(
 				'category_id' => $category_id,
 				'name'        => $category['name'],
-				'title'       => $title,
+				'titles'      => $titles,
 				'href'        => $this->getCategoryCatalogHref($category_id)
 			);
 		}
 
 		$data['categories_json'] = json_encode($data['categories']);
+		$data['languages_json'] = json_encode($data['languages']);
 
 		$data['heading_title'] = $this->language->get('heading_title');
 		$data['text_edit'] = $this->language->get('text_edit');
@@ -120,6 +136,23 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 		$this->response->setOutput($this->load->view('extension/module/cyberpunks_shop_menu', $data));
 	}
 
+	private function getCategoryTitlesByLanguage($category_id) {
+		$category_id = (int)$category_id;
+		$out = array();
+
+		if ($category_id < 1) {
+			return $out;
+		}
+
+		$query = $this->db->query("SELECT language_id, name FROM `" . DB_PREFIX . "category_description` WHERE category_id = '" . $category_id . "'");
+
+		foreach ($query->rows as $row) {
+			$out[(int)$row['language_id']] = html_entity_decode((string)$row['name'], ENT_QUOTES, 'UTF-8');
+		}
+
+		return $out;
+	}
+
 	private function getCategoryCatalogHref($category_id) {
 		$category_id = (int)$category_id;
 
@@ -136,6 +169,120 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 		return 'index.php?route=product/category&path=' . $category_id;
 	}
 
+	/**
+	 * Expand stored items so each name is language_id => text for the admin form.
+	 */
+	private function expandItemsForForm($raw, $languages) {
+		$items = array();
+
+		if (!is_array($raw)) {
+			return $items;
+		}
+
+		foreach ($raw as $row) {
+			if (!is_array($row)) {
+				continue;
+			}
+
+			$row['name'] = $this->expandNameMap(isset($row['name']) ? $row['name'] : '', $languages);
+
+			if (!empty($row['links']) && is_array($row['links'])) {
+				foreach ($row['links'] as $i => $link) {
+					if (!is_array($link)) {
+						continue;
+					}
+
+					$row['links'][$i]['name'] = $this->expandNameMap(isset($link['name']) ? $link['name'] : '', $languages);
+				}
+			}
+
+			$items[] = $row;
+		}
+
+		return $items;
+	}
+
+	private function expandNameMap($value, $languages) {
+		$map = array();
+
+		foreach ($languages as $language) {
+			$lid = (int)$language['language_id'];
+			$map[$lid] = '';
+		}
+
+		if (is_array($value)) {
+			foreach ($value as $lid => $text) {
+				$lid = (int)$lid;
+
+				if (isset($map[$lid])) {
+					$map[$lid] = trim((string)$text);
+				}
+			}
+
+			return $map;
+		}
+
+		$legacy = trim((string)$value);
+
+		if ($legacy === '' || !$languages) {
+			return $map;
+		}
+
+		// Legacy plain string → put into first active language (usually English).
+		$first_id = (int)$languages[0]['language_id'];
+		$map[$first_id] = $legacy;
+
+		return $map;
+	}
+
+	private function normalizeNameMap($value) {
+		$map = array();
+
+		if (is_array($value)) {
+			foreach ($value as $lid => $text) {
+				$lid = (int)$lid;
+				$text = trim(strip_tags((string)$text));
+
+				if ($lid < 1 || $text === '') {
+					continue;
+				}
+
+				$map[$lid] = $text;
+			}
+		} else {
+			$text = trim(strip_tags((string)$value));
+
+			if ($text !== '') {
+				// Keep legacy saves readable if somehow posted as string.
+				$map[(int)$this->config->get('config_language_id')] = $text;
+			}
+		}
+
+		return $map;
+	}
+
+	private function nameMapHasText($map) {
+		foreach ($map as $text) {
+			if (trim((string)$text) !== '') {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function nameMapSortKey($map) {
+		foreach ($map as $text) {
+			$text = trim((string)$text);
+
+			if ($text !== '') {
+				return $text;
+			}
+		}
+
+		return '';
+	}
+
 	private function normalizeItems($raw) {
 		$items = array();
 
@@ -148,9 +295,9 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 				continue;
 			}
 
-			$name = isset($row['name']) ? trim(strip_tags((string)$row['name'])) : '';
+			$name = $this->normalizeNameMap(isset($row['name']) ? $row['name'] : '');
 
-			if ($name === '') {
+			if (!$this->nameMapHasText($name)) {
 				continue;
 			}
 
@@ -168,9 +315,9 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 						continue;
 					}
 
-					$link_name = isset($link['name']) ? trim(strip_tags((string)$link['name'])) : '';
+					$link_name = $this->normalizeNameMap(isset($link['name']) ? $link['name'] : '');
 
-					if ($link_name === '') {
+					if (!$this->nameMapHasText($link_name)) {
 						continue;
 					}
 
@@ -192,9 +339,10 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 			);
 		}
 
-		usort($items, function ($a, $b) {
+		$self = $this;
+		usort($items, function ($a, $b) use ($self) {
 			if ($a['sort_order'] === $b['sort_order']) {
-				return strcmp($a['name'], $b['name']);
+				return strcmp($self->nameMapSortKey($a['name']), $self->nameMapSortKey($b['name']));
 			}
 
 			return $a['sort_order'] - $b['sort_order'];

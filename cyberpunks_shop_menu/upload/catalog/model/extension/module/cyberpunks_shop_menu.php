@@ -15,16 +15,7 @@ class ModelExtensionModuleCyberpunksShopMenu extends Model {
 
 		foreach ($raw as $row) {
 			$category_id = isset($row['category_id']) ? (int)$row['category_id'] : 0;
-			$name = isset($row['name']) ? trim((string)$row['name']) : '';
-
-			// Prefer live category name for current storefront language (admin Name is only a fallback).
-			if ($category_id > 0) {
-				$translated = $this->getCategoryName($category_id);
-
-				if ($translated !== '') {
-					$name = $translated;
-				}
-			}
+			$name = $this->resolveLocalizedName(isset($row['name']) ? $row['name'] : '');
 
 			if (empty($row['status']) || $name === '') {
 				continue;
@@ -56,12 +47,14 @@ class ModelExtensionModuleCyberpunksShopMenu extends Model {
 				}
 			} elseif ($panel === 'links' && !empty($row['links']) && is_array($row['links'])) {
 				foreach ($row['links'] as $link) {
-					if (empty($link['name'])) {
+					$link_name = $this->resolveLocalizedName(isset($link['name']) ? $link['name'] : '');
+
+					if ($link_name === '') {
 						continue;
 					}
 
 					$item['links'][] = array(
-						'name' => (string)$link['name'],
+						'name' => $link_name,
 						'href' => $this->resolveHref(isset($link['href']) ? $link['href'] : '')
 					);
 				}
@@ -73,23 +66,30 @@ class ModelExtensionModuleCyberpunksShopMenu extends Model {
 		return $items;
 	}
 
-	private function getCategoryName($category_id) {
-		$category_id = (int)$category_id;
+	/**
+	 * Resolve menu/link Name for the current storefront language.
+	 * Supports legacy plain string and language_id => text map.
+	 */
+	private function resolveLocalizedName($value) {
+		$language_id = (int)$this->config->get('config_language_id');
 
-		if ($category_id < 1) {
+		if (is_array($value)) {
+			if ($language_id > 0 && isset($value[$language_id]) && trim((string)$value[$language_id]) !== '') {
+				return trim((string)$value[$language_id]);
+			}
+
+			foreach ($value as $text) {
+				$text = trim((string)$text);
+
+				if ($text !== '') {
+					return $text;
+				}
+			}
+
 			return '';
 		}
 
-		$query = $this->db->query("SELECT name FROM `" . DB_PREFIX . "category_description`
-			WHERE category_id = '" . (int)$category_id . "'
-				AND language_id = '" . (int)$this->config->get('config_language_id') . "'
-			LIMIT 1");
-
-		if (!$query->num_rows) {
-			return '';
-		}
-
-		return html_entity_decode((string)$query->row['name'], ENT_QUOTES, 'UTF-8');
+		return trim((string)$value);
 	}
 
 	private function resolveHref($href) {

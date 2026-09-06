@@ -180,10 +180,14 @@ class ModelExtensionModuleCyberpunksLanguageOverrides extends Model {
 				return false;
 			}
 
-			$dup = $this->db->query("SELECT string_id FROM `" . DB_PREFIX . "cyberpunks_cb_lang` WHERE source_hash = '" . $this->db->escape($hash) . "' AND string_id != '" . (int)$string_id . "'");
+			$dup = $this->db->query("SELECT string_id, source_text FROM `" . DB_PREFIX . "cyberpunks_cb_lang` WHERE source_hash = '" . $this->db->escape($hash) . "' AND string_id != '" . (int)$string_id . "' LIMIT 1");
 
 			if ($dup->num_rows) {
-				return 'duplicate';
+				return array(
+					'error'       => 'duplicate',
+					'string_id'   => (int)$dup->row['string_id'],
+					'source_text' => (string)$dup->row['source_text']
+				);
 			}
 
 			$this->db->query("UPDATE `" . DB_PREFIX . "cyberpunks_cb_lang` SET
@@ -193,10 +197,14 @@ class ModelExtensionModuleCyberpunksLanguageOverrides extends Model {
 				date_modified = '" . $this->db->escape($now) . "'
 				WHERE string_id = '" . (int)$string_id . "'");
 		} else {
-			$dup = $this->db->query("SELECT string_id FROM `" . DB_PREFIX . "cyberpunks_cb_lang` WHERE source_hash = '" . $this->db->escape($hash) . "'");
+			$dup = $this->db->query("SELECT string_id, source_text FROM `" . DB_PREFIX . "cyberpunks_cb_lang` WHERE source_hash = '" . $this->db->escape($hash) . "' LIMIT 1");
 
 			if ($dup->num_rows) {
-				return 'duplicate';
+				return array(
+					'error'       => 'duplicate',
+					'string_id'   => (int)$dup->row['string_id'],
+					'source_text' => (string)$dup->row['source_text']
+				);
 			}
 
 			$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_cb_lang` SET
