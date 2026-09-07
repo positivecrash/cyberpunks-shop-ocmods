@@ -10,14 +10,16 @@ Sections are admin-only grouping: each section has its own sort order, and field
 
 | Type | UI |
 |------|-----|
-| Text | single-line input **per language** |
-| Textarea (HTML) | multiline HTML **per language** (icons via shortcodes) |
+| Text | single-line; **Translate** on → per language, off → one shared value |
+| Textarea (HTML) | multiline HTML; same **Translate** toggle (icons via shortcodes) |
 | Image | OpenCart file manager thumb picker |
 | Checkbox | yes/no (shared across languages) |
 | Checkbox list | multi-select checkboxes (`value` or `value\|Label` per line) |
 | Select | dropdown (`value` or `value\|Label` per line) |
-| Editor | Summernote WYSIWYG **per language** |
+| Editor | Summernote WYSIWYG; same **Translate** toggle |
 | **List (repeater)** | add/remove rows; each row has sub-fields defined in **Select values** |
+
+**Translate** (Text / Textarea / Editor only): uncheck for URLs, OG image paths, Amazon links, etc. Shared values use `language_id = 0`. On first install of 1.7.0, keys like `og_image`, `amazon_*`, `*_url` / `*_link` / `*_image` are auto-set to non-translatable.
 
 ### List (repeater) — sub-field schema
 
@@ -62,6 +64,11 @@ Home sections list categories that have products with checkbox key `featured` = 
 Textarea HTML + `[[icon:name]]` shortcodes + `[[option:key]]` for Common Options values. Theme: `{{ fields.page_content|raw }}`.
 
 ## Changelog
+
+### 1.7.0
+- Per-field **Translate** flag for Text / Textarea / Editor (module settings)
+- Off = single shared input on product Custom tab (`language_id = 0`)
+- Migration turns off translate for `og_image`, `amazon_*`, `*_url` / `*_link` / `*_image` and collapses duplicate lang rows
 
 ### 1.6.0
 - **Multilingual Text / Textarea (HTML) / Editor** on product Custom tab — one input per store language (flag addon)

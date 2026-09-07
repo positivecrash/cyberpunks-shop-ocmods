@@ -2,9 +2,9 @@
 <modification>
 	<name>Cyberpunks Shop Language Overrides</name>
 	<code>cyberpunks_shop_language_overrides</code>
-	<version>1.7.9</version>
+	<version>1.9.1</version>
 	<author>positivecrash</author>
-	<description>Minimal nl-nl core, URL locales, cb_lang theme strings (admin), shared SEO keywords, hreflang/og:locale, cart total labels, thousand separator.</description>
+	<description>Minimal nl-nl core, URL locales, cb_lang theme strings (admin) with CSV import/export, shared SEO keywords, hreflang/og:locale, cart total labels, thousand separator, auto language pack stubs.</description>
 
 	<!-- SEO decode: resolve keyword per current language -->
 	<file path="catalog/controller/startup/seo_url.php">
@@ -300,6 +300,82 @@
 					$data['text_agree'] = sprintf($cp_text_agree_tpl, $cp_text_agree_url, $information_info['title']);
 				}
 			]]></add>
+		</operation>
+	</file>
+
+	<!-- Allow typing a new language code (stock UI only lists existing folders).
+	     OCMOD matches one line at a time — use offset to replace the whole select block. -->
+	<file path="admin/view/template/localisation/language_form.twig">
+		<operation error="skip">
+			<search><![CDATA[              <select name="code" id="input-code" class="form-control">]]></search>
+			<add position="replace" offset="11"><![CDATA[              <input type="text" name="code" value="{{ code }}" placeholder="de-de" id="input-code" class="form-control" />
+              <p class="help-block">Use a folder code like <code>de-de</code> or <code>fr-fr</code>. Missing catalog/admin language folders are created automatically from en-gb stubs.</p>
+              {% if error_code %}
+              <div class="text-danger">{{ error_code }}</div>
+              {% endif %}]]></add>
+		</operation>
+	</file>
+
+	<!-- Create language stubs before DB insert/update; validate code format. -->
+	<file path="admin/controller/localisation/language.php">
+		<operation error="skip">
+			<search><![CDATA[			$this->error['code'] = $this->language->get('error_code');]]></search>
+			<add position="replace" offset="1"><![CDATA[			$this->error['code'] = $this->language->get('error_code');
+		} elseif (is_file(DIR_SYSTEM . 'library/cyberpunks_language_pack.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_language_pack.php');
+
+			$cp_language_code = strtolower(trim((string)$this->request->post['code']));
+			$this->request->post['code'] = $cp_language_code;
+
+			if (!CyberpunksLanguagePack::isValidCode($cp_language_code)) {
+				$this->error['code'] = 'Use a locale code like de-de or fr-fr.';
+			} elseif ($cp_language_code !== 'en-gb' && $cp_language_code !== 'en' && !CyberpunksLanguagePack::ensureStub($cp_language_code)) {
+				$this->error['warning'] = 'Could not create language folders under catalog/language and admin/language. Check write permissions.';
+			}
+		}]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/model/localisation/language.php">
+		<operation error="skip">
+			<search><![CDATA[	public function addLanguage($data) {]]></search>
+			<add position="after"><![CDATA[
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_language_pack.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_language_pack.php');
+			CyberpunksLanguagePack::ensureStub(isset($data['code']) ? $data['code'] : '');
+		}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[	public function editLanguage($language_id, $data) {]]></search>
+			<add position="after"><![CDATA[
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_language_pack.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_language_pack.php');
+			CyberpunksLanguagePack::ensureStub(isset($data['code']) ? $data['code'] : '');
+		}
+]]></add>
+		</operation>
+	</file>
+
+	<!-- After language is saved to DB, copy missing product/information/route SEO keywords. -->
+	<file path="admin/controller/localisation/language.php">
+		<operation error="skip">
+			<search><![CDATA[			$this->model_localisation_language->addLanguage($this->request->post);]]></search>
+			<add position="after"><![CDATA[
+			if (is_file(DIR_SYSTEM . 'library/cyberpunks_url_locale.php')) {
+				require_once(DIR_SYSTEM . 'library/cyberpunks_url_locale.php');
+				CyberpunksUrlLocale::ensureSeoUrls($this->db, (int)$this->config->get('config_language_id'));
+			}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[			$this->model_localisation_language->editLanguage($this->request->get['language_id'], $this->request->post);]]></search>
+			<add position="after"><![CDATA[
+			if (is_file(DIR_SYSTEM . 'library/cyberpunks_url_locale.php')) {
+				require_once(DIR_SYSTEM . 'library/cyberpunks_url_locale.php');
+				CyberpunksUrlLocale::ensureSeoUrls($this->db, (int)$this->config->get('config_language_id'));
+			}
+]]></add>
 		</operation>
 	</file>
 </modification>

@@ -309,4 +309,73 @@ class CyberpunksUrlLocale {
 
 		return $out;
 	}
+
+	/**
+	 * Copy missing seo_url rows to every active language (products, categories,
+	 * information, manufacturers, and route=* keywords). Keyword is taken from
+	 * $prefer_language_id when present, otherwise from any existing row.
+	 *
+	 * @param object $db OpenCart DB
+	 * @param int    $prefer_language_id Preferred source language for keyword text
+	 */
+	public static function ensureSeoUrls($db, $prefer_language_id = 0) {
+		if (!is_object($db) || !method_exists($db, 'query')) {
+			return;
+		}
+
+		$prefer_language_id = (int)$prefer_language_id;
+
+		$lang_count = $db->query("SELECT COUNT(*) AS `cnt` FROM `" . DB_PREFIX . "language` WHERE `status` = '1'");
+		$distinct = $db->query("SELECT COUNT(*) AS `cnt` FROM (SELECT DISTINCT `store_id`, `query` FROM `" . DB_PREFIX . "seo_url`) `cp_seo_distinct`");
+		$total = $db->query("SELECT COUNT(*) AS `cnt` FROM `" . DB_PREFIX . "seo_url`");
+
+		$langs = (int)$lang_count->row['cnt'];
+		$entities = (int)$distinct->row['cnt'];
+		$rows = (int)$total->row['cnt'];
+
+		if ($langs < 1 || $entities < 1 || $rows >= ($langs * $entities)) {
+			return;
+		}
+
+		$languages = $db->query("SELECT `language_id` FROM `" . DB_PREFIX . "language` WHERE `status` = '1'");
+		$all = $db->query("SELECT `store_id`, `query`, `keyword`, `language_id` FROM `" . DB_PREFIX . "seo_url`");
+
+		$groups = array();
+
+		foreach ($all->rows as $row) {
+			$key = (int)$row['store_id'] . '|' . $row['query'];
+			$lid = (int)$row['language_id'];
+
+			if (!isset($groups[$key])) {
+				$groups[$key] = array(
+					'store_id' => (int)$row['store_id'],
+					'query'    => $row['query'],
+					'keyword'  => $row['keyword'],
+					'have'     => array()
+				);
+			}
+
+			$groups[$key]['have'][$lid] = true;
+
+			if ($prefer_language_id > 0 && $lid === $prefer_language_id && $row['keyword'] !== '') {
+				$groups[$key]['keyword'] = $row['keyword'];
+			}
+		}
+
+		foreach ($groups as $g) {
+			foreach ($languages->rows as $lang) {
+				$lid = (int)$lang['language_id'];
+
+				if (isset($g['have'][$lid])) {
+					continue;
+				}
+
+				$db->query("INSERT INTO `" . DB_PREFIX . "seo_url` SET
+					`store_id` = '" . (int)$g['store_id'] . "',
+					`language_id` = '" . (int)$lid . "',
+					`query` = '" . $db->escape($g['query']) . "',
+					`keyword` = '" . $db->escape($g['keyword']) . "'");
+			}
+		}
+	}
 }

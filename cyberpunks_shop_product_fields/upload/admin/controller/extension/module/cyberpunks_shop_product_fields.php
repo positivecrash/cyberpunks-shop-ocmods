@@ -79,6 +79,7 @@ class ControllerExtensionModuleCyberpunksShopProductFields extends Controller {
 		$data['entry_admin_hint'] = $this->language->get('entry_admin_hint');
 		$data['entry_sort_order'] = $this->language->get('entry_sort_order');
 		$data['entry_status'] = $this->language->get('entry_status');
+		$data['entry_translatable'] = $this->language->get('entry_translatable');
 		$data['entry_section_title'] = $this->language->get('entry_section_title');
 		$data['text_enabled'] = $this->language->get('text_enabled');
 		$data['text_disabled'] = $this->language->get('text_disabled');
@@ -93,6 +94,7 @@ class ControllerExtensionModuleCyberpunksShopProductFields extends Controller {
 		$data['help_select_options'] = $this->language->get('help_select_options');
 		$data['help_repeater_schema'] = $this->language->get('help_repeater_schema');
 		$data['help_admin_hint'] = $this->language->get('help_admin_hint');
+		$data['help_translatable'] = $this->language->get('help_translatable');
 		$data['help_sections'] = $this->language->get('help_sections');
 		$data['button_add'] = $this->language->get('button_add');
 		$data['button_add_section'] = $this->language->get('button_add_section');

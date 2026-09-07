@@ -16,6 +16,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			`field_key` VARCHAR(64) NOT NULL,
 			`label` VARCHAR(128) NOT NULL,
 			`field_type` VARCHAR(32) NOT NULL DEFAULT 'text',
+			`translatable` TINYINT(1) NOT NULL DEFAULT '1',
 			`select_options` TEXT NOT NULL,
 			`admin_hint` VARCHAR(255) NOT NULL,
 			`sort_order` INT(11) NOT NULL DEFAULT '0',
@@ -47,6 +48,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		}
 
 		$this->ensureValueLanguageColumn();
+		$this->ensureTranslatableColumn();
 	}
 
 	private function ensureValueLanguageColumn() {
@@ -98,8 +100,107 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		}
 	}
 
+	private function ensureTranslatableColumn() {
+		$col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_product_field` LIKE 'translatable'");
+
+		if ($col->num_rows) {
+			return;
+		}
+
+		$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_field` ADD `translatable` TINYINT(1) NOT NULL DEFAULT '1' AFTER `field_type`");
+
+		$this->db->query("UPDATE `" . DB_PREFIX . "cyberpunks_product_field` SET `translatable` = '0'
+			WHERE `field_type` IN ('text', 'textarea', 'html')
+				AND (
+					`field_key` IN ('og_image', 'amazon_de', 'amazon_usa')
+					OR `field_key` LIKE 'amazon_%'
+					OR `field_key` LIKE '%_url'
+					OR `field_key` LIKE '%_link'
+					OR `field_key` LIKE '%_image'
+				)");
+
+		$shared = $this->db->query("SELECT field_id FROM `" . DB_PREFIX . "cyberpunks_product_field`
+			WHERE `translatable` = '0' AND `field_type` IN ('text', 'textarea', 'html')");
+
+		foreach ($shared->rows as $row) {
+			$this->collapseFieldValuesToShared((int)$row['field_id']);
+		}
+	}
+
+	private function collapseFieldValuesToShared($field_id) {
+		$field_id = (int)$field_id;
+
+		if ($field_id < 1) {
+			return;
+		}
+
+		$products = $this->db->query("SELECT DISTINCT product_id FROM `" . DB_PREFIX . "cyberpunks_product_field_value` WHERE field_id = '" . (int)$field_id . "'");
+
+		foreach ($products->rows as $product) {
+			$product_id = (int)$product['product_id'];
+			$rows = $this->db->query("SELECT language_id, value FROM `" . DB_PREFIX . "cyberpunks_product_field_value`
+				WHERE product_id = '" . (int)$product_id . "' AND field_id = '" . (int)$field_id . "'
+				ORDER BY language_id ASC")->rows;
+
+			$shared = '';
+
+			foreach ($rows as $row) {
+				if ((int)$row['language_id'] === 0 && trim((string)$row['value']) !== '') {
+					$shared = (string)$row['value'];
+					break;
+				}
+			}
+
+			if ($shared === '') {
+				foreach ($rows as $row) {
+					if (trim((string)$row['value']) !== '') {
+						$shared = (string)$row['value'];
+						break;
+					}
+				}
+			}
+
+			$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_product_field_value`
+				WHERE product_id = '" . (int)$product_id . "' AND field_id = '" . (int)$field_id . "'");
+
+			if ($shared !== '') {
+				$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_product_field_value` SET
+					product_id = '" . (int)$product_id . "',
+					field_id = '" . (int)$field_id . "',
+					language_id = '0',
+					value = '" . $this->db->escape($shared) . "',
+					date_modified = NOW()");
+			}
+		}
+	}
+
 	public function isMultilingualFieldType($field_type) {
 		return in_array((string)$field_type, array('text', 'textarea', 'html'), true);
+	}
+
+	/**
+	 * @param array|string $field Field row or legacy field_type string
+	 */
+	public function isMultilingualField($field) {
+		if (is_string($field)) {
+			return $this->isMultilingualFieldType($field);
+		}
+
+		if (!is_array($field)) {
+			return false;
+		}
+
+		$field_type = isset($field['field_type']) ? $field['field_type'] : 'text';
+
+		if (!$this->isMultilingualFieldType($field_type)) {
+			return false;
+		}
+
+		if (!array_key_exists('translatable', $field)) {
+			return true;
+		}
+
+		return (int)$field['translatable'] === 1;
 	}
 
 	public function install() {
@@ -321,12 +422,20 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 				$field_type = $field['field_type'];
 			}
 
+			$translatable = 1;
+			if ($this->isMultilingualFieldType($field_type)) {
+				$translatable = !empty($field['translatable']) ? 1 : 0;
+			} else {
+				$translatable = 0;
+			}
+
 			$pending[] = array(
 				'field_id' => $field_id,
 				'section_id' => $section_id,
 				'field_key' => $field_key,
 				'label' => $label,
 				'field_type' => $field_type,
+				'translatable' => $translatable,
 				'select_options' => isset($field['select_options']) ? trim((string)$field['select_options']) : '',
 				'admin_hint' => isset($field['admin_hint']) ? trim((string)$field['admin_hint']) : '',
 				'sort_order' => isset($field['sort_order']) ? (int)$field['sort_order'] : 0,
@@ -363,6 +472,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 					`field_key` = '" . $this->db->escape($field['field_key']) . "',
 					`label` = '" . $this->db->escape($field['label']) . "',
 					`field_type` = '" . $this->db->escape($field['field_type']) . "',
+					`translatable` = '" . (int)$field['translatable'] . "',
 					`select_options` = '" . $this->db->escape($field['select_options']) . "',
 					`admin_hint` = '" . $this->db->escape($field['admin_hint']) . "',
 					`sort_order` = '" . (int)$field['sort_order'] . "',
@@ -370,12 +480,17 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 					`date_modified` = NOW()
 					WHERE field_id = '" . (int)$field['field_id'] . "'");
 				$keep_ids[] = (int)$field['field_id'];
+
+				if (!(int)$field['translatable'] && $this->isMultilingualFieldType($field['field_type'])) {
+					$this->collapseFieldValuesToShared((int)$field['field_id']);
+				}
 			} else {
 				$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_product_field` SET
 					`section_id` = '" . (int)$field['section_id'] . "',
 					`field_key` = '" . $this->db->escape($field['field_key']) . "',
 					`label` = '" . $this->db->escape($field['label']) . "',
 					`field_type` = '" . $this->db->escape($field['field_type']) . "',
+					`translatable` = '" . (int)$field['translatable'] . "',
 					`select_options` = '" . $this->db->escape($field['select_options']) . "',
 					`admin_hint` = '" . $this->db->escape($field['admin_hint']) . "',
 					`sort_order` = '" . (int)$field['sort_order'] . "',
@@ -391,15 +506,19 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		$this->ensureSchema();
 
 		$data = array();
-		$query = $this->db->query("SELECT v.field_id, v.language_id, v.value, f.field_type FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "'");
+		$query = $this->db->query("SELECT v.field_id, v.language_id, v.value, f.field_type, f.translatable FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "'");
 
 		foreach ($query->rows as $row) {
 			$field_id = (int)$row['field_id'];
 			$language_id = isset($row['language_id']) ? (int)$row['language_id'] : 0;
 			$field_type = isset($row['field_type']) ? $row['field_type'] : 'text';
 			$value = $row['value'];
+			$field_meta = array(
+				'field_type' => $field_type,
+				'translatable' => isset($row['translatable']) ? $row['translatable'] : 1
+			);
 
-			if ($this->isMultilingualFieldType($field_type)) {
+			if ($this->isMultilingualField($field_meta)) {
 				if (!isset($data[$field_id]) || !is_array($data[$field_id])) {
 					$data[$field_id] = array();
 				}
@@ -419,7 +538,9 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 				$value = $this->decodeRepeaterValue($value);
 			}
 
-			$data[$field_id] = $value;
+			if ($language_id === 0 || !isset($data[$field_id]) || $data[$field_id] === '') {
+				$data[$field_id] = $value;
+			}
 		}
 
 		foreach ($data as $field_id => $value) {
@@ -459,11 +580,14 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			return;
 		}
 
-		$field_types = array();
-		$field_type_query = $this->db->query("SELECT field_id, field_type FROM `" . DB_PREFIX . "cyberpunks_product_field`");
+		$field_meta = array();
+		$field_meta_query = $this->db->query("SELECT field_id, field_type, translatable FROM `" . DB_PREFIX . "cyberpunks_product_field`");
 
-		foreach ($field_type_query->rows as $field_type_row) {
-			$field_types[(int)$field_type_row['field_id']] = isset($field_type_row['field_type']) ? $field_type_row['field_type'] : 'text';
+		foreach ($field_meta_query->rows as $field_row) {
+			$field_meta[(int)$field_row['field_id']] = array(
+				'field_type' => isset($field_row['field_type']) ? $field_row['field_type'] : 'text',
+				'translatable' => isset($field_row['translatable']) ? $field_row['translatable'] : 1
+			);
 		}
 
 		foreach ($values as $field_id => $value) {
@@ -472,9 +596,10 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 				continue;
 			}
 
-			$field_type = isset($field_types[$field_id]) ? $field_types[$field_id] : 'text';
+			$meta = isset($field_meta[$field_id]) ? $field_meta[$field_id] : array('field_type' => 'text', 'translatable' => 1);
+			$field_type = $meta['field_type'];
 
-			if ($this->isMultilingualFieldType($field_type)) {
+			if ($this->isMultilingualField($meta)) {
 				if (!is_array($value)) {
 					$this->insertProductFieldValue($product_id, $field_id, 0, (string)$value);
 					continue;
@@ -496,6 +621,16 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			if (is_array($value)) {
 				if ($field_type === 'repeater') {
 					$value = $this->encodeRepeaterValue($value);
+				} elseif ($this->isMultilingualFieldType($field_type)) {
+					// Shared text posted as language map — keep first non-empty.
+					$picked = '';
+					foreach ($value as $text) {
+						if (!is_array($text) && trim((string)$text) !== '') {
+							$picked = (string)$text;
+							break;
+						}
+					}
+					$value = $picked;
 				} else {
 					$clean = array();
 
@@ -534,7 +669,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		$this->ensureSchema();
 
 		$data = array();
-		$query = $this->db->query("SELECT f.field_key, f.field_type, v.language_id, v.value FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "' AND f.status = '1'");
+		$query = $this->db->query("SELECT f.field_key, f.field_type, f.translatable, v.language_id, v.value FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "' AND f.status = '1'");
 		$grouped = array();
 
 		foreach ($query->rows as $row) {
@@ -548,6 +683,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			if (!isset($grouped[$key])) {
 				$grouped[$key] = array(
 					'type' => isset($row['field_type']) ? $row['field_type'] : 'text',
+					'translatable' => isset($row['translatable']) ? $row['translatable'] : 1,
 					'values' => array()
 				);
 			}
@@ -559,8 +695,12 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 
 		foreach ($grouped as $key => $item) {
 			$values = $item['values'];
+			$meta = array(
+				'field_type' => $item['type'],
+				'translatable' => $item['translatable']
+			);
 
-			if ($this->isMultilingualFieldType($item['type'])) {
+			if ($this->isMultilingualField($meta)) {
 				if ($language_id > 0 && isset($values[$language_id]) && $values[$language_id] !== '') {
 					$data[$key] = $values[$language_id];
 				} elseif (isset($values[0]) && $values[0] !== '') {
@@ -569,7 +709,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 					$data[$key] = $values ? (string)reset($values) : '';
 				}
 			} else {
-				$data[$key] = isset($values[0]) ? $values[0] : (string)reset($values);
+				$data[$key] = isset($values[0]) && $values[0] !== '' ? $values[0] : ($values ? (string)reset($values) : '');
 			}
 		}
 

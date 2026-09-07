@@ -81,7 +81,22 @@
         {% endfor %}
       </select>
     {% elseif field.field_type == 'html' or field.field_type == 'textarea' or field.field_type == 'text' %}
+      {% set is_translatable = field.translatable is not defined or field.translatable %}
       {% set lang_values = cyberpunks_product_field_values[field.field_id] is defined ? cyberpunks_product_field_values[field.field_id] : {} %}
+      {% if not is_translatable %}
+        {% if lang_values is iterable %}
+          {% set shared_value = lang_values[0] is defined ? lang_values[0] : (lang_values|length ? lang_values|first : '') %}
+        {% else %}
+          {% set shared_value = lang_values %}
+        {% endif %}
+        {% if field.field_type == 'text' %}
+          <input type="text" name="cyberpunks_product_fields[{{ field.field_id }}]" value="{{ shared_value }}" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" class="form-control" />
+        {% elseif field.field_type == 'html' %}
+          <textarea name="cyberpunks_product_fields[{{ field.field_id }}]" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" data-toggle="summernote" data-lang="{{ summernote }}" class="form-control">{{ shared_value }}</textarea>
+        {% else %}
+          <textarea name="cyberpunks_product_fields[{{ field.field_id }}]" rows="18" placeholder="{{ field.label }}" id="input-cyberpunks-product-field-{{ field.field_id }}" class="form-control" style="font-family:monospace;">{{ shared_value }}</textarea>
+        {% endif %}
+      {% else %}
       {% if lang_values is not iterable %}
         {% set lang_values = { 0: lang_values } %}
       {% endif %}
@@ -115,6 +130,7 @@
           <p class="help-block">No store languages enabled.</p>
           {% endfor %}
         </div>
+      {% endif %}
       {% endif %}
     {% elseif field.field_type == 'image' %}
       <a href="" id="thumb-cyberpunks-product-field-{{ field.field_id }}" data-toggle="image" class="img-thumbnail">

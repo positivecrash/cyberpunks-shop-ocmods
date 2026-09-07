@@ -29,8 +29,11 @@ class ModelExtensionModuleCyberpunksLanguageOverrides extends Model {
 			) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 		}
 
-		// Ensure route-based SEO URLs (cart, checkout, etc.) exist for all active languages.
-		$this->ensureRouteSeoUrls();
+		// Ensure SEO keywords (products, information, routes, …) exist for all active languages.
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_url_locale.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_url_locale.php');
+			CyberpunksUrlLocale::ensureSeoUrls($this->db, (int)$this->config->get('config_language_id'));
+		}
 
 		// OpenCart htmlspecialchars()'s request->post — undo so hashes match cb_lang('…').
 		$this->repairHtmlEncodedStrings();
@@ -255,40 +258,186 @@ class ModelExtensionModuleCyberpunksLanguageOverrides extends Model {
 	}
 
 	/**
-	 * Copy ALL route-based SEO URLs to every active language.
-	 * Automatically covers new languages added later — no hardcoded route list.
+	 * Build CSV rows for theme strings.
+	 * Columns: source_text, comment, then one column per language code (non-English).
+	 *
+	 * @param array $languages language rows with language_id + code (already filtered)
+	 * @return array{headers: string[], rows: array<int, string[]>}
 	 */
-	private function ensureRouteSeoUrls() {
-		$languages = $this->db->query("SELECT language_id FROM `" . DB_PREFIX . "language` WHERE status = '1'");
-		$all_routes = $this->db->query("SELECT DISTINCT store_id, `query`, keyword, language_id FROM `" . DB_PREFIX . "seo_url` WHERE `query` LIKE 'route=%'");
+	public function buildExportCsv($languages) {
+		$this->ensureSchema();
 
-		$groups = array();
-		foreach ($all_routes->rows as $row) {
-			$key = (int)$row['store_id'] . '|' . $row['query'];
-			if (!isset($groups[$key])) {
-				$groups[$key] = array(
-					'store_id' => (int)$row['store_id'],
-					'query'    => $row['query'],
-					'keyword'  => $row['keyword'],
-					'have'     => array(),
-				);
-			}
-			$groups[$key]['have'][(int)$row['language_id']] = true;
+		$headers = array('source_text', 'comment');
+		$lang_codes = array();
+
+		foreach ($languages as $language) {
+			$code = strtolower(trim((string)$language['code']));
+			$headers[] = $code;
+			$lang_codes[] = array(
+				'code' => $code,
+				'language_id' => (int)$language['language_id']
+			);
 		}
 
-		foreach ($groups as $g) {
-			foreach ($languages->rows as $lang) {
-				$lid = (int)$lang['language_id'];
-				if (isset($g['have'][$lid])) {
+		$rows = array();
+
+		foreach ($this->getStrings() as $string) {
+			$row = array(
+				(string)$string['source_text'],
+				isset($string['comment']) ? (string)$string['comment'] : ''
+			);
+			$translations = isset($string['translations']) && is_array($string['translations'])
+				? $string['translations']
+				: array();
+
+			foreach ($lang_codes as $lang) {
+				$lid = $lang['language_id'];
+				$row[] = isset($translations[$lid]) ? (string)$translations[$lid] : '';
+			}
+
+			$rows[] = $row;
+		}
+
+		return array(
+			'headers' => $headers,
+			'rows' => $rows
+		);
+	}
+
+	/**
+	 * Import theme strings from parsed CSV (header + data rows).
+	 * Empty translation cells leave existing values unchanged.
+	 * Empty comment keeps existing comment on update.
+	 *
+	 * @param array $headers
+	 * @param array $rows
+	 * @return array{created: int, updated: int, skipped: int, errors: string[]}
+	 */
+	public function importCsv($headers, $rows) {
+		$this->ensureSchema();
+
+		$stats = array(
+			'created' => 0,
+			'updated' => 0,
+			'skipped' => 0,
+			'errors' => array()
+		);
+
+		if (!$headers || !is_array($headers)) {
+			$stats['errors'][] = 'Missing CSV header row.';
+
+			return $stats;
+		}
+
+		$map = array();
+		foreach ($headers as $i => $header) {
+			$key = strtolower(trim((string)$header));
+			if ($key !== '') {
+				$map[$key] = (int)$i;
+			}
+		}
+
+		if (!isset($map['source_text'])) {
+			$stats['errors'][] = 'CSV must include a source_text column.';
+
+			return $stats;
+		}
+
+		$code_to_id = array();
+		foreach ($this->getLanguages() as $language) {
+			$code = strtolower(trim((string)$language['code']));
+			if ($code === 'en-gb' || $code === 'en' || strpos($code, 'en-') === 0) {
+				continue;
+			}
+			$code_to_id[$code] = (int)$language['language_id'];
+		}
+
+		foreach ($rows as $line_no => $cols) {
+			if (!is_array($cols)) {
+				$stats['skipped']++;
+				continue;
+			}
+
+			$source = isset($cols[$map['source_text']]) ? trim((string)$cols[$map['source_text']]) : '';
+
+			if ($source === '') {
+				$stats['skipped']++;
+				continue;
+			}
+
+			$comment = '';
+			if (isset($map['comment']) && isset($cols[$map['comment']])) {
+				$comment = trim((string)$cols[$map['comment']]);
+			}
+
+			$file_translations = array();
+			foreach ($code_to_id as $code => $language_id) {
+				if (!isset($map[$code])) {
 					continue;
 				}
-				$this->db->query("INSERT INTO `" . DB_PREFIX . "seo_url` SET
-					store_id = '" . $g['store_id'] . "',
-					language_id = '" . $lid . "',
-					`query` = '" . $this->db->escape($g['query']) . "',
-					keyword = '" . $this->db->escape($g['keyword']) . "'");
+				$value = isset($cols[$map[$code]]) ? trim((string)$cols[$map[$code]]) : '';
+				if ($value !== '') {
+					$file_translations[$language_id] = $value;
+				}
+			}
+
+			$hash = hash('sha256', $source);
+			$existing = $this->db->query("SELECT string_id, comment FROM `" . DB_PREFIX . "cyberpunks_cb_lang` WHERE source_hash = '" . $this->db->escape($hash) . "' LIMIT 1");
+
+			if ($existing->num_rows) {
+				$string_id = (int)$existing->row['string_id'];
+				$merged = $this->getTranslations($string_id);
+
+				foreach ($file_translations as $language_id => $translation) {
+					$merged[(int)$language_id] = $translation;
+				}
+
+				$save_comment = $comment !== '' ? $comment : (string)$existing->row['comment'];
+
+				$result = $this->saveString(array(
+					'string_id' => $string_id,
+					'source_text' => $source,
+					'comment' => $save_comment,
+					'translations' => $merged
+				));
+
+				if (is_array($result) || $result === false) {
+					$stats['errors'][] = 'Line ' . ((int)$line_no + 2) . ': could not update “' . $this->previewText($source) . '”.';
+					$stats['skipped']++;
+				} else {
+					$stats['updated']++;
+				}
+			} else {
+				$result = $this->saveString(array(
+					'source_text' => $source,
+					'comment' => $comment,
+					'translations' => $file_translations
+				));
+
+				if (is_array($result) || $result === false) {
+					$stats['errors'][] = 'Line ' . ((int)$line_no + 2) . ': could not create “' . $this->previewText($source) . '”.';
+					$stats['skipped']++;
+				} else {
+					$stats['created']++;
+				}
 			}
 		}
+
+		return $stats;
+	}
+
+	private function previewText($text) {
+		$text = (string)$text;
+
+		if (function_exists('utf8_strlen') && utf8_strlen($text) > 80) {
+			return utf8_substr($text, 0, 77) . '...';
+		}
+
+		if (strlen($text) > 80) {
+			return substr($text, 0, 77) . '...';
+		}
+
+		return $text;
 	}
 
 	public function seedDefaults() {

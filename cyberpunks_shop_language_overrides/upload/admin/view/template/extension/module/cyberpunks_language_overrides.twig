@@ -3,6 +3,8 @@
   <div class="page-header">
     <div class="container-fluid">
       <div class="pull-right">
+        <a href="{{ export }}" data-toggle="tooltip" title="{{ button_export }}" class="btn btn-default tab-only-cb-lang"><i class="fa fa-download"></i></a>
+        <label for="input-import-file" data-toggle="tooltip" title="{{ button_import }}" class="btn btn-default tab-only-cb-lang" style="margin:0;"><i class="fa fa-upload"></i></label>
         <a href="{{ add }}" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary tab-only-cb-lang"><i class="fa fa-plus"></i></a>
         <button type="submit" form="form-language-settings" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary tab-only-oc-overrides"><i class="fa fa-save"></i></button>
         <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
@@ -43,6 +45,10 @@
         <div class="tab-content">
           <div class="tab-pane active" id="tab-cb-lang">
             <p class="help-block">{{ text_cb_lang_help }}</p>
+            <p class="help-block">{{ text_import_export_help }}</p>
+            <form action="{{ import }}" method="post" enctype="multipart/form-data" id="form-cb-lang-import" class="hidden">
+              <input type="file" name="import" id="input-import-file" accept=".csv,text/csv" />
+            </form>
             <div class="table-responsive">
               <table class="table table-bordered table-hover">
                 <thead>
@@ -167,6 +173,12 @@
   }
   $('a[data-toggle="tab"]').on('shown.bs.tab', syncHeaderButtons);
   syncHeaderButtons();
+
+  $('#input-import-file').on('change', function () {
+    if (this.files && this.files.length) {
+      $('#form-cb-lang-import').submit();
+    }
+  });
 })();
 //--></script>
 {{ footer }}

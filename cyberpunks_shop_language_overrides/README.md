@@ -1,14 +1,29 @@
 # Cyberpunks Shop Language Overrides
 
-Minimal Dutch core (`nl-nl.php`), URL locales (`/en/`, `/nl/`), **cb_lang** theme strings (admin), shared SEO keywords, hreflang / `og:locale`, cart totals, thousand separator.
+Minimal Dutch core (`nl-nl.php`), URL locales (`/en/`, `/nl/`), **cb_lang** theme strings (admin), shared SEO keywords, hreflang / `og:locale`, cart totals, thousand separator, **auto language pack stubs**.
 
 ## Install
 
 1. `./build-ocmod.sh cyberpunks_shop_language_overrides`
-2. Upload `cyberpunks_shop_language_overrides_1_7_4.ocmod.zip`
+2. Upload `cyberpunks_shop_language_overrides_1_9_1.ocmod.zip`
 3. Extensions → Modifications → **Refresh**
 4. Open **Extensions → Modules → Cyberpunks Language Overrides** once (tables + seed)
 5. Clear Twig cache if needed: `system/storage/cache/template/`
+
+## Adding a new store language
+
+Stock OpenCart only lets you pick a Code from folders that already exist. This module:
+
+1. Turns **Code** into a text field (`de-de`, `fr-fr`, …)
+2. On save, creates minimal stubs if missing:
+   - `catalog/language/{code}/{code}.php` (+ png)
+   - `admin/language/{code}/{code}.php` (+ png)
+   - PHP copied from `en-gb`, with `$_['code']` set to the short locale (`de`, `fr`, …)
+   - Flag PNG downloaded from flagcdn (`de-de` → Germany, etc.); if download fails, falls back to en-gb placeholder. Re-saving a language replaces a leftover en-gb copy.
+
+Full PHP language packs are still optional — `Language::load()` falls back to en-gb. Theme strings stay in **cb_lang**; Menu / Marketing already show fields for every enabled language.
+
+Requires write access to `catalog/language/` and `admin/language/`.
 
 ## Why so few `nl-nl` files?
 
@@ -38,9 +53,11 @@ Exact original string + current language. No translation → original text.
 
 Admin: **Extensions → Modules → Cyberpunks Language Overrides** — original, comment, per-language translations.
 
+**CSV import/export** (Theme Strings tab): download/upload all strings. Columns: `source_text`, `comment`, then one column per enabled non-English language (`nl-nl`, `de-de`, …). Import merges by Original EN; empty cells do not clear existing translations.
+
 ## URL locale / SEO
 
-Same as 1.6.x: `/en/` `/nl/`, shared SEO keywords across languages, hreflang.
+Same as 1.6.x: `/en/` `/nl/`, shared SEO keywords across languages, hreflang. Route SEO keywords auto-copy to new active languages. **Product / category / information / manufacturer SEO keywords** are also copied to every active language when a language is added (or when gaps are detected on storefront / module open).
 
 ## After refresh
 

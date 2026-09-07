@@ -5,6 +5,18 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		return (bool)$has_language->num_rows;
 	}
 
+	private function hasTranslatableColumn() {
+		$table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_product_field") . "'");
+
+		if (!$table->num_rows) {
+			return false;
+		}
+
+		$col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_product_field` LIKE 'translatable'");
+
+		return (bool)$col->num_rows;
+	}
+
 	/**
 	 * Backward-compatible migration for old installs.
 	 * Fixes fatal SQL errors when the site uses new queries but DB still has the legacy schema.
@@ -45,9 +57,10 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 		}
 
 		$language_select = $this->hasValueLanguageColumn() ? 'v.language_id,' : '0 AS language_id,';
+		$translatable_select = $this->hasTranslatableColumn() ? 'f.translatable,' : '1 AS translatable,';
 
 		$data = array();
-		$query = $this->db->query("SELECT f.field_key, f.field_type, " . $language_select . " v.value FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "' AND f.status = '1'");
+		$query = $this->db->query("SELECT f.field_key, f.field_type, " . $translatable_select . " " . $language_select . " v.value FROM `" . DB_PREFIX . "cyberpunks_product_field_value` v LEFT JOIN `" . DB_PREFIX . "cyberpunks_product_field` f ON (v.field_id = f.field_id) WHERE v.product_id = '" . (int)$product_id . "' AND f.status = '1'");
 		$grouped = array();
 
 		foreach ($query->rows as $row) {
@@ -61,6 +74,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			if (!isset($grouped[$key])) {
 				$grouped[$key] = array(
 					'type' => isset($row['field_type']) ? $row['field_type'] : 'text',
+					'translatable' => isset($row['translatable']) ? (int)$row['translatable'] : 1,
 					'values' => array()
 				);
 			}
@@ -74,8 +88,9 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			$field_type = $item['type'];
 			$values = $item['values'];
 			$value = '';
+			$is_multilingual = in_array($field_type, array('text', 'textarea', 'html'), true) && !empty($item['translatable']);
 
-			if (in_array($field_type, array('text', 'textarea', 'html'), true)) {
+			if ($is_multilingual) {
 				if ($config_language_id > 0 && isset($values[$config_language_id]) && $values[$config_language_id] !== '') {
 					$value = $values[$config_language_id];
 				} elseif (isset($values[0]) && $values[0] !== '') {
@@ -84,7 +99,7 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 					$value = (string)reset($values);
 				}
 			} else {
-				$value = isset($values[0]) ? $values[0] : ($values ? reset($values) : '');
+				$value = isset($values[0]) && $values[0] !== '' ? $values[0] : ($values ? reset($values) : '');
 			}
 
 			if ($field_type === 'html' || $field_type === 'textarea') {

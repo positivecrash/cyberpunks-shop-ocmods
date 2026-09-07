@@ -1,4 +1,6 @@
-{% macro field_row(field, field_row, section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_repeater, text_enabled, text_disabled, help_select_options, help_repeater_schema, help_admin_hint, button_remove) %}
+{% macro field_row(field, field_row, section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, entry_translatable, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_repeater, text_enabled, text_disabled, help_select_options, help_repeater_schema, help_admin_hint, help_translatable, button_remove) %}
+{% set can_translate = field.field_type is not defined or field.field_type == 'text' or field.field_type == 'textarea' or field.field_type == 'html' %}
+{% set is_translatable = field.translatable is not defined or field.translatable %}
 <tr id="product-field-row-{{ field_row }}" class="product-field-row" data-section-row="{{ section_row }}">
   <td class="text-left">
     <input type="hidden" name="cyberpunks_product_field_defs[{{ field_row }}][field_id]" value="{{ field.field_id is defined ? field.field_id : '' }}" />
@@ -17,6 +19,15 @@
       <option value="image" {% if field.field_type is defined and field.field_type == 'image' %}selected="selected"{% endif %}>{{ text_image }}</option>
       <option value="repeater" {% if field.field_type is defined and field.field_type == 'repeater' %}selected="selected"{% endif %}>{{ text_repeater }}</option>
     </select>
+  </td>
+  <td class="text-left">
+    <input type="hidden" name="cyberpunks_product_field_defs[{{ field_row }}][translatable]" value="0" />
+    <div class="checkbox" style="margin:0;">
+      <label data-toggle="tooltip" title="{{ help_translatable }}">
+        <input type="checkbox" name="cyberpunks_product_field_defs[{{ field_row }}][translatable]" value="1" class="cyberpunks-product-field-translatable"{% if can_translate and is_translatable %} checked="checked"{% endif %}{% if not can_translate %} disabled="disabled"{% endif %} />
+        {{ entry_translatable }}
+      </label>
+    </div>
   </td>
   <td class="text-left"><textarea name="cyberpunks_product_field_defs[{{ field_row }}][select_options]" rows="3" class="form-control" placeholder="{% if field.field_type is defined and field.field_type == 'repeater' %}{{ help_repeater_schema }}{% else %}{{ help_select_options }}{% endif %}">{{ field.select_options is defined ? field.select_options : '' }}</textarea></td>
   <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[{{ field_row }}][admin_hint]" value="{{ field.admin_hint is defined ? field.admin_hint : '' }}" class="form-control" placeholder="{{ help_admin_hint }}" /></td>
@@ -75,6 +86,7 @@
                     <td class="text-left">{{ entry_key }}</td>
                     <td class="text-left">{{ entry_label }}</td>
                     <td class="text-left">{{ entry_type }}</td>
+                    <td class="text-left">{{ entry_translatable }}</td>
                     <td class="text-left">{{ entry_select_options }}</td>
                     <td class="text-left">{{ entry_admin_hint }}</td>
                     <td class="text-right">{{ entry_sort_order }}</td>
@@ -84,13 +96,13 @@
                 </thead>
                 <tbody>
                   {% for field in layout.ungrouped_fields %}
-                  {{ product_fields.field_row(field, field_row, -1, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_repeater, text_enabled, text_disabled, help_select_options, help_repeater_schema, help_admin_hint, button_remove) }}
+                  {{ product_fields.field_row(field, field_row, -1, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, entry_translatable, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_repeater, text_enabled, text_disabled, help_select_options, help_repeater_schema, help_admin_hint, help_translatable, button_remove) }}
                   {% set field_row = field_row + 1 %}
                   {% endfor %}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colspan="7"></td>
+                    <td colspan="8"></td>
                     <td class="text-right"><button type="button" onclick="addProductField(-1);" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td>
                   </tr>
                 </tfoot>
@@ -123,6 +135,7 @@
                       <td class="text-left">{{ entry_key }}</td>
                       <td class="text-left">{{ entry_label }}</td>
                       <td class="text-left">{{ entry_type }}</td>
+                      <td class="text-left">{{ entry_translatable }}</td>
                       <td class="text-left">{{ entry_select_options }}</td>
                       <td class="text-left">{{ entry_admin_hint }}</td>
                       <td class="text-right">{{ entry_sort_order }}</td>
@@ -132,13 +145,13 @@
                   </thead>
                   <tbody>
                     {% for field in section.fields %}
-                    {{ product_fields.field_row(field, field_row, current_section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_repeater, text_enabled, text_disabled, help_select_options, help_repeater_schema, help_admin_hint, button_remove) }}
+                    {{ product_fields.field_row(field, field_row, current_section_row, entry_key, entry_label, entry_type, entry_select_options, entry_admin_hint, entry_sort_order, entry_status, entry_translatable, text_text, text_checkbox, text_checkboxes, text_select, text_html, text_textarea, text_image, text_repeater, text_enabled, text_disabled, help_select_options, help_repeater_schema, help_admin_hint, help_translatable, button_remove) }}
                     {% set field_row = field_row + 1 %}
                     {% endfor %}
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colspan="7"></td>
+                      <td colspan="8"></td>
                       <td class="text-right"><button type="button" onclick="addProductField({{ current_section_row }});" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td>
                     </tr>
                   </tfoot>
@@ -191,12 +204,25 @@ function nextProductFieldSectionSortOrder() {
   return max + 1;
 }
 
+function syncProductFieldTranslatable($row) {
+  var type = $row.find('.cyberpunks-product-field-type').val();
+  var $cb = $row.find('.cyberpunks-product-field-translatable');
+  var canTranslate = (type === 'text' || type === 'textarea' || type === 'html');
+
+  $cb.prop('disabled', !canTranslate);
+
+  if (!canTranslate) {
+    $cb.prop('checked', false);
+  }
+}
+
 function buildProductFieldRow(fieldRow, sectionRow, sortOrder) {
   var html = '';
   html += '<tr id="product-field-row-' + fieldRow + '" class="product-field-row" data-section-row="' + sectionRow + '">';
   html += '  <td class="text-left"><input type="hidden" name="cyberpunks_product_field_defs[' + fieldRow + '][field_id]" value="" /><input type="hidden" name="cyberpunks_product_field_defs[' + fieldRow + '][section_row]" value="' + sectionRow + '" class="cyberpunks-product-field-section-row" /><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][field_key]" value="" class="form-control" /></td>';
   html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][label]" value="" class="form-control" /></td>';
   html += '  <td class="text-left"><select name="cyberpunks_product_field_defs[' + fieldRow + '][field_type]" class="form-control cyberpunks-product-field-type"><option value="text">{{ text_text }}</option><option value="checkbox">{{ text_checkbox }}</option><option value="checkboxes">{{ text_checkboxes }}</option><option value="select">{{ text_select }}</option><option value="html">{{ text_html }}</option><option value="textarea">{{ text_textarea }}</option><option value="image">{{ text_image }}</option><option value="repeater">{{ text_repeater }}</option></select></td>';
+  html += '  <td class="text-left"><input type="hidden" name="cyberpunks_product_field_defs[' + fieldRow + '][translatable]" value="0" /><div class="checkbox" style="margin:0;"><label data-toggle="tooltip" title="{{ help_translatable }}"><input type="checkbox" name="cyberpunks_product_field_defs[' + fieldRow + '][translatable]" value="1" class="cyberpunks-product-field-translatable" checked="checked" /> {{ entry_translatable }}</label></div></td>';
   html += '  <td class="text-left"><textarea name="cyberpunks_product_field_defs[' + fieldRow + '][select_options]" rows="3" class="form-control" placeholder="{{ help_select_options }}"></textarea></td>';
   html += '  <td class="text-left"><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][admin_hint]" value="" class="form-control" placeholder="{{ help_admin_hint }}" /></td>';
   html += '  <td class="text-right"><input type="text" name="cyberpunks_product_field_defs[' + fieldRow + '][sort_order]" value="' + sortOrder + '" class="form-control" /></td>';
@@ -232,6 +258,7 @@ function buildProductFieldSectionPanel(sectionRow, sortOrder) {
   html += '        <td class="text-left">{{ entry_key }}</td>';
   html += '        <td class="text-left">{{ entry_label }}</td>';
   html += '        <td class="text-left">{{ entry_type }}</td>';
+  html += '        <td class="text-left">{{ entry_translatable }}</td>';
   html += '        <td class="text-left">{{ entry_select_options }}</td>';
   html += '        <td class="text-left">{{ entry_admin_hint }}</td>';
   html += '        <td class="text-right">{{ entry_sort_order }}</td>';
@@ -239,7 +266,7 @@ function buildProductFieldSectionPanel(sectionRow, sortOrder) {
   html += '        <td></td>';
   html += '      </tr></thead>';
   html += '      <tbody></tbody>';
-  html += '      <tfoot><tr><td colspan="7"></td><td class="text-right"><button type="button" onclick="addProductField(' + sectionRow + ');" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td></tr></tfoot>';
+  html += '      <tfoot><tr><td colspan="8"></td><td class="text-right"><button type="button" onclick="addProductField(' + sectionRow + ');" data-toggle="tooltip" title="{{ button_add }}" class="btn btn-primary"><i class="fa fa-plus-circle"></i></button></td></tr></tfoot>';
   html += '    </table>';
   html += '  </div>';
   html += '</div>';
@@ -256,5 +283,13 @@ function addProductFieldSection() {
 function removeProductFieldSection(sectionRow) {
   $('#product-field-section-' + sectionRow).remove();
 }
+
+$(document).on('change', '.cyberpunks-product-field-type', function() {
+  syncProductFieldTranslatable($(this).closest('tr'));
+});
+
+$('.product-field-row').each(function() {
+  syncProductFieldTranslatable($(this));
+});
 //--></script>
 {{ footer }}

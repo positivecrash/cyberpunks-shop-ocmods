@@ -77,6 +77,10 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		}
 
 		$data['error_warning'] = isset($this->error['warning']) ? $this->error['warning'] : '';
+		if (!$data['error_warning'] && !empty($this->session->data['error_warning'])) {
+			$data['error_warning'] = $this->session->data['error_warning'];
+			unset($this->session->data['error_warning']);
+		}
 		$data['success'] = isset($this->session->data['success']) ? $this->session->data['success'] : '';
 		unset($this->session->data['success']);
 
@@ -84,6 +88,8 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 
 		$data['breadcrumbs'] = $this->breadcrumbs();
 		$data['add'] = $this->url->link('extension/module/cyberpunks_language_overrides/add', 'user_token=' . $this->session->data['user_token'], true);
+		$data['export'] = $this->url->link('extension/module/cyberpunks_language_overrides/export', 'user_token=' . $this->session->data['user_token'], true);
+		$data['import'] = $this->url->link('extension/module/cyberpunks_language_overrides/import', 'user_token=' . $this->session->data['user_token'], true);
 		$data['action_settings'] = $this->url->link('extension/module/cyberpunks_language_overrides', 'user_token=' . $this->session->data['user_token'], true);
 		$data['cancel'] = $this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module', true);
 
@@ -152,6 +158,109 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		$data['footer'] = $this->load->controller('common/footer');
 
 		$this->response->setOutput($this->load->view('extension/module/cyberpunks_language_overrides', $data));
+	}
+
+	public function export() {
+		$this->load->language('extension/module/cyberpunks_language_overrides');
+
+		if (!$this->user->hasPermission('access', 'extension/module/cyberpunks_language_overrides')) {
+			$this->session->data['error_warning'] = $this->language->get('error_permission');
+			$this->response->redirect($this->url->link('extension/module/cyberpunks_language_overrides', 'user_token=' . $this->session->data['user_token'], true));
+		}
+
+		$this->load->model('extension/module/cyberpunks_language_overrides');
+		$this->model_extension_module_cyberpunks_language_overrides->ensureSchema();
+
+		$languages = $this->filterTranslationLanguages($this->model_extension_module_cyberpunks_language_overrides->getLanguages());
+		$csv = $this->model_extension_module_cyberpunks_language_overrides->buildExportCsv($languages);
+
+		$filename = 'cyberpunks_cb_lang_' . date('Y-m-d') . '.csv';
+
+		$this->response->addHeader('Content-Type: text/csv; charset=utf-8');
+		$this->response->addHeader('Content-Disposition: attachment; filename="' . $filename . '"');
+		$this->response->addHeader('Cache-Control: no-store, no-cache');
+
+		$out = fopen('php://temp', 'r+');
+		// UTF-8 BOM for Excel
+		fwrite($out, "\xEF\xBB\xBF");
+		fputcsv($out, $csv['headers']);
+
+		foreach ($csv['rows'] as $row) {
+			fputcsv($out, $row);
+		}
+
+		rewind($out);
+		$content = stream_get_contents($out);
+		fclose($out);
+
+		$this->response->setOutput($content);
+	}
+
+	public function import() {
+		$this->load->language('extension/module/cyberpunks_language_overrides');
+		$this->document->setTitle($this->language->get('heading_title'));
+		$this->load->model('extension/module/cyberpunks_language_overrides');
+
+		if (($this->request->server['REQUEST_METHOD'] != 'POST') || !$this->validate()) {
+			$this->session->data['error_warning'] = isset($this->error['warning'])
+				? $this->error['warning']
+				: $this->language->get('error_permission');
+			$this->response->redirect($this->url->link('extension/module/cyberpunks_language_overrides', 'user_token=' . $this->session->data['user_token'], true));
+		}
+
+		if (empty($this->request->files['import']['tmp_name']) || !is_uploaded_file($this->request->files['import']['tmp_name'])) {
+			$this->session->data['error_warning'] = $this->language->get('error_import_file');
+			$this->response->redirect($this->url->link('extension/module/cyberpunks_language_overrides', 'user_token=' . $this->session->data['user_token'], true));
+		}
+
+		$tmp = $this->request->files['import']['tmp_name'];
+		$name = isset($this->request->files['import']['name']) ? (string)$this->request->files['import']['name'] : '';
+		$ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+		if ($ext !== 'csv') {
+			$this->session->data['error_warning'] = $this->language->get('error_import_type');
+			$this->response->redirect($this->url->link('extension/module/cyberpunks_language_overrides', 'user_token=' . $this->session->data['user_token'], true));
+		}
+
+		$fh = fopen($tmp, 'r');
+
+		if ($fh === false) {
+			$this->session->data['error_warning'] = $this->language->get('error_import_file');
+			$this->response->redirect($this->url->link('extension/module/cyberpunks_language_overrides', 'user_token=' . $this->session->data['user_token'], true));
+		}
+
+		$headers = fgetcsv($fh);
+
+		if (is_array($headers) && isset($headers[0])) {
+			$headers[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$headers[0]);
+		}
+
+		$rows = array();
+		while (($cols = fgetcsv($fh)) !== false) {
+			if ($cols === array(null) || $cols === false) {
+				continue;
+			}
+			$rows[] = $cols;
+		}
+		fclose($fh);
+
+		$stats = $this->model_extension_module_cyberpunks_language_overrides->importCsv($headers, $rows);
+
+		if (!empty($stats['errors'])) {
+			$this->session->data['error_warning'] = implode(' ', array_slice($stats['errors'], 0, 5));
+			if (count($stats['errors']) > 5) {
+				$this->session->data['error_warning'] .= ' …';
+			}
+		}
+
+		$this->session->data['success'] = sprintf(
+			$this->language->get('text_success_import'),
+			(int)$stats['created'],
+			(int)$stats['updated'],
+			(int)$stats['skipped']
+		);
+
+		$this->response->redirect($this->url->link('extension/module/cyberpunks_language_overrides', 'user_token=' . $this->session->data['user_token'], true));
 	}
 
 	public function add() {
@@ -316,6 +425,7 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		$data['text_form'] = $this->language->get('text_form');
 		$data['text_cb_lang'] = $this->language->get('text_cb_lang');
 		$data['text_cb_lang_help'] = $this->language->get('text_cb_lang_help');
+		$data['text_import_export_help'] = $this->language->get('text_import_export_help');
 		$data['text_source'] = $this->language->get('text_source');
 		$data['text_comment'] = $this->language->get('text_comment');
 		$data['text_translations'] = $this->language->get('text_translations');
@@ -343,6 +453,8 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		$data['button_save'] = $this->language->get('button_save');
 		$data['button_cancel'] = $this->language->get('button_cancel');
 		$data['button_add'] = $this->language->get('button_add');
+		$data['button_export'] = $this->language->get('button_export');
+		$data['button_import'] = $this->language->get('button_import');
 		$data['button_edit'] = $this->language->get('button_edit');
 		$data['button_delete'] = $this->language->get('button_delete');
 	}
@@ -353,6 +465,7 @@ class ControllerExtensionModuleCyberpunksLanguageOverrides extends Controller {
 		$required = array(
 			DIR_SYSTEM . 'library/cyberpunks_cb_lang.php',
 			DIR_SYSTEM . 'library/cyberpunks_language_overrides.php',
+			DIR_SYSTEM . 'library/cyberpunks_language_pack.php',
 			DIR_SYSTEM . 'library/cyberpunks_language_switcher.php',
 			DIR_SYSTEM . 'library/cyberpunks_url_locale.php',
 			DIR_CATALOG . 'controller/extension/module/cyberpunks_locale.php'

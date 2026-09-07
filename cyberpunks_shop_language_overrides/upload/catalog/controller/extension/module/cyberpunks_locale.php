@@ -12,8 +12,10 @@ class ControllerExtensionModuleCyberpunksLocale extends Controller {
 
 		$this->load->model('localisation/language');
 
-		// Ensure route-based SEO URLs (cart, checkout, etc.) exist for every active language.
-		$this->ensureRouteSeoUrls();
+		// Ensure SEO keywords (products, information, routes, …) exist for every active language.
+		if (class_exists('CyberpunksUrlLocale', false)) {
+			CyberpunksUrlLocale::ensureSeoUrls($this->db, (int)$this->config->get('config_language_id'));
+		}
 
 		CyberpunksUrlLocale::consumeRouteLocale($this->request, $this->model_localisation_language->getLanguages());
 
@@ -27,53 +29,6 @@ class ControllerExtensionModuleCyberpunksLocale extends Controller {
 		// OpenCart doesn't rewrite checkout/success into SEO keyword automatically.
 		// If payment modules redirect to index.php?route=checkout/success, convert it to /order-success.
 		$this->redirectCheckoutSuccessToSeo();
-	}
-
-	/**
-	 * Ensure ALL route-based SEO URLs exist for every active language.
-	 * Lightweight: single COUNT query; only runs full logic when gaps exist.
-	 */
-	private function ensureRouteSeoUrls() {
-		$lang_count = $this->db->query("SELECT COUNT(*) AS cnt FROM `" . DB_PREFIX . "language` WHERE status = '1'");
-		$route_count = $this->db->query("SELECT COUNT(DISTINCT `query`) AS cnt FROM `" . DB_PREFIX . "seo_url` WHERE `query` LIKE 'route=%'");
-		$total = $this->db->query("SELECT COUNT(*) AS cnt FROM `" . DB_PREFIX . "seo_url` WHERE `query` LIKE 'route=%'");
-
-		$expected = (int)$lang_count->row['cnt'] * (int)$route_count->row['cnt'];
-
-		if ((int)$total->row['cnt'] >= $expected) {
-			return;
-		}
-
-		$languages = $this->db->query("SELECT language_id FROM `" . DB_PREFIX . "language` WHERE status = '1'");
-		$all_routes = $this->db->query("SELECT DISTINCT store_id, `query`, keyword, language_id FROM `" . DB_PREFIX . "seo_url` WHERE `query` LIKE 'route=%'");
-
-		$groups = array();
-		foreach ($all_routes->rows as $row) {
-			$key = (int)$row['store_id'] . '|' . $row['query'];
-			if (!isset($groups[$key])) {
-				$groups[$key] = array(
-					'store_id' => (int)$row['store_id'],
-					'query'    => $row['query'],
-					'keyword'  => $row['keyword'],
-					'have'     => array(),
-				);
-			}
-			$groups[$key]['have'][(int)$row['language_id']] = true;
-		}
-
-		foreach ($groups as $g) {
-			foreach ($languages->rows as $lang) {
-				$lid = (int)$lang['language_id'];
-				if (isset($g['have'][$lid])) {
-					continue;
-				}
-				$this->db->query("INSERT INTO `" . DB_PREFIX . "seo_url` SET
-					store_id = '" . $g['store_id'] . "',
-					language_id = '" . $lid . "',
-					`query` = '" . $this->db->escape($g['query']) . "',
-					keyword = '" . $this->db->escape($g['keyword']) . "'");
-			}
-		}
 	}
 
 	/**
