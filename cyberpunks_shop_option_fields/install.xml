@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Option Fields</name>
 	<code>cyberpunks_shop_option_fields</code>
-	<version>1.8.0</version>
+	<version>1.8.2</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -697,6 +697,7 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 			<search trim="false"><![CDATA[			foreach ($product_option_value_query->rows as $product_option_value) {]]></search>
 			<add position="after"><![CDATA[
 				$cyberpunks_fields = array();
+				$cyberpunks_option_value_is_included = false;
 				$cyberpunks_fields_tables = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_option_custom_field_value") . "'");
 
 				if ($cyberpunks_fields_tables->num_rows) {
@@ -713,6 +714,7 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 					$this->load->model('extension/module/cyberpunks_shop_option_fields');
 					$cyberpunks_fields = $this->model_extension_module_cyberpunks_shop_option_fields->mergeColorFields($cyberpunks_fields, (int)$product_option_value['option_value_id']);
 					$cyberpunks_fields = $this->model_extension_module_cyberpunks_shop_option_fields->mergeGalleryBannerIndex($cyberpunks_fields, (int)$product_id, (int)$product_option_value['option_value_id']);
+					$cyberpunks_option_value_is_included = $this->model_extension_module_cyberpunks_shop_option_fields->isIncludedOptionValue((int)$product_option_value['option_value_id']);
 				}
 ]]></add>
 		</operation>
@@ -727,7 +729,8 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 		<operation error="skip">
 			<search trim="false"><![CDATA[					'weight_prefix'           => $product_option_value['weight_prefix']]]></search>
 			<add position="replace"><![CDATA[					'weight_prefix'           => $product_option_value['weight_prefix'],
-					'cyberpunks_fields'       => $cyberpunks_fields]]></add>
+					'cyberpunks_fields'       => $cyberpunks_fields,
+					'is_included'             => !empty($cyberpunks_option_value_is_included)]]></add>
 		</operation>
 	</file>
 
@@ -742,7 +745,8 @@ $_['text_cyberpunks_sync_products_save_first'] = 'Save the option first, then us
 		<operation error="skip">
 			<search trim="false"><![CDATA[							'price_prefix'            => $option_value['price_prefix']]]></search>
 			<add position="replace"><![CDATA[							'price_prefix'            => $option_value['price_prefix'],
-							'cyberpunks_fields'       => isset($option_value['cyberpunks_fields']) ? $option_value['cyberpunks_fields'] : array()]]></add>
+							'cyberpunks_fields'       => isset($option_value['cyberpunks_fields']) ? $option_value['cyberpunks_fields'] : array(),
+							'is_included'             => !empty($option_value['is_included'])]]></add>
 		</operation>
 	</file>
 

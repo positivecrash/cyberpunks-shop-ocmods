@@ -38,6 +38,9 @@ Replaces the separate `cyberpunks_shop_color_palettes` extension (merged in 1.4.
 
 ## Changelog
 
+### 1.8.1
+- Fix **Pick Display Name** / **Display Name** saving with many languages: columns were `VARCHAR(255)`, multilingual JSON got truncated (admin showed `{`)
+
 ### 1.8.0
 - **Display Name** / **Pick Display Name** are multilingual (flag inputs per language on Catalog → Options and Product → Option)
 - Stored as JSON per language; legacy plain strings still work as fallback

@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Product Fields</name>
 	<code>cyberpunks_shop_product_fields</code>
-	<version>1.7.0</version>
+	<version>1.7.1</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -36,7 +36,10 @@
 			<search trim="false"><![CDATA[		if (isset($this->request->post['product_layout'])) {]]></search>
 			<add position="before"><![CDATA[		$this->load->model('extension/module/cyberpunks_shop_product_fields');
 		$this->model_extension_module_cyberpunks_shop_product_fields->install();
+		// load->language merges into the global language bag; restore product heading_title for the form/view event.
+		$cyberpunks_product_heading_title = $this->language->get('heading_title');
 		$this->load->language('extension/module/cyberpunks_shop_product_fields');
+		$this->language->set('heading_title', $cyberpunks_product_heading_title);
 		$data['cyberpunks_product_field_groups'] = $this->model_extension_module_cyberpunks_shop_product_fields->getFieldGroups(true);
 		$data['cyberpunks_product_fields'] = $this->model_extension_module_cyberpunks_shop_product_fields->getFields(true);
 		$data['button_repeater_add'] = $this->language->get('button_repeater_add');

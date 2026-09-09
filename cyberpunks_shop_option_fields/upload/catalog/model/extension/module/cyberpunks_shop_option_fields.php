@@ -348,6 +348,43 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 		return (bool)$query->num_rows;
 	}
 
+	/**
+	 * English (en-gb) option value name — used as canonical key for theme logic (e.g. FREE / included).
+	 */
+	public function getOptionValueBaseName($option_value_id, $language_code = 'en-gb') {
+		$option_value_id = (int)$option_value_id;
+		$language_code = preg_replace('/[^a-z0-9_-]/', '', strtolower((string)$language_code));
+
+		if ($option_value_id < 1) {
+			return '';
+		}
+
+		if ($language_code === '') {
+			$language_code = 'en-gb';
+		}
+
+		$query = $this->db->query("SELECT ovd.name
+			FROM `" . DB_PREFIX . "option_value_description` ovd
+			INNER JOIN `" . DB_PREFIX . "language` l ON (ovd.language_id = l.language_id)
+			WHERE ovd.option_value_id = '" . $option_value_id . "'
+				AND l.code = '" . $this->db->escape($language_code) . "'
+				AND l.status = '1'
+			LIMIT 1");
+
+		if ($query->num_rows) {
+			return trim((string)$query->row['name']);
+		}
+
+		return '';
+	}
+
+	/**
+	 * True when the canonical (en-gb) option value name is "included".
+	 */
+	public function isIncludedOptionValue($option_value_id) {
+		return strtolower($this->getOptionValueBaseName($option_value_id)) === 'included';
+	}
+
 	private function galleryTableExists() {
 		$query = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . "cyberpunks_product_option_gallery") . "'");
 

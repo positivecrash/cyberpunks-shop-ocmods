@@ -65,6 +65,9 @@ Textarea HTML + `[[icon:name]]` shortcodes + `[[option:key]]` for Common Options
 
 ## Changelog
 
+### 1.7.1
+- Fix product edit page `<h1>` showing module name: restore catalog `heading_title` after loading product-fields language strings
+
 ### 1.7.0
 - Per-field **Translate** flag for Text / Textarea / Editor (module settings)
 - Off = single shared input on product Custom tab (`language_id = 0`)

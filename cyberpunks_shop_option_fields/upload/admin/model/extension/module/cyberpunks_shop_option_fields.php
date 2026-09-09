@@ -136,8 +136,8 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 		$this->db->query("CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "cyberpunks_product_option_label` (
 			`product_id` INT(11) NOT NULL,
 			`option_id` INT(11) NOT NULL,
-			`display_name` VARCHAR(255) NOT NULL DEFAULT '',
-			`pick_display_name` VARCHAR(255) NOT NULL DEFAULT '',
+			`display_name` TEXT NOT NULL,
+			`pick_display_name` TEXT NOT NULL,
 			`date_modified` DATETIME NOT NULL,
 			PRIMARY KEY (`product_id`, `option_id`),
 			KEY `option_id` (`option_id`)
@@ -145,7 +145,16 @@ class ModelExtensionModuleCyberpunksShopOptionFields extends Model {
 
 		$label_display_col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_product_option_label` LIKE 'display_name'");
 		if (!$label_display_col->num_rows) {
-			$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_option_label` ADD `display_name` VARCHAR(255) NOT NULL DEFAULT '' AFTER `option_id`");
+			$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_option_label` ADD `display_name` TEXT NOT NULL AFTER `option_id`");
+		}
+
+		// Multilingual JSON (5+ languages) easily exceeds VARCHAR(255) — truncated JSON shows as "{" in admin.
+		foreach (array('display_name', 'pick_display_name') as $label_column) {
+			$col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_product_option_label` LIKE '" . $this->db->escape($label_column) . "'");
+
+			if ($col->num_rows && stripos($col->row['Type'], 'varchar') !== false) {
+				$this->db->query("ALTER TABLE `" . DB_PREFIX . "cyberpunks_product_option_label` MODIFY `" . $label_column . "` TEXT NOT NULL");
+			}
 		}
 	}
 
