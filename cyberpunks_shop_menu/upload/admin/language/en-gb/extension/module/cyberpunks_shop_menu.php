@@ -2,8 +2,8 @@
 $_['heading_title'] = 'Cyberpunks Shop Menu';
 
 $_['text_extension'] = 'Extensions';
-$_['text_success'] = 'Success: You have modified the header menu!';
-$_['text_edit'] = 'Edit header menu';
+$_['text_success'] = 'Success: You have modified the shop menu!';
+$_['text_edit'] = 'Edit shop menu';
 $_['text_enabled'] = 'Enabled';
 $_['text_disabled'] = 'Disabled';
 $_['text_none'] = '— None —';
@@ -12,6 +12,9 @@ $_['text_panel_products'] = 'Category';
 $_['text_panel_links'] = 'Links list';
 $_['text_item'] = 'Menu item';
 $_['text_links'] = 'Panel links';
+$_['text_tab_header'] = 'Header';
+$_['text_tab_footer'] = 'Footer';
+$_['text_footer_help'] = 'Simple links for the storefront footer. Only links listed here are shown — add them with the button below.';
 
 $_['entry_status'] = 'Status';
 $_['entry_name'] = 'Name';
@@ -25,9 +28,10 @@ $_['help_href'] = 'Filled automatically when you pick a category (you can still 
 $_['help_products'] = 'Featured products (custom field featured=1) from the selected category. Choosing a category prefills Name (per language) and Link — edit Name as needed.';
 
 $_['button_add_item'] = 'Add menu item';
+$_['button_add_footer_item'] = 'Add footer link';
 $_['button_add_link'] = 'Add link';
 $_['button_remove'] = 'Remove';
 $_['button_save'] = 'Save';
 $_['button_cancel'] = 'Cancel';
 
-$_['error_permission'] = 'Warning: You do not have permission to modify the header menu!';
+$_['error_permission'] = 'Warning: You do not have permission to modify the shop menu!';

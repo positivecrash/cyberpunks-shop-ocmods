@@ -12,8 +12,9 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 
 		$this->load->model('setting/setting');
 		$this->model_setting_setting->editSetting('module_cyberpunks_shop_menu', array(
-			'module_cyberpunks_shop_menu_status' => 1,
-			'module_cyberpunks_shop_menu_items'  => array()
+			'module_cyberpunks_shop_menu_status'       => 1,
+			'module_cyberpunks_shop_menu_items'        => array(),
+			'module_cyberpunks_shop_menu_footer_items' => array()
 		));
 	}
 
@@ -41,10 +42,12 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 
 		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
 			$items = $this->normalizeItems(isset($this->request->post['module_cyberpunks_shop_menu_items']) ? $this->request->post['module_cyberpunks_shop_menu_items'] : array());
+			$footer_items = $this->normalizeFooterItems(isset($this->request->post['module_cyberpunks_shop_menu_footer_items']) ? $this->request->post['module_cyberpunks_shop_menu_footer_items'] : array());
 
 			$this->model_setting_setting->editSetting('module_cyberpunks_shop_menu', array(
-				'module_cyberpunks_shop_menu_status' => !empty($this->request->post['module_cyberpunks_shop_menu_status']) ? 1 : 0,
-				'module_cyberpunks_shop_menu_items'  => $items
+				'module_cyberpunks_shop_menu_status'       => !empty($this->request->post['module_cyberpunks_shop_menu_status']) ? 1 : 0,
+				'module_cyberpunks_shop_menu_items'        => $items,
+				'module_cyberpunks_shop_menu_footer_items' => $footer_items
 			));
 
 			$this->session->data['success'] = $this->language->get('text_success');
@@ -86,6 +89,13 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 			$data['items'] = $this->expandItemsForForm(is_array($items) ? $items : array(), $data['languages']);
 		}
 
+		if (isset($this->request->post['module_cyberpunks_shop_menu_footer_items'])) {
+			$data['footer_items'] = $this->expandFooterItemsForForm($this->request->post['module_cyberpunks_shop_menu_footer_items'], $data['languages']);
+		} else {
+			$footer_items = $this->config->get('module_cyberpunks_shop_menu_footer_items');
+			$data['footer_items'] = $this->expandFooterItemsForForm(is_array($footer_items) ? $footer_items : array(), $data['languages']);
+		}
+
 		$data['categories'] = array();
 		$categories = $this->model_catalog_category->getCategories(array('sort' => 'name'));
 
@@ -114,6 +124,9 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 		$data['text_panel_links'] = $this->language->get('text_panel_links');
 		$data['text_item'] = $this->language->get('text_item');
 		$data['text_links'] = $this->language->get('text_links');
+		$data['text_tab_header'] = $this->language->get('text_tab_header');
+		$data['text_tab_footer'] = $this->language->get('text_tab_footer');
+		$data['text_footer_help'] = $this->language->get('text_footer_help');
 		$data['entry_status'] = $this->language->get('entry_status');
 		$data['entry_name'] = $this->language->get('entry_name');
 		$data['entry_href'] = $this->language->get('entry_href');
@@ -124,6 +137,7 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 		$data['help_href'] = $this->language->get('help_href');
 		$data['help_products'] = $this->language->get('help_products');
 		$data['button_add_item'] = $this->language->get('button_add_item');
+		$data['button_add_footer_item'] = $this->language->get('button_add_footer_item');
 		$data['button_add_link'] = $this->language->get('button_add_link');
 		$data['button_remove'] = $this->language->get('button_remove');
 		$data['button_save'] = $this->language->get('button_save');
@@ -197,6 +211,32 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 			}
 
 			$items[] = $row;
+		}
+
+		return $items;
+	}
+
+	/**
+	 * Expand stored footer items so each name is language_id => text for the admin form.
+	 */
+	private function expandFooterItemsForForm($raw, $languages) {
+		$items = array();
+
+		if (!is_array($raw)) {
+			return $items;
+		}
+
+		foreach ($raw as $row) {
+			if (!is_array($row)) {
+				continue;
+			}
+
+			$items[] = array(
+				'name'       => $this->expandNameMap(isset($row['name']) ? $row['name'] : '', $languages),
+				'href'       => isset($row['href']) ? (string)$row['href'] : '',
+				'sort_order' => isset($row['sort_order']) ? (int)$row['sort_order'] : 0,
+				'status'     => !empty($row['status']) ? 1 : 0
+			);
 		}
 
 		return $items;
@@ -336,6 +376,44 @@ class ControllerExtensionModuleCyberpunksShopMenu extends Controller {
 				'links'       => $links,
 				'sort_order'  => isset($row['sort_order']) ? (int)$row['sort_order'] : 0,
 				'status'      => !empty($row['status']) ? 1 : 0
+			);
+		}
+
+		$self = $this;
+		usort($items, function ($a, $b) use ($self) {
+			if ($a['sort_order'] === $b['sort_order']) {
+				return strcmp($self->nameMapSortKey($a['name']), $self->nameMapSortKey($b['name']));
+			}
+
+			return $a['sort_order'] - $b['sort_order'];
+		});
+
+		return $items;
+	}
+
+	private function normalizeFooterItems($raw) {
+		$items = array();
+
+		if (!is_array($raw)) {
+			return $items;
+		}
+
+		foreach ($raw as $row) {
+			if (!is_array($row)) {
+				continue;
+			}
+
+			$name = $this->normalizeNameMap(isset($row['name']) ? $row['name'] : '');
+
+			if (!$this->nameMapHasText($name)) {
+				continue;
+			}
+
+			$items[] = array(
+				'name'       => $name,
+				'href'       => isset($row['href']) ? trim((string)$row['href']) : '',
+				'sort_order' => isset($row['sort_order']) ? (int)$row['sort_order'] : 0,
+				'status'     => !empty($row['status']) ? 1 : 0
 			);
 		}
 

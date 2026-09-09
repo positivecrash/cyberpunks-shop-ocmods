@@ -1,8 +1,10 @@
 # Cyberpunks Shop Menu
 
-Header mega menu — **data only** (admin + catalog model). Markup lives in the theme.
+Header mega menu + footer links — **data only** (admin + catalog model). Markup lives in the theme.
 
-## Item config
+Admin module has two tabs: **Header** and **Footer**.
+
+## Header item config
 
 Each top-level item:
 
@@ -17,12 +19,22 @@ Each top-level item:
 
 Featured products need Product Fields: checkbox `featured`, optional `featured_order`, `category_title`, `category_image`, `featured_price_label`.
 
+## Footer item config
+
+Simple flat links (no dropdown panels):
+
+| Field | Description |
+|-------|-------------|
+| Name | Multilingual label |
+| Link | Path or URL (`/shipping`, `https://…`) |
+| Sort / Status | Order and enable |
+
+If footer menu items are empty, the footer link row is empty (Information “Show in footer info links” is no longer used by the theme).
+
 ## Theme
 
-- `template/common/partials/header_nav.twig`
-- Uses `product/partials/product_cards.twig` for product panels
-
-`$data['main_menu']` is injected into `common/header` via OCMOD.
+- Header: `template/common/partials/header_nav.twig` — `$data['main_menu']`
+- Footer: `template/common/footer.twig` — `$data['footer_menu']` (same shape as `footer_info_links`: `title`, `href`)
 
 ## Install
 
@@ -32,4 +44,11 @@ Featured products need Product Fields: checkbox `featured`, optional `featured_o
 
 1. Extensions → Installer → upload zip  
 2. Extensions → Modifications → **Refresh**  
-3. Extensions → Modules → **Cyberpunks Shop Menu** → Install → Edit → configure items  
+3. Extensions → Modules → **Cyberpunks Shop Menu** → Install/Edit → configure Header / Footer tabs  
+
+## Changelog
+
+### 1.2.0
+- Admin tabs **Header** / **Footer**
+- Footer links via `module_cyberpunks_shop_menu_footer_items` → storefront `footer_menu`
+- Theme shows only `footer_menu` (no fallback to information footer flags)

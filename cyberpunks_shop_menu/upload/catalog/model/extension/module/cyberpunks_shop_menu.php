@@ -67,6 +67,38 @@ class ModelExtensionModuleCyberpunksShopMenu extends Model {
 	}
 
 	/**
+	 * Footer links (name + href). Shape matches theme footer_info_links: title, href.
+	 */
+	public function getFooterMenuItems() {
+		if (!(int)$this->config->get('module_cyberpunks_shop_menu_status')) {
+			return array();
+		}
+
+		$raw = $this->config->get('module_cyberpunks_shop_menu_footer_items');
+
+		if (!is_array($raw) || !$raw) {
+			return array();
+		}
+
+		$items = array();
+
+		foreach ($raw as $row) {
+			$name = $this->resolveLocalizedName(isset($row['name']) ? $row['name'] : '');
+
+			if (empty($row['status']) || $name === '') {
+				continue;
+			}
+
+			$items[] = array(
+				'title' => $name,
+				'href'  => $this->resolveHref(isset($row['href']) ? $row['href'] : '')
+			);
+		}
+
+		return $items;
+	}
+
+	/**
 	 * Resolve menu/link Name for the current storefront language.
 	 * Supports legacy plain string and language_id => text map.
 	 */

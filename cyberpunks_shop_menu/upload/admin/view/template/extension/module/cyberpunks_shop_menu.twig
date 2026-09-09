@@ -40,112 +40,168 @@
             </div>
           </div>
 
-          <div id="menu-items">
-            {% set item_row = 0 %}
-            {% for item in items %}
-            <div class="panel panel-default menu-item" data-item-row="{{ item_row }}">
-              <div class="panel-heading">
-                <h3 class="panel-title">{{ text_item }} #{{ item_row + 1 }}
-                  <button type="button" class="btn btn-danger btn-xs pull-right" onclick="$(this).closest('.menu-item').remove();" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button>
-                </h3>
-              </div>
-              <div class="panel-body">
-                <div class="form-group">
-                  <label class="col-sm-2 control-label">{{ entry_name }}</label>
-                  <div class="col-sm-4 menu-name-fields">
-                    {% for language in languages %}
-                    <div class="input-group" style="margin-bottom:6px;">
-                      <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
-                      <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][name][{{ language.language_id }}]" value="{{ item.name[language.language_id] is defined ? item.name[language.language_id] : '' }}" class="form-control menu-name-input" data-language-id="{{ language.language_id }}" />
-                    </div>
-                    {% endfor %}
-                  </div>
-                  <label class="col-sm-2 control-label">{{ entry_href }}</label>
-                  <div class="col-sm-4">
-                    <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][href]" value="{{ item.href }}" class="form-control menu-href-input" placeholder="/category" />
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label class="col-sm-2 control-label">{{ entry_panel }}</label>
-                  <div class="col-sm-4">
-                    <select name="module_cyberpunks_shop_menu_items[{{ item_row }}][panel]" class="form-control menu-panel-type" data-item-row="{{ item_row }}">
-                      <option value="none"{% if item.panel == 'none' or not item.panel %} selected="selected"{% endif %}>{{ text_panel_none }}</option>
-                      <option value="products"{% if item.panel == 'products' %} selected="selected"{% endif %}>{{ text_panel_products }}</option>
-                      <option value="links"{% if item.panel == 'links' %} selected="selected"{% endif %}>{{ text_panel_links }}</option>
-                    </select>
-                  </div>
-                  <label class="col-sm-2 control-label">{{ entry_sort_order }}</label>
-                  <div class="col-sm-2">
-                    <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][sort_order]" value="{{ item.sort_order }}" class="form-control" />
-                  </div>
-                  <div class="col-sm-2">
-                    <label class="checkbox-inline">
-                      <input type="checkbox" name="module_cyberpunks_shop_menu_items[{{ item_row }}][status]" value="1"{% if item.status is not defined or item.status %} checked="checked"{% endif %} /> {{ entry_item_status }}
-                    </label>
-                  </div>
-                </div>
+          <ul class="nav nav-tabs">
+            <li class="active"><a href="#tab-header-menu" data-toggle="tab">{{ text_tab_header }}</a></li>
+            <li><a href="#tab-footer-menu" data-toggle="tab">{{ text_tab_footer }}</a></li>
+          </ul>
 
-                <div class="menu-panel-products"{% if item.panel != 'products' %} style="display:none;"{% endif %}>
-                  <div class="form-group">
-                    <label class="col-sm-2 control-label">{{ entry_category }}</label>
-                    <div class="col-sm-10">
-                      <select name="module_cyberpunks_shop_menu_items[{{ item_row }}][category_id]" class="form-control menu-category-select">
-                        <option value="0">{{ text_none }}</option>
-                        {% for category in categories %}
-                        <option value="{{ category.category_id }}"{% if item.category_id == category.category_id %} selected="selected"{% endif %}>{{ category.name }}</option>
+          <div class="tab-content" style="padding-top:15px;">
+            <div class="tab-pane active" id="tab-header-menu">
+              <div id="menu-items">
+                {% set item_row = 0 %}
+                {% for item in items %}
+                <div class="panel panel-default menu-item" data-item-row="{{ item_row }}">
+                  <div class="panel-heading">
+                    <h3 class="panel-title">{{ text_item }} #{{ item_row + 1 }}
+                      <button type="button" class="btn btn-danger btn-xs pull-right" onclick="$(this).closest('.menu-item').remove();" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button>
+                    </h3>
+                  </div>
+                  <div class="panel-body">
+                    <div class="form-group">
+                      <label class="col-sm-2 control-label">{{ entry_name }}</label>
+                      <div class="col-sm-4 menu-name-fields">
+                        {% for language in languages %}
+                        <div class="input-group" style="margin-bottom:6px;">
+                          <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                          <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][name][{{ language.language_id }}]" value="{{ item.name[language.language_id] is defined ? item.name[language.language_id] : '' }}" class="form-control menu-name-input" data-language-id="{{ language.language_id }}" />
+                        </div>
                         {% endfor %}
-                      </select>
-                      <p class="help-block">{{ help_products }}</p>
+                      </div>
+                      <label class="col-sm-2 control-label">{{ entry_href }}</label>
+                      <div class="col-sm-4">
+                        <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][href]" value="{{ item.href }}" class="form-control menu-href-input" placeholder="/category" />
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label class="col-sm-2 control-label">{{ entry_panel }}</label>
+                      <div class="col-sm-4">
+                        <select name="module_cyberpunks_shop_menu_items[{{ item_row }}][panel]" class="form-control menu-panel-type" data-item-row="{{ item_row }}">
+                          <option value="none"{% if item.panel == 'none' or not item.panel %} selected="selected"{% endif %}>{{ text_panel_none }}</option>
+                          <option value="products"{% if item.panel == 'products' %} selected="selected"{% endif %}>{{ text_panel_products }}</option>
+                          <option value="links"{% if item.panel == 'links' %} selected="selected"{% endif %}>{{ text_panel_links }}</option>
+                        </select>
+                      </div>
+                      <label class="col-sm-2 control-label">{{ entry_sort_order }}</label>
+                      <div class="col-sm-2">
+                        <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][sort_order]" value="{{ item.sort_order }}" class="form-control" />
+                      </div>
+                      <div class="col-sm-2">
+                        <label class="checkbox-inline">
+                          <input type="checkbox" name="module_cyberpunks_shop_menu_items[{{ item_row }}][status]" value="1"{% if item.status is not defined or item.status %} checked="checked"{% endif %} /> {{ entry_item_status }}
+                        </label>
+                      </div>
+                    </div>
+
+                    <div class="menu-panel-products"{% if item.panel != 'products' %} style="display:none;"{% endif %}>
+                      <div class="form-group">
+                        <label class="col-sm-2 control-label">{{ entry_category }}</label>
+                        <div class="col-sm-10">
+                          <select name="module_cyberpunks_shop_menu_items[{{ item_row }}][category_id]" class="form-control menu-category-select">
+                            <option value="0">{{ text_none }}</option>
+                            {% for category in categories %}
+                            <option value="{{ category.category_id }}"{% if item.category_id == category.category_id %} selected="selected"{% endif %}>{{ category.name }}</option>
+                            {% endfor %}
+                          </select>
+                          <p class="help-block">{{ help_products }}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="menu-panel-links"{% if item.panel != 'links' %} style="display:none;"{% endif %}>
+                      <p><strong>{{ text_links }}</strong></p>
+                      <table class="table table-bordered">
+                        <thead>
+                          <tr>
+                            <td>{{ entry_name }}</td>
+                            <td>{{ entry_href }}</td>
+                            <td style="width:1%;"></td>
+                          </tr>
+                        </thead>
+                        <tbody class="menu-links-body">
+                          {% set link_row = 0 %}
+                          {% if item.links %}
+                          {% for link in item.links %}
+                          <tr>
+                            <td class="menu-link-name-fields">
+                              {% for language in languages %}
+                              <div class="input-group" style="margin-bottom:6px;">
+                                <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                                <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][links][{{ link_row }}][name][{{ language.language_id }}]" value="{{ link.name[language.language_id] is defined ? link.name[language.language_id] : '' }}" class="form-control" />
+                              </div>
+                              {% endfor %}
+                            </td>
+                            <td><input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][links][{{ link_row }}][href]" value="{{ link.href }}" class="form-control" /></td>
+                            <td class="text-center"><button type="button" class="btn btn-danger" onclick="$(this).closest('tr').remove();"><i class="fa fa-minus-circle"></i></button></td>
+                          </tr>
+                          {% set link_row = link_row + 1 %}
+                          {% endfor %}
+                          {% endif %}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td colspan="3" class="text-right">
+                              <button type="button" class="btn btn-primary btn-add-link" data-item-row="{{ item_row }}" data-link-row="{{ link_row }}"><i class="fa fa-plus-circle"></i> {{ button_add_link }}</button>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
                     </div>
                   </div>
                 </div>
-
-                <div class="menu-panel-links"{% if item.panel != 'links' %} style="display:none;"{% endif %}>
-                  <p><strong>{{ text_links }}</strong></p>
-                  <table class="table table-bordered">
-                    <thead>
-                      <tr>
-                        <td>{{ entry_name }}</td>
-                        <td>{{ entry_href }}</td>
-                        <td style="width:1%;"></td>
-                      </tr>
-                    </thead>
-                    <tbody class="menu-links-body">
-                      {% set link_row = 0 %}
-                      {% if item.links %}
-                      {% for link in item.links %}
-                      <tr>
-                        <td class="menu-link-name-fields">
-                          {% for language in languages %}
-                          <div class="input-group" style="margin-bottom:6px;">
-                            <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
-                            <input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][links][{{ link_row }}][name][{{ language.language_id }}]" value="{{ link.name[language.language_id] is defined ? link.name[language.language_id] : '' }}" class="form-control" />
-                          </div>
-                          {% endfor %}
-                        </td>
-                        <td><input type="text" name="module_cyberpunks_shop_menu_items[{{ item_row }}][links][{{ link_row }}][href]" value="{{ link.href }}" class="form-control" /></td>
-                        <td class="text-center"><button type="button" class="btn btn-danger" onclick="$(this).closest('tr').remove();"><i class="fa fa-minus-circle"></i></button></td>
-                      </tr>
-                      {% set link_row = link_row + 1 %}
-                      {% endfor %}
-                      {% endif %}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colspan="3" class="text-right">
-                          <button type="button" class="btn btn-primary btn-add-link" data-item-row="{{ item_row }}" data-link-row="{{ link_row }}"><i class="fa fa-plus-circle"></i> {{ button_add_link }}</button>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                {% set item_row = item_row + 1 %}
+                {% endfor %}
               </div>
-            </div>
-            {% set item_row = item_row + 1 %}
-            {% endfor %}
-          </div>
 
-          <button type="button" id="button-add-item" class="btn btn-primary"><i class="fa fa-plus-circle"></i> {{ button_add_item }}</button>
+              <button type="button" id="button-add-item" class="btn btn-primary"><i class="fa fa-plus-circle"></i> {{ button_add_item }}</button>
+            </div>
+
+            <div class="tab-pane" id="tab-footer-menu">
+              <p class="help-block">{{ text_footer_help }}</p>
+              <div id="footer-menu-items">
+                {% set footer_item_row = 0 %}
+                {% for item in footer_items %}
+                <div class="panel panel-default footer-menu-item" data-item-row="{{ footer_item_row }}">
+                  <div class="panel-heading">
+                    <h3 class="panel-title">{{ text_item }} #{{ footer_item_row + 1 }}
+                      <button type="button" class="btn btn-danger btn-xs pull-right" onclick="$(this).closest('.footer-menu-item').remove();" title="{{ button_remove }}"><i class="fa fa-minus-circle"></i></button>
+                    </h3>
+                  </div>
+                  <div class="panel-body">
+                    <div class="form-group">
+                      <label class="col-sm-2 control-label">{{ entry_name }}</label>
+                      <div class="col-sm-4 menu-name-fields">
+                        {% for language in languages %}
+                        <div class="input-group" style="margin-bottom:6px;">
+                          <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                          <input type="text" name="module_cyberpunks_shop_menu_footer_items[{{ footer_item_row }}][name][{{ language.language_id }}]" value="{{ item.name[language.language_id] is defined ? item.name[language.language_id] : '' }}" class="form-control" />
+                        </div>
+                        {% endfor %}
+                      </div>
+                      <label class="col-sm-2 control-label">{{ entry_href }}</label>
+                      <div class="col-sm-4">
+                        <input type="text" name="module_cyberpunks_shop_menu_footer_items[{{ footer_item_row }}][href]" value="{{ item.href }}" class="form-control" placeholder="/information/shipping" />
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label class="col-sm-2 control-label">{{ entry_sort_order }}</label>
+                      <div class="col-sm-2">
+                        <input type="text" name="module_cyberpunks_shop_menu_footer_items[{{ footer_item_row }}][sort_order]" value="{{ item.sort_order }}" class="form-control" />
+                      </div>
+                      <div class="col-sm-2">
+                        <label class="checkbox-inline">
+                          <input type="checkbox" name="module_cyberpunks_shop_menu_footer_items[{{ footer_item_row }}][status]" value="1"{% if item.status is not defined or item.status %} checked="checked"{% endif %} /> {{ entry_item_status }}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% set footer_item_row = footer_item_row + 1 %}
+                {% endfor %}
+              </div>
+
+              <button type="button" id="button-add-footer-item" class="btn btn-primary"><i class="fa fa-plus-circle"></i> {{ button_add_footer_item }}</button>
+            </div>
+          </div>
         </form>
       </div>
     </div>
@@ -153,6 +209,7 @@
 </div>
 <script type="text/javascript"><!--
 var item_row = {{ items|length }};
+var footer_item_row = {{ footer_items|length }};
 var menuCategories = {{ categories_json|raw }};
 var menuLanguages = {{ languages_json|raw }};
 
@@ -277,6 +334,29 @@ $('#button-add-item').on('click', function() {
 
   $('#menu-items').append(html);
   item_row++;
+});
+
+$('#button-add-footer-item').on('click', function() {
+  var html = '';
+  html += '<div class="panel panel-default footer-menu-item" data-item-row="' + footer_item_row + '">';
+  html += '  <div class="panel-heading"><h3 class="panel-title">{{ text_item|e('js') }} #' + (footer_item_row + 1);
+  html += '    <button type="button" class="btn btn-danger btn-xs pull-right" onclick="$(this).closest(\'.footer-menu-item\').remove();"><i class="fa fa-minus-circle"></i></button>';
+  html += '  </h3></div><div class="panel-body">';
+  html += '  <div class="form-group">';
+  html += '    <label class="col-sm-2 control-label">{{ entry_name|e('js') }}</label>';
+  html += '    <div class="col-sm-4 menu-name-fields">' + buildNameFieldsHtml('module_cyberpunks_shop_menu_footer_items[' + footer_item_row + '][name]', {}) + '</div>';
+  html += '    <label class="col-sm-2 control-label">{{ entry_href|e('js') }}</label>';
+  html += '    <div class="col-sm-4"><input type="text" name="module_cyberpunks_shop_menu_footer_items[' + footer_item_row + '][href]" value="" class="form-control" placeholder="/information/shipping" /></div>';
+  html += '  </div>';
+  html += '  <div class="form-group">';
+  html += '    <label class="col-sm-2 control-label">{{ entry_sort_order|e('js') }}</label>';
+  html += '    <div class="col-sm-2"><input type="text" name="module_cyberpunks_shop_menu_footer_items[' + footer_item_row + '][sort_order]" value="' + footer_item_row + '" class="form-control" /></div>';
+  html += '    <div class="col-sm-2"><label class="checkbox-inline"><input type="checkbox" name="module_cyberpunks_shop_menu_footer_items[' + footer_item_row + '][status]" value="1" checked="checked" /> {{ entry_item_status|e('js') }}</label></div>';
+  html += '  </div>';
+  html += '</div></div>';
+
+  $('#footer-menu-items').append(html);
+  footer_item_row++;
 });
 //--></script>
 {{ footer }}
