@@ -2,9 +2,9 @@
 <modification>
 	<name>Cyberpunks Variant Images</name>
 	<code>cyberpunks_shop_variant_images</code>
-	<version>1.3.29</version>
+	<version>1.4.0</version>
 	<author>positivecrash</author>
-	<description>Resolve cart image by selected option combination with admin mappings UI.</description>
+	<description>Variant image mappings; product-form tab; YAML keyed by model for local↔server portability.</description>
 
 	<file path="catalog/controller/startup/startup.php">
 		<operation error="skip">
@@ -58,6 +58,89 @@
 			<search><![CDATA['thumb'     => $image,]]></search>
 			<add position="after"><![CDATA[
 					'variant_image' => isset($variant_image) ? $variant_image : '',]]></add>
+		</operation>
+	</file>
+
+	<!-- Product form: Variant Images tab -->
+	<file path="admin/controller/catalog/product.php">
+		<!-- After identifiers save on add (if that OCMOD is installed) -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_identifiers.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_identifiers/saveFromProductForm', $product_id);
+			}
+
+			$this->session->data['success'] = $this->language->get('text_success');]]></search>
+			<add position="replace"><![CDATA[			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_identifiers.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_identifiers/saveFromProductForm', $product_id);
+			}
+			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_images.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_images/saveFromProductForm', $product_id);
+			}
+
+			$this->session->data['success'] = $this->language->get('text_success');]]></add>
+		</operation>
+		<!-- After product_fields save on add -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_extension_module_cyberpunks_shop_product_fields->saveProductFieldValues((int)$product_id, isset($this->request->post['cyberpunks_product_fields']) ? $this->request->post['cyberpunks_product_fields'] : array());]]></search>
+			<add position="after"><![CDATA[
+			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_images.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_images/saveFromProductForm', $product_id);
+			}
+]]></add>
+		</operation>
+		<!-- Vanilla add (no identifiers / product_fields rewrite) -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_catalog_product->addProduct($this->request->post);
+
+			$this->session->data['success'] = $this->language->get('text_success');]]></search>
+			<add position="replace"><![CDATA[			$product_id = $this->model_catalog_product->addProduct($this->request->post);
+			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_images.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_images/saveFromProductForm', $product_id);
+			}
+
+			$this->session->data['success'] = $this->language->get('text_success');]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_catalog_product->editProduct($this->request->get['product_id'], $this->request->post);]]></search>
+			<add position="after"><![CDATA[
+			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_images.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_images/saveFromProductForm', (int)$this->request->get['product_id']);
+			}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[		if (isset($this->request->post['product_layout'])) {]]></search>
+			<add position="before"><![CDATA[		$cyberpunks_vimg_product_id = !empty($product_info['product_id']) ? (int)$product_info['product_id'] : (isset($this->request->get['product_id']) ? (int)$this->request->get['product_id'] : 0);
+		if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_images.php')) {
+			$data['cyberpunks_variant_images_form'] = $this->load->controller('extension/module/cyberpunks_variant_images/productForm', $cyberpunks_vimg_product_id);
+			$data['cyberpunks_variant_images_import_action'] = $this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true);
+		} else {
+			$data['cyberpunks_variant_images_form'] = '';
+			$data['cyberpunks_variant_images_import_action'] = '';
+		}
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/view/template/catalog/product_form.twig">
+		<operation error="skip">
+			<search trim="false"><![CDATA[<li><a href="#tab-data" data-toggle="tab">{{ tab_data }}</a></li>]]></search>
+			<add position="after"><![CDATA[            <li><a href="#tab-cyberpunks-variant-images" data-toggle="tab">Variant Images</a></li>
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[<div class="tab-pane" id="tab-links">]]></search>
+			<add position="before"><![CDATA[            <div class="tab-pane" id="tab-cyberpunks-variant-images">
+              {{ cyberpunks_variant_images_form }}
+            </div>
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[        </form>]]></search>
+			<add position="after"><![CDATA[        {% if cyberpunks_variant_images_import_action %}
+        <form id="cyberpunks-vimg-import-form" action="{{ cyberpunks_variant_images_import_action }}" method="post" enctype="multipart/form-data" style="display:none;"></form>
+        {% endif %}
+]]></add>
 		</operation>
 	</file>
 </modification>

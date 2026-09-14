@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Variant Identifiers</name>
+	<code>cyberpunks_shop_variant_identifiers</code>
+	<version>1.1.1</version>
+	<author>positivecrash</author>
+	<description>Map option combinations to SKU / GTIN; product-form tab; YAML keyed by model for local↔server portability.</description>
+
+	<file path="catalog/controller/startup/startup.php">
+		<operation error="skip">
+			<search><![CDATA[$this->registry->set('encryption', new Encryption());]]></search>
+			<add position="after"><![CDATA[
+		require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_identifiers_storage.php');
+		CyberpunksShopVariantIdentifiersStorage::hydrateConfig($this->registry);
+			]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/product/product.php">
+		<operation error="skip">
+			<search><![CDATA[$data['product_id'] = (int)$this->request->get['product_id'];]]></search>
+			<add position="after"><![CDATA[
+			$data['variant_identifier_mappings'] = array();
+			if (!class_exists('CyberpunksShopVariantIdentifiersStorage') && is_file(DIR_SYSTEM . 'library/cyberpunks_shop_variant_identifiers_storage.php')) {
+				require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_identifiers_storage.php');
+			}
+			if (class_exists('CyberpunksShopVariantIdentifiersStorage')) {
+				$vi_all = $this->config->get('module_cyberpunks_variant_identifiers_mappings');
+				if (!is_array($vi_all) || !$vi_all) {
+					$vi_all = CyberpunksShopVariantIdentifiersStorage::loadAll($this->registry);
+				}
+				if (is_array($vi_all)) {
+					$vi_pid = (int)$this->request->get['product_id'];
+					foreach ($vi_all as $vi_row) {
+						if (!is_array($vi_row)) {
+							continue;
+						}
+						$vi_status = isset($vi_row['t']) ? $vi_row['t'] : (isset($vi_row['status']) ? $vi_row['status'] : 1);
+						if (empty($vi_status)) {
+							continue;
+						}
+						$row_pid = isset($vi_row['p']) ? (int)$vi_row['p'] : (isset($vi_row['product_id']) ? (int)$vi_row['product_id'] : 0);
+						if ($row_pid !== $vi_pid) {
+							continue;
+						}
+						$vi_sku = isset($vi_row['k']) ? trim((string)$vi_row['k']) : (isset($vi_row['sku']) ? trim((string)$vi_row['sku']) : '');
+						$vi_gtin = isset($vi_row['g']) ? trim((string)$vi_row['g']) : (isset($vi_row['gtin']) ? trim((string)$vi_row['gtin']) : '');
+						$vi_sig = isset($vi_row['s']) ? trim((string)$vi_row['s']) : (isset($vi_row['option_value_signature']) ? trim((string)$vi_row['option_value_signature']) : '');
+						if ($vi_sig === '' || ($vi_sku === '' && $vi_gtin === '')) {
+							continue;
+						}
+						$data['variant_identifier_mappings'][] = array(
+							's' => $vi_sig,
+							'k' => $vi_sku,
+							'g' => $vi_gtin
+						);
+					}
+				}
+			}
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/checkout/cart.php">
+		<operation error="skip">
+			<search><![CDATA[if ($product['image']) {]]></search>
+			<add position="before"><![CDATA[$variant_sku = '';
+				$variant_gtin = '';
+				$variant_id_match = CyberpunksShopVariantIdentifiersStorage::resolveCartIdentifiers(
+					is_array($this->config->get('module_cyberpunks_variant_identifiers_mappings')) ? $this->config->get('module_cyberpunks_variant_identifiers_mappings') : array(),
+					(int)$product['product_id'],
+					isset($product['option']) && is_array($product['option']) ? $product['option'] : array()
+				);
+				if (!empty($variant_id_match['sku'])) {
+					$variant_sku = (string)$variant_id_match['sku'];
+				}
+				if (!empty($variant_id_match['gtin'])) {
+					$variant_gtin = (string)$variant_id_match['gtin'];
+				}
+			]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA['thumb'     => $image,]]></search>
+			<add position="after"><![CDATA[
+					'variant_sku' => isset($variant_sku) ? $variant_sku : '',
+					'variant_gtin' => isset($variant_gtin) ? $variant_gtin : '',]]></add>
+		</operation>
+	</file>
+
+	<!-- Product form: Variant SKU/GTIN tab -->
+	<file path="admin/controller/catalog/product.php">
+		<!-- Vanilla add (no product_fields): capture new product_id -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_catalog_product->addProduct($this->request->post);
+
+			$this->session->data['success'] = $this->language->get('text_success');]]></search>
+			<add position="replace"><![CDATA[			$product_id = $this->model_catalog_product->addProduct($this->request->post);
+			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_identifiers.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_identifiers/saveFromProductForm', $product_id);
+			}
+
+			$this->session->data['success'] = $this->language->get('text_success');]]></add>
+		</operation>
+		<!-- When product_fields already rewrote addProduct -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_extension_module_cyberpunks_shop_product_fields->saveProductFieldValues((int)$product_id, isset($this->request->post['cyberpunks_product_fields']) ? $this->request->post['cyberpunks_product_fields'] : array());]]></search>
+			<add position="after"><![CDATA[
+			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_identifiers.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_identifiers/saveFromProductForm', $product_id);
+			}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->model_catalog_product->editProduct($this->request->get['product_id'], $this->request->post);]]></search>
+			<add position="after"><![CDATA[
+			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_identifiers.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_identifiers/saveFromProductForm', (int)$this->request->get['product_id']);
+			}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[		if (isset($this->request->post['product_layout'])) {]]></search>
+			<add position="before"><![CDATA[		$cyberpunks_vi_product_id = !empty($product_info['product_id']) ? (int)$product_info['product_id'] : (isset($this->request->get['product_id']) ? (int)$this->request->get['product_id'] : 0);
+		if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_identifiers.php')) {
+			$data['cyberpunks_variant_identifiers_form'] = $this->load->controller('extension/module/cyberpunks_variant_identifiers/productForm', $cyberpunks_vi_product_id);
+			$data['cyberpunks_variant_identifiers_import_action'] = $this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'], true);
+		} else {
+			$data['cyberpunks_variant_identifiers_form'] = '';
+			$data['cyberpunks_variant_identifiers_import_action'] = '';
+		}
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/view/template/catalog/product_form.twig">
+		<operation error="skip">
+			<search trim="false"><![CDATA[<li><a href="#tab-data" data-toggle="tab">{{ tab_data }}</a></li>]]></search>
+			<add position="after"><![CDATA[            <li><a href="#tab-cyberpunks-variant-identifiers" data-toggle="tab">Variant SKU/GTIN</a></li>
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[<div class="tab-pane" id="tab-links">]]></search>
+			<add position="before"><![CDATA[            <div class="tab-pane" id="tab-cyberpunks-variant-identifiers">
+              {{ cyberpunks_variant_identifiers_form }}
+            </div>
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[        </form>]]></search>
+			<add position="after"><![CDATA[        {% if cyberpunks_variant_identifiers_import_action %}
+        <form id="cyberpunks-vi-import-form" action="{{ cyberpunks_variant_identifiers_import_action }}" method="post" enctype="multipart/form-data" style="display:none;"></form>
+        {% endif %}
+]]></add>
+		</operation>
+	</file>
+</modification>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Merchant Feed</name>
+	<code>cyberpunks_shop_merchant_feed</code>
+	<version>1.0.1</version>
+	<author>positivecrash</author>
+	<description>Google Merchant XML feed from Variant Identifiers + PDP schema fields (sku/gtin/price_amount/url).</description>
+
+	<file path="catalog/controller/product/product.php">
+		<operation error="skip">
+			<search><![CDATA[$data['model'] = $product_info['model'];]]></search>
+			<add position="after"><![CDATA[
+			$data['sku'] = isset($product_info['sku']) ? (string)$product_info['sku'] : '';
+			$data['gtin'] = '';
+			if (!empty($product_info['ean'])) {
+				$data['gtin'] = (string)$product_info['ean'];
+			} elseif (!empty($product_info['upc'])) {
+				$data['gtin'] = (string)$product_info['upc'];
+			}
+			$data['offer_url'] = $this->url->link('product/product', 'product_id=' . (int)$this->request->get['product_id']);
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[if ($this->customer->isLogged() || !$this->config->get('config_customer_price')) {
+				$data['price'] = $this->currency->format($this->tax->calculate($product_info['price'], $product_info['tax_class_id'], $this->config->get('config_tax')), $this->session->data['currency']);
+			} else {
+				$data['price'] = false;
+			}]]></search>
+			<add position="after"><![CDATA[
+			if ($this->customer->isLogged() || !$this->config->get('config_customer_price')) {
+				$data['price_amount'] = $this->currency->format($this->tax->calculate($product_info['price'], $product_info['tax_class_id'], $this->config->get('config_tax')), $this->session->data['currency'], '', false);
+			} else {
+				$data['price_amount'] = '';
+			}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[if (!is_null($product_info['special']) && (float)$product_info['special'] >= 0) {
+				$data['special'] = $this->currency->format($this->tax->calculate($product_info['special'], $product_info['tax_class_id'], $this->config->get('config_tax')), $this->session->data['currency']);
+				$tax_price = (float)$product_info['special'];
+			} else {
+				$data['special'] = false;
+				$tax_price = (float)$product_info['price'];
+			}]]></search>
+			<add position="after"><![CDATA[
+			if (!is_null($product_info['special']) && (float)$product_info['special'] >= 0) {
+				$data['special_amount'] = $this->currency->format($this->tax->calculate($product_info['special'], $product_info['tax_class_id'], $this->config->get('config_tax')), $this->session->data['currency'], '', false);
+			} else {
+				$data['special_amount'] = '';
+			}
+]]></add>
+		</operation>
+	</file>
+</modification>

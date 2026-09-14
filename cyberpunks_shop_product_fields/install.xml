@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Product Fields</name>
 	<code>cyberpunks_shop_product_fields</code>
-	<version>1.7.1</version>
+	<version>1.7.3</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -172,6 +172,22 @@
 	<file path="catalog/controller/product/category.php">
 		<operation error="skip">
 			<search trim="false"><![CDATA[			$data['column_left'] = $this->load->controller('common/column_left');]]></search>
+			<add position="before"><![CDATA[			if (!empty($data['products']) && is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_product_fields.php')) {
+				$this->load->model('extension/module/cyberpunks_shop_product_fields');
+
+				foreach ($data['products'] as $key => $product) {
+					$data['products'][$key] = $this->model_extension_module_cyberpunks_shop_product_fields->attachProductFields($product);
+				}
+			}
+
+]]></add>
+		</operation>
+	</file>
+
+	<!-- Same attach as category: product_card.twig reads fields.category_title / category_image -->
+	<file path="catalog/controller/product/manufacturer.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$this->response->setOutput($this->load->view('product/manufacturer_info', $data));]]></search>
 			<add position="before"><![CDATA[			if (!empty($data['products']) && is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_product_fields.php')) {
 				$this->load->model('extension/module/cyberpunks_shop_product_fields');
 

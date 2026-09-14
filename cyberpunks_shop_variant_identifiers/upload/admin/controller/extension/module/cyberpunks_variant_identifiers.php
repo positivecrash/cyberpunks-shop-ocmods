@@ -1,11 +1,11 @@
 <?php
-class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
+class ControllerExtensionModuleCyberpunksVariantIdentifiers extends Controller {
 	private $error = array();
 	private $product_option_index_cache = array();
 	private $product_options_cache = array();
 
 	public function index() {
-		$this->load->language('extension/module/cyberpunks_variant_images');
+		$this->load->language('extension/module/cyberpunks_variant_identifiers');
 		$this->document->setTitle($this->language->get('heading_title'));
 		$this->load->model('setting/module');
 		$this->load->model('setting/setting');
@@ -23,13 +23,13 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				if ($redirect_product_id > 0) {
 					$this->response->redirect($this->url->link('catalog/product/edit', 'user_token=' . $this->session->data['user_token'] . '&product_id=' . $redirect_product_id, true));
 				} else {
-					$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true));
+					$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'], true));
 				}
 				return;
 			}
 			if (!empty($this->request->post['delete_tab_action'])) {
 				$this->handleDeleteTabRequest();
-				$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true));
+				$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'], true));
 				return;
 			}
 			if (!empty($this->request->post['export_action'])) {
@@ -39,11 +39,11 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 
 			$existing_mappings = $this->normalizeMappings($this->getStoredMappingsRaw());
 			$incoming_mappings = array();
-			if (!empty($this->request->post['module_cyberpunks_variant_images_payload'])) {
-				$payload = json_decode(html_entity_decode((string)$this->request->post['module_cyberpunks_variant_images_payload'], ENT_QUOTES, 'UTF-8'), true);
+			if (!empty($this->request->post['module_cyberpunks_variant_identifiers_payload'])) {
+				$payload = json_decode(html_entity_decode((string)$this->request->post['module_cyberpunks_variant_identifiers_payload'], ENT_QUOTES, 'UTF-8'), true);
 				$incoming_mappings = $this->normalizeMappings(is_array($payload) ? $payload : array());
 			} else {
-				$incoming_mappings = $this->normalizeMappings(isset($this->request->post['module_cyberpunks_variant_images_mappings']) ? $this->request->post['module_cyberpunks_variant_images_mappings'] : array());
+				$incoming_mappings = $this->normalizeMappings(isset($this->request->post['module_cyberpunks_variant_identifiers_mappings']) ? $this->request->post['module_cyberpunks_variant_identifiers_mappings'] : array());
 			}
 			$active_product_id = isset($this->request->post['active_product_id']) ? (int)$this->request->post['active_product_id'] : 0;
 
@@ -64,10 +64,10 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				}
 			}
 
-			$this->saveMappingsToSettings($merged_mappings, isset($this->request->post['module_cyberpunks_variant_images_status']) ? (int)$this->request->post['module_cyberpunks_variant_images_status'] : null);
+			$this->saveMappingsToSettings($merged_mappings, 1);
 
 			$this->session->data['success'] = $this->language->get('text_success');
-			$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true));
+			$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'], true));
 		}
 
 		if (isset($this->error['warning'])) {
@@ -96,18 +96,19 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		);
 		$data['breadcrumbs'][] = array(
 			'text' => $this->language->get('heading_title'),
-			'href' => $this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true)
+			'href' => $this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'], true)
 		);
 
-		$data['action'] = $this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true);
+		$data['action'] = $this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'], true);
 		$data['cancel'] = $this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module', true);
-		$data['import_action'] = $this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true);
-		$data['export_url_base'] = $this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'] . '&export_product_id=', true);
+		$data['import_action'] = $this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'], true);
+		$data['export_url_base'] = $this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'] . '&export_product_id=', true);
 
-		if (isset($this->request->post['module_cyberpunks_variant_images_status'])) {
-			$data['module_cyberpunks_variant_images_status'] = $this->request->post['module_cyberpunks_variant_images_status'];
+		if (isset($this->request->post['module_cyberpunks_variant_identifiers_status'])) {
+			$data['module_cyberpunks_variant_identifiers_status'] = $this->request->post['module_cyberpunks_variant_identifiers_status'];
 		} else {
-			$data['module_cyberpunks_variant_images_status'] = $this->config->get('module_cyberpunks_variant_images_status');
+			$stored_status = $this->config->get('module_cyberpunks_variant_identifiers_status');
+			$data['module_cyberpunks_variant_identifiers_status'] = ($stored_status === null || $stored_status === '') ? 1 : $stored_status;
 		}
 
 		$this->maybeMigrateLegacyMappingsShard();
@@ -120,7 +121,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			'start' => 0,
 			'limit' => 10000
 		));
-		$data['option_data_url'] = $this->url->link('extension/module/cyberpunks_variant_images/options', 'user_token=' . $this->session->data['user_token'], true);
+		$data['option_data_url'] = $this->url->link('extension/module/cyberpunks_variant_identifiers/options', 'user_token=' . $this->session->data['user_token'], true);
 		$data['product_name_map'] = array();
 		foreach ($data['products'] as $product) {
 			$data['product_name_map'][(int)$product['product_id']] = $product['name'];
@@ -153,7 +154,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		$data['column_left'] = $this->load->controller('common/column_left');
 		$data['footer'] = $this->load->controller('common/footer');
 
-		$this->response->setOutput($this->load->view('extension/module/cyberpunks_variant_images', $data));
+		$this->response->setOutput($this->load->view('extension/module/cyberpunks_variant_identifiers', $data));
 	}
 
 	private function normalizeMappings($mappings, $resolve_pairs = true) {
@@ -170,7 +171,8 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		foreach ($mappings as $mapping) {
 			$product_id = isset($mapping['product_id']) ? (int)$mapping['product_id'] : (isset($mapping['p']) ? (int)$mapping['p'] : 0);
 			$signature = '';
-			$image = isset($mapping['image']) ? trim((string)$mapping['image']) : (isset($mapping['i']) ? trim((string)$mapping['i']) : '');
+			$sku = isset($mapping['sku']) ? trim((string)$mapping['sku']) : (isset($mapping['k']) ? trim((string)$mapping['k']) : '');
+			$gtin = isset($mapping['gtin']) ? trim((string)$mapping['gtin']) : (isset($mapping['g']) ? trim((string)$mapping['g']) : '');
 			$status = isset($mapping['status']) ? (!empty($mapping['status']) ? 1 : 0) : (isset($mapping['t']) ? (!empty($mapping['t']) ? 1 : 0) : 1);
 			$pairs = array();
 			$signature_ids = array();
@@ -255,18 +257,17 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				}
 			}
 
-			if ($product_id <= 0 && $signature === '' && $image === '') {
+			if ($product_id <= 0 && $signature === '' && $sku === '' && $gtin === '') {
 				continue;
 			}
-
-			$image = CyberpunksShopVariantImagesStorage::expandImagePathFromStorage($image, $product_id);
 
 			$result[] = array(
 				'product_id' => $product_id,
 				'option_value_signature' => $signature,
 				'pairs' => $pairs,
 				'pairs_json' => json_encode($pairs),
-				'image' => $image,
+				'sku' => $sku,
+				'gtin' => $gtin,
 				'status' => $status
 			);
 		}
@@ -275,24 +276,24 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 	}
 
 	private function getStoredMappingsRaw() {
-		if (!class_exists('CyberpunksShopVariantImagesStorage')) {
-			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+		if (!class_exists('CyberpunksShopVariantIdentifiersStorage')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_identifiers_storage.php');
 		}
 
-		return CyberpunksShopVariantImagesStorage::loadAll($this->registry);
+		return CyberpunksShopVariantIdentifiersStorage::loadAll($this->registry);
 	}
 
 	private function maybeMigrateLegacyMappingsShard() {
-		if (!class_exists('CyberpunksShopVariantImagesStorage')) {
-			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+		if (!class_exists('CyberpunksShopVariantIdentifiersStorage')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_identifiers_storage.php');
 		}
 
 		$this->load->model('setting/setting');
-		$settings = $this->model_setting_setting->getSetting('module_cyberpunks_variant_images');
+		$settings = $this->model_setting_setting->getSetting('module_cyberpunks_variant_identifiers');
 		$has_shards = false;
 
 		foreach ($settings as $key => $value) {
-			if (preg_match('/^' . preg_quote(CyberpunksShopVariantImagesStorage::LEGACY_MAPPINGS_KEY, '/') . '_\d+$/', (string)$key)) {
+			if (preg_match('/^' . preg_quote(CyberpunksShopVariantIdentifiersStorage::LEGACY_MAPPINGS_KEY, '/') . '_\d+$/', (string)$key)) {
 				$has_shards = true;
 				break;
 			}
@@ -302,19 +303,19 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			return;
 		}
 
-		if (empty($settings[CyberpunksShopVariantImagesStorage::LEGACY_MAPPINGS_KEY])) {
+		if (empty($settings[CyberpunksShopVariantIdentifiersStorage::LEGACY_MAPPINGS_KEY])) {
 			return;
 		}
 
-		$mappings = $this->normalizeMappings($settings[CyberpunksShopVariantImagesStorage::LEGACY_MAPPINGS_KEY]);
+		$mappings = $this->normalizeMappings($settings[CyberpunksShopVariantIdentifiersStorage::LEGACY_MAPPINGS_KEY]);
 		if ($mappings) {
 			$this->saveMappingsToSettings($mappings);
 		}
 	}
 
 	private function saveMappingsToSettings($mappings, $status = null) {
-		if (!class_exists('CyberpunksShopVariantImagesStorage')) {
-			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+		if (!class_exists('CyberpunksShopVariantIdentifiersStorage')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_identifiers_storage.php');
 		}
 
 		$grouped = array();
@@ -329,7 +330,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			$grouped[$product_id][] = $row;
 		}
 
-		CyberpunksShopVariantImagesStorage::saveGrouped($this->registry, $grouped, $status);
+		CyberpunksShopVariantIdentifiersStorage::saveGrouped($this->registry, $grouped, $status);
 	}
 
 	private function decodeMappingsValue($raw) {
@@ -368,7 +369,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 	}
 
 	protected function validate() {
-		$can_module = $this->user->hasPermission('modify', 'extension/module/cyberpunks_variant_images');
+		$can_module = $this->user->hasPermission('modify', 'extension/module/cyberpunks_variant_identifiers');
 		$can_product = $this->user->hasPermission('modify', 'catalog/product');
 
 		if (!$can_module && !$can_product) {
@@ -382,7 +383,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 	 * Product edit tab HTML. Called via load->controller(..., $product_id).
 	 */
 	public function productForm($product_id = 0) {
-		$this->load->language('extension/module/cyberpunks_variant_images');
+		$this->load->language('extension/module/cyberpunks_variant_identifiers');
 		$this->load->model('catalog/product');
 
 		$product_id = is_array($product_id)
@@ -424,13 +425,16 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			}
 		}
 
-		$data['option_data_url'] = $this->url->link('extension/module/cyberpunks_variant_images/options', 'user_token=' . $this->session->data['user_token'], true);
+		$data['option_data_url'] = $this->url->link('extension/module/cyberpunks_variant_identifiers/options', 'user_token=' . $this->session->data['user_token'], true);
 		$data['export_url'] = $product_id > 0
-			? $this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'] . '&export_product_id=' . $product_id, true)
+			? $this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'] . '&export_product_id=' . $product_id, true)
 			: '';
-		$data['import_action'] = $this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true);
+		$data['import_action'] = $this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'], true);
+		$data['text_save_product_first'] = $this->language->get('text_save_product_first');
+		$data['help_import_product'] = $this->language->get('help_import_product');
+		$data['help_export_model'] = $this->language->get('help_export_model');
 
-		return $this->load->view('extension/module/cyberpunks_variant_images_product_form', $data);
+		return $this->load->view('extension/module/cyberpunks_variant_identifiers_product_form', $data);
 	}
 
 	/**
@@ -446,28 +450,28 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		}
 
 		if (!$this->user->hasPermission('modify', 'catalog/product')
-			&& !$this->user->hasPermission('modify', 'extension/module/cyberpunks_variant_images')) {
+			&& !$this->user->hasPermission('modify', 'extension/module/cyberpunks_variant_identifiers')) {
 			return;
 		}
 
 		$this->load->model('catalog/product');
-		$this->load->language('extension/module/cyberpunks_variant_images');
+		$this->load->language('extension/module/cyberpunks_variant_identifiers');
 
-		if (!isset($this->request->post['module_cyberpunks_variant_images_payload'])
-			&& empty($this->request->post['module_cyberpunks_variant_images_mappings'])) {
+		if (!isset($this->request->post['module_cyberpunks_variant_identifiers_payload'])
+			&& empty($this->request->post['module_cyberpunks_variant_identifiers_mappings'])) {
 			return;
 		}
 
 		$existing_mappings = $this->normalizeMappings($this->getStoredMappingsRaw());
 		$incoming_mappings = array();
 
-		if (!empty($this->request->post['module_cyberpunks_variant_images_payload'])) {
-			$payload = json_decode(html_entity_decode((string)$this->request->post['module_cyberpunks_variant_images_payload'], ENT_QUOTES, 'UTF-8'), true);
+		if (!empty($this->request->post['module_cyberpunks_variant_identifiers_payload'])) {
+			$payload = json_decode(html_entity_decode((string)$this->request->post['module_cyberpunks_variant_identifiers_payload'], ENT_QUOTES, 'UTF-8'), true);
 			$incoming_mappings = $this->normalizeMappings(is_array($payload) ? $payload : array());
 		} else {
 			$incoming_mappings = $this->normalizeMappings(
-				isset($this->request->post['module_cyberpunks_variant_images_mappings'])
-					? $this->request->post['module_cyberpunks_variant_images_mappings']
+				isset($this->request->post['module_cyberpunks_variant_identifiers_mappings'])
+					? $this->request->post['module_cyberpunks_variant_identifiers_mappings']
 					: array()
 			);
 		}
@@ -484,7 +488,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			$merged_mappings[] = $mapping;
 		}
 
-		$this->saveMappingsToSettings($merged_mappings);
+		$this->saveMappingsToSettings($merged_mappings, 1);
 	}
 
 	private function handleImportRequest() {
@@ -558,7 +562,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		}
 		if ($product_id <= 0) {
 			$this->session->data['error_warning'] = $this->language->get('error_export_product_required');
-			$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true));
+			$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_identifiers', 'user_token=' . $this->session->data['user_token'], true));
 			return;
 		}
 
@@ -573,7 +577,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		$yaml = $this->buildYamlExport($product_id, $rows);
 		$model = $this->getProductModel($product_id);
 		$slug = $model !== '' ? $this->sanitizeFilename($model) : ('product_' . $product_id);
-		$filename = 'variant_images_' . $slug . '.yaml';
+		$filename = 'variant_identifiers_' . $slug . '.yaml';
 
 		$this->response->addHeader('Content-Type: text/yaml; charset=utf-8');
 		$this->response->addHeader('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -615,6 +619,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		if ($model !== '') {
 			$lines[] = 'model: ' . $this->yamlScalar($model);
 		} else {
+			// Fallback only when model is empty — prefer model for local↔server portability.
 			$lines[] = 'product_id: ' . (int)$product_id;
 		}
 		$lines[] = 'items:';
@@ -655,12 +660,16 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				continue;
 			}
 
-			$image = isset($row['image']) ? (string)$row['image'] : '';
+			$sku = isset($row['sku']) ? (string)$row['sku'] : '';
+			$gtin = isset($row['gtin']) ? (string)$row['gtin'] : '';
 			$lines[] = '  - options:';
 			foreach ($options_map as $key => $value) {
 				$lines[] = '      ' . $key . ': ' . $this->yamlScalar($value);
 			}
-			$lines[] = '    image: ' . $this->yamlScalar($image);
+			$lines[] = '    sku: ' . $this->yamlScalar($sku);
+			if ($gtin !== '') {
+				$lines[] = '    gtin: ' . $this->yamlScalar($gtin);
+			}
 		}
 
 		return implode("\n", $lines) . "\n";
@@ -703,7 +712,8 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		foreach ($blocks as $block) {
 			$product_id = 0;
 			$model = '';
-			$image = '';
+			$sku = '';
+			$gtin = '';
 			$options = array();
 
 			if (preg_match('/product_id\s*:\s*(\d+)/i', $block, $m)) {
@@ -714,20 +724,25 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				$model = trim($m[1], " \t\"'");
 			}
 
-			if (preg_match('/image\s*:\s*["\']?(.+?)["\']?\s*$/im', $block, $m)) {
-				$image = trim($m[1]);
+			if (preg_match('/sku\s*:\s*["\']?(.+?)["\']?\s*$/im', $block, $m)) {
+				$sku = trim($m[1]);
+			}
+
+			if (preg_match('/gtin\s*:\s*["\']?(.+?)["\']?\s*$/im', $block, $m)) {
+				$gtin = trim($m[1]);
 			}
 
 			if (preg_match('/options\s*:\s*\{(.*?)\}/is', $block, $m)) {
 				$options = $this->parseInlineOptions($m[1]);
 			}
 
-			if (($model !== '' || $product_id > 0) && $image !== '' && $options) {
+			if (($model !== '' || $product_id > 0) && ($sku !== '' || $gtin !== '') && $options) {
 				$result[] = array(
 					'product_id' => $product_id,
 					'model' => $model,
 					'options' => $options,
-					'image' => $image
+					'sku' => $sku,
+					'gtin' => $gtin
 				);
 			}
 		}
@@ -761,8 +776,15 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			}
 
 			if (preg_match('/^-?\s*options\s*:\s*\{(.*)\}\s*$/i', $trimmed, $m)) {
-				if (!isset($current['options'])) {
-					$current['options'] = array();
+				if (($product_model !== '' || $product_id > 0) && (!empty($current['sku']) || !empty($current['gtin'])) && !empty($current['options'])) {
+					$entries[] = array(
+						'product_id' => $product_id,
+						'model' => $product_model,
+						'options' => $current['options'],
+						'sku' => isset($current['sku']) ? $current['sku'] : '',
+						'gtin' => isset($current['gtin']) ? $current['gtin'] : ''
+					);
+					$current = array();
 				}
 				$current['options'] = $this->parseInlineOptions($m[1]);
 				$in_options_block = false;
@@ -770,27 +792,30 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			}
 
 			if (preg_match('/^-?\s*options\s*:\s*$/i', $trimmed)) {
-				if (!isset($current['options'])) {
-					$current['options'] = array();
-				}
-				$in_options_block = true;
-				continue;
-			}
-
-			if (preg_match('/^-?\s*image\s*:\s*["\']?(.+?)["\']?\s*$/i', $trimmed, $m)) {
-				$current['image'] = trim($m[1]);
-				$in_options_block = false;
-
-				if (($product_model !== '' || $product_id > 0) && !empty($current['image']) && !empty($current['options'])) {
+				if (($product_model !== '' || $product_id > 0) && (!empty($current['sku']) || !empty($current['gtin'])) && !empty($current['options'])) {
 					$entries[] = array(
 						'product_id' => $product_id,
 						'model' => $product_model,
 						'options' => $current['options'],
-						'image' => $current['image']
+						'sku' => isset($current['sku']) ? $current['sku'] : '',
+						'gtin' => isset($current['gtin']) ? $current['gtin'] : ''
 					);
+					$current = array();
 				}
+				$current['options'] = array();
+				$in_options_block = true;
+				continue;
+			}
 
-				$current = array();
+			if (preg_match('/^-?\s*sku\s*:\s*["\']?(.+?)["\']?\s*$/i', $trimmed, $m)) {
+				$current['sku'] = trim($m[1]);
+				$in_options_block = false;
+				continue;
+			}
+
+			if (preg_match('/^-?\s*gtin\s*:\s*["\']?(.+?)["\']?\s*$/i', $trimmed, $m)) {
+				$current['gtin'] = trim($m[1]);
+				$in_options_block = false;
 				continue;
 			}
 
@@ -801,6 +826,16 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 					$current['options'][$key] = $value;
 				}
 			}
+		}
+
+		if (($product_model !== '' || $product_id > 0) && (!empty($current['sku']) || !empty($current['gtin'])) && !empty($current['options'])) {
+			$entries[] = array(
+				'product_id' => $product_id,
+				'model' => $product_model,
+				'options' => $current['options'],
+				'sku' => isset($current['sku']) ? $current['sku'] : '',
+				'gtin' => isset($current['gtin']) ? $current['gtin'] : ''
+			);
 		}
 
 		return $entries;
@@ -835,7 +870,8 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		foreach ($entries as $entry) {
 			$product_id = isset($entry['product_id']) ? (int)$entry['product_id'] : 0;
 			$model = isset($entry['model']) ? trim((string)$entry['model']) : '';
-			$image = isset($entry['image']) ? trim((string)$entry['image']) : '';
+			$sku = isset($entry['sku']) ? trim((string)$entry['sku']) : '';
+			$gtin = isset($entry['gtin']) ? trim((string)$entry['gtin']) : '';
 			$options = isset($entry['options']) && is_array($entry['options']) ? $entry['options'] : array();
 
 			if ($force_product_id > 0) {
@@ -847,7 +883,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				}
 			}
 
-			if ($product_id <= 0 || $image === '' || !$options) {
+			if ($product_id <= 0 || ($sku === '' && $gtin === '') || !$options) {
 				continue;
 			}
 
@@ -892,7 +928,8 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			$result[] = array(
 				'product_id' => $product_id,
 				'option_value_signature' => implode('-', $signature_ids),
-				'image' => $image,
+				'sku' => $sku,
+				'gtin' => $gtin,
 				'status' => 1
 			);
 		}
@@ -901,8 +938,8 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 	}
 
 	private function compactMappingsForStorage($mappings) {
-		if (!class_exists('CyberpunksShopVariantImagesStorage')) {
-			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
+		if (!class_exists('CyberpunksShopVariantIdentifiersStorage')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_identifiers_storage.php');
 		}
 
 		$result = array();
@@ -914,19 +951,19 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		foreach ($mappings as $mapping) {
 			$product_id = isset($mapping['product_id']) ? (int)$mapping['product_id'] : (isset($mapping['p']) ? (int)$mapping['p'] : 0);
 			$signature = isset($mapping['option_value_signature']) ? trim((string)$mapping['option_value_signature']) : (isset($mapping['s']) ? trim((string)$mapping['s']) : '');
-			$image = isset($mapping['image']) ? trim((string)$mapping['image']) : (isset($mapping['i']) ? trim((string)$mapping['i']) : '');
+			$sku = isset($mapping['sku']) ? trim((string)$mapping['sku']) : (isset($mapping['k']) ? trim((string)$mapping['k']) : '');
+			$gtin = isset($mapping['gtin']) ? trim((string)$mapping['gtin']) : (isset($mapping['g']) ? trim((string)$mapping['g']) : '');
 			$status = isset($mapping['status']) ? (int)!empty($mapping['status']) : (isset($mapping['t']) ? (int)!empty($mapping['t']) : 1);
 
-			if ($product_id <= 0 || $signature === '' || $image === '') {
+			if ($product_id <= 0 || $signature === '' || ($sku === '' && $gtin === '')) {
 				continue;
 			}
-
-			$image = CyberpunksShopVariantImagesStorage::compactImagePathForStorage($image);
 
 			$result[] = array(
 				'p' => $product_id,
 				's' => $signature,
-				'i' => $image,
+				'k' => $sku,
+				'g' => $gtin,
 				't' => $status
 			);
 		}

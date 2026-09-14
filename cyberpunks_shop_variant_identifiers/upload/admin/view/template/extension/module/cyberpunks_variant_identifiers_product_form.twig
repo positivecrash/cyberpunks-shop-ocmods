@@ -1,0 +1,466 @@
+<div id="cyberpunks-variant-identifiers" data-product-id="{{ product_id }}">
+  {% if vi_success %}
+    <div class="alert alert-success"><i class="fa fa-check-circle"></i> {{ vi_success }}</div>
+  {% endif %}
+  {% if vi_error %}
+    <div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> {{ vi_error }}</div>
+  {% endif %}
+
+  {% if product_id <= 0 %}
+    <div class="alert alert-info"><i class="fa fa-info-circle"></i> {{ text_save_product_first }}</div>
+  {% else %}
+    <input type="hidden" name="module_cyberpunks_variant_identifiers_payload" class="js-vi-mappings-payload" value="" />
+    <input type="hidden" name="active_product_id" value="{{ product_id }}" />
+
+    <div class="well well-sm" style="margin-bottom:12px;">
+      <div class="row">
+        <div class="col-sm-6">
+          <input type="file" name="import_file" id="cyberpunks-vi-import-file" class="form-control" accept=".txt,.json,.yaml,.yml,.conf" form="cyberpunks-vi-import-form" />
+          <small class="text-muted">{{ help_import_product }}</small>
+        </div>
+        <div class="col-sm-6" style="padding-top:2px;">
+          <button type="submit" class="btn btn-info" form="cyberpunks-vi-import-form"><i class="fa fa-upload"></i> {{ button_import }}</button>
+          <a href="{{ export_url }}" class="btn btn-default"><i class="fa fa-download"></i> {{ button_export }}</a>
+          {% if product_model %}
+            <span class="label label-default" style="margin-left:6px;">model: {{ product_model }}</span>
+          {% endif %}
+          <div><small class="text-muted">{{ help_export_model }}</small></div>
+        </div>
+      </div>
+      <input type="hidden" name="import_action" value="1" form="cyberpunks-vi-import-form" />
+      <input type="hidden" name="import_target_product_id" value="{{ product_id }}" form="cyberpunks-vi-import-form" />
+      <input type="hidden" name="redirect_product_id" value="{{ product_id }}" form="cyberpunks-vi-import-form" />
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-striped table-bordered table-hover">
+        <thead>
+          <tr>
+            <td class="text-left">{{ entry_signature }}<br><small>{{ help_signature }}</small></td>
+            <td class="text-left">{{ entry_sku }}<br><small>{{ help_sku }}</small></td>
+            <td class="text-left">{{ entry_gtin }}<br><small>{{ help_gtin }}</small></td>
+            <td class="text-left">{{ entry_mapping_status }}</td>
+            <td></td>
+          </tr>
+        </thead>
+        <tbody id="tbody-product-{{ product_id }}">
+          {% set mapping_row = 0 %}
+          {% for mapping in mappings %}
+            <tr id="vi-mapping-row-{{ mapping_row }}" class="js-vi-mapping-row" data-product-id="{{ product_id }}" data-builder-open="0">
+              <td>
+                <input type="hidden" name="module_cyberpunks_variant_identifiers_mappings[{{ mapping_row }}][product_id]" value="{{ product_id }}" />
+                <input type="hidden" name="module_cyberpunks_variant_identifiers_mappings[{{ mapping_row }}][option_value_signature]" value="{{ mapping.option_value_signature }}" class="js-signature-input" />
+                <input type="hidden" name="module_cyberpunks_variant_identifiers_mappings[{{ mapping_row }}][pairs_json]" value="[]" class="js-pairs-json-input" />
+                <div class="js-builder-compact">
+                  <code class="js-signature-preview" style="display:block;white-space:normal;word-break:break-word;margin-bottom:6px;">{{ mapping.option_value_signature }}</code>
+                  <button type="button" class="btn btn-default btn-sm js-edit-builder-btn" data-row="{{ mapping_row }}">{{ button_edit_options }}</button>
+                </div>
+                <div class="js-builder-expanded" style="display:none;">
+                  <div class="js-pairs-wrap" data-row="{{ mapping_row }}"></div>
+                  <div style="margin-top:8px;">
+                    <button type="button" class="btn btn-default js-add-pair-btn" data-row="{{ mapping_row }}">{{ button_add_option_pair }}</button>
+                    <button type="button" class="btn btn-default js-done-builder-btn" data-row="{{ mapping_row }}">{{ button_done_options }}</button>
+                  </div>
+                </div>
+              </td>
+              <td><input type="text" name="module_cyberpunks_variant_identifiers_mappings[{{ mapping_row }}][sku]" value="{{ mapping.sku }}" class="form-control" /></td>
+              <td><input type="text" name="module_cyberpunks_variant_identifiers_mappings[{{ mapping_row }}][gtin]" value="{{ mapping.gtin }}" class="form-control" /></td>
+              <td>
+                <select name="module_cyberpunks_variant_identifiers_mappings[{{ mapping_row }}][status]" class="form-control">
+                  {% if mapping.status %}
+                    <option value="1" selected="selected">{{ text_enabled }}</option>
+                    <option value="0">{{ text_disabled }}</option>
+                  {% else %}
+                    <option value="1">{{ text_enabled }}</option>
+                    <option value="0" selected="selected">{{ text_disabled }}</option>
+                  {% endif %}
+                </select>
+              </td>
+              <td class="text-right"><button type="button" onclick="document.getElementById('vi-mapping-row-{{ mapping_row }}').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>
+            </tr>
+            {% set mapping_row = mapping_row + 1 %}
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4"></td>
+            <td class="text-right"><button type="button" class="btn btn-primary" id="cyberpunks-vi-add-row" data-product-id="{{ product_id }}"><i class="fa fa-plus-circle"></i></button></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="help-block">{{ help_product_tab_save }}</p>
+  {% endif %}
+</div>
+
+{% if product_id > 0 %}
+<script type="text/javascript"><!--
+(function() {
+  var mapping_row = {{ mapping_row|default(0) }};
+  var productId = {{ product_id }};
+  var optionDataUrl = '{{ option_data_url|replace({'&amp;': '&'})|e('js') }}';
+  var optionCache = {};
+  var root = document.getElementById('cyberpunks-variant-identifiers');
+  if (!root) return;
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getRowEl(row) {
+    return document.getElementById('vi-mapping-row-' + row);
+  }
+
+  function normalizeSlugJs(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[\s_]+/g, '-')
+      .replace(/[^a-z0-9\-]+/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  function canonicalOptionKeyJs(optionKey) {
+    var compact = String(optionKey || '').replace(/-/g, '');
+    var aliases = {
+      urbanemotion: 'urban-emotion',
+      urbancolor: 'urban-color',
+      insightcolor: 'insight-color',
+      urbanhoodcolor: 'urban-hood-color',
+      urbanwallmount: 'urban-wallmount'
+    };
+    return aliases[compact] || optionKey;
+  }
+
+  function optionAliasesFromName(name) {
+    var key = normalizeSlugJs(name);
+    var aliases = [key];
+    if (key.indexOf('emotion') !== -1 && key.indexOf('urban') !== -1) aliases.push('urban-emotion');
+    if (key.indexOf('color') !== -1 && key.indexOf('urban') !== -1 && key.indexOf('hood') === -1) aliases.push('urban-color');
+    if (key.indexOf('color') !== -1 && key.indexOf('insight') !== -1) aliases.push('insight-color');
+    if (key.indexOf('hood') !== -1 && key.indexOf('color') !== -1) aliases.push('urban-hood-color');
+    if (key.indexOf('wall') !== -1 || key.indexOf('mount') !== -1) aliases.push('urban-wallmount');
+    return aliases;
+  }
+
+  function loadProductOptions(pid) {
+    var key = String(pid || 0);
+    if (optionCache[key]) return Promise.resolve(optionCache[key]);
+    if (!pid) {
+      optionCache[key] = [];
+      return Promise.resolve([]);
+    }
+    return fetch(optionDataUrl + '&product_id=' + encodeURIComponent(pid))
+      .then(function(r) { return r.json(); })
+      .then(function(json) {
+        optionCache[key] = Array.isArray(json.options) ? json.options : [];
+        return optionCache[key];
+      })
+      .catch(function() {
+        optionCache[key] = [];
+        return [];
+      });
+  }
+
+  function buildOptionSelect(options, selectedProductOptionId) {
+    var html = '<option value="0">-</option>';
+    options.forEach(function(option) {
+      var selected = Number(option.product_option_id) === Number(selectedProductOptionId) ? ' selected="selected"' : '';
+      html += '<option value="' + escapeHtml(option.product_option_id) + '"' + selected + '>' + escapeHtml(option.name) + '</option>';
+    });
+    return html;
+  }
+
+  function buildValueSelect(values, selectedProductOptionValueId) {
+    var html = '<option value="0">-</option>';
+    values.forEach(function(value) {
+      var selected = Number(value.product_option_value_id) === Number(selectedProductOptionValueId) ? ' selected="selected"' : '';
+      html += '<option value="' + escapeHtml(value.product_option_value_id) + '" data-option-value-id="' + escapeHtml(value.option_value_id) + '"' + selected + '>' + escapeHtml(value.name) + '</option>';
+    });
+    return html;
+  }
+
+  function findOption(options, productOptionId) {
+    var found = null;
+    options.forEach(function(option) {
+      if (Number(option.product_option_id) === Number(productOptionId)) found = option;
+    });
+    return found;
+  }
+
+  function pairsFromSignature(signature, options) {
+    var pairs = [];
+    signature = String(signature || '').trim();
+    if (!signature || !options || !options.length) return pairs;
+
+    if (signature.indexOf('n:') === 0) {
+      signature.slice(2).split('|').forEach(function(part) {
+        part = String(part || '').trim();
+        if (!part || part.indexOf('=') === -1) return;
+        var bits = part.split('=');
+        var optionKey = canonicalOptionKeyJs(normalizeSlugJs(bits[0]));
+        var valueKey = normalizeSlugJs(bits[1]);
+        var valueCompact = valueKey.replace(/-/g, '');
+        if (!optionKey || !valueCompact) return;
+
+        var matchedOption = null;
+        options.forEach(function(option) {
+          if (matchedOption) return;
+          if (optionAliasesFromName(option.name).indexOf(optionKey) !== -1) matchedOption = option;
+        });
+        if (!matchedOption) return;
+
+        var matchedValue = null;
+        (matchedOption.values || []).forEach(function(value) {
+          if (matchedValue) return;
+          var slug = normalizeSlugJs(value.name);
+          if (slug === valueKey || slug.replace(/-/g, '') === valueCompact) matchedValue = value;
+        });
+        if (!matchedValue) return;
+
+        pairs.push({
+          product_option_id: Number(matchedOption.product_option_id),
+          product_option_value_id: Number(matchedValue.product_option_value_id),
+          option_value_id: Number(matchedValue.option_value_id)
+        });
+      });
+      return pairs;
+    }
+
+    var lookup = {};
+    signature.split('-').map(Number).filter(function(id) { return id > 0; }).forEach(function(id) { lookup[id] = true; });
+    options.forEach(function(option) {
+      (option.values || []).forEach(function(value) {
+        var povId = Number(value.product_option_value_id);
+        if (!lookup[povId]) return;
+        pairs.push({
+          product_option_id: Number(option.product_option_id),
+          product_option_value_id: povId,
+          option_value_id: Number(value.option_value_id)
+        });
+      });
+    });
+    return pairs;
+  }
+
+  function appendPairRow(row, options, pair) {
+    var rowEl = getRowEl(row);
+    if (!rowEl) return;
+    var wrap = rowEl.querySelector('.js-pairs-wrap');
+    if (!wrap) return;
+
+    var productOptionId = pair && pair.product_option_id ? Number(pair.product_option_id) : 0;
+    var option = findOption(options, productOptionId) || options[0] || null;
+    var values = option ? option.values : [];
+    var productOptionValueId = pair && pair.product_option_value_id ? Number(pair.product_option_value_id) : 0;
+
+    var item = document.createElement('div');
+    item.className = 'js-pair-item';
+    item.style.marginBottom = '6px';
+    item.innerHTML =
+      '<div style="display:flex;gap:6px;align-items:center;">' +
+        '<select class="form-control js-pair-option" style="min-width:220px;">' + buildOptionSelect(options, option ? option.product_option_id : 0) + '</select>' +
+        '<select class="form-control js-pair-value" style="min-width:220px;">' + buildValueSelect(values, productOptionValueId) + '</select>' +
+        '<button type="button" class="btn btn-danger js-remove-pair"><i class="fa fa-minus-circle"></i></button>' +
+      '</div>';
+
+    var optionSelect = item.querySelector('.js-pair-option');
+    var valueSelect = item.querySelector('.js-pair-value');
+    optionSelect.addEventListener('change', function() {
+      var selectedOption = findOption(options, this.value);
+      valueSelect.innerHTML = buildValueSelect(selectedOption ? selectedOption.values : [], 0);
+      syncRowData(row);
+    });
+    valueSelect.addEventListener('change', function() { syncRowData(row); });
+    item.querySelector('.js-remove-pair').addEventListener('click', function() {
+      item.remove();
+      syncRowData(row);
+    });
+    wrap.appendChild(item);
+  }
+
+  function syncRowData(row) {
+    var rowEl = getRowEl(row);
+    if (!rowEl) return;
+    var pairs = [];
+    var signatureIds = [];
+
+    rowEl.querySelectorAll('.js-pair-item').forEach(function(item) {
+      var optionSelect = item.querySelector('.js-pair-option');
+      var valueSelect = item.querySelector('.js-pair-value');
+      if (!optionSelect || !valueSelect) return;
+      var productOptionId = Number(optionSelect.value || 0);
+      var productOptionValueId = Number(valueSelect.value || 0);
+      var selectedValueOption = valueSelect.options[valueSelect.selectedIndex];
+      var optionValueId = selectedValueOption ? Number(selectedValueOption.getAttribute('data-option-value-id') || 0) : 0;
+      if (!productOptionId || !productOptionValueId || !optionValueId) return;
+      pairs.push({
+        product_option_id: productOptionId,
+        product_option_value_id: productOptionValueId,
+        option_value_id: optionValueId
+      });
+      signatureIds.push(productOptionValueId);
+    });
+
+    signatureIds = Array.from(new Set(signatureIds)).sort(function(a, b) { return a - b; });
+    var signature = signatureIds.join('-');
+    var signatureInput = rowEl.querySelector('.js-signature-input');
+    var pairsJsonInput = rowEl.querySelector('.js-pairs-json-input');
+    var preview = rowEl.querySelector('.js-signature-preview');
+    var existingSignature = signatureInput ? String(signatureInput.value || '').trim() : '';
+    var builderOpen = rowEl.getAttribute('data-builder-open') === '1';
+
+    if (signatureIds.length) {
+      if (signatureInput) signatureInput.value = signature;
+      if (preview) preview.textContent = signature;
+    } else if (!builderOpen && existingSignature) {
+      if (preview) preview.textContent = existingSignature;
+    } else if (builderOpen) {
+      if (signatureInput) signatureInput.value = '';
+      if (preview) preview.textContent = '';
+    }
+
+    if (pairsJsonInput && (builderOpen || signatureIds.length)) {
+      pairsJsonInput.value = JSON.stringify(pairs);
+    }
+  }
+
+  function openBuilder(row, appendEmptyWhenNone) {
+    var rowEl = getRowEl(row);
+    if (!rowEl) return;
+    var compact = rowEl.querySelector('.js-builder-compact');
+    var expanded = rowEl.querySelector('.js-builder-expanded');
+    var wrap = rowEl.querySelector('.js-pairs-wrap');
+    var signatureInput = rowEl.querySelector('.js-signature-input');
+    if (!expanded || !wrap) return;
+
+    rowEl.setAttribute('data-builder-open', '1');
+    if (compact) compact.style.display = 'none';
+    expanded.style.display = '';
+
+    var signature = signatureInput ? String(signatureInput.value || '').trim() : '';
+    loadProductOptions(productId).then(function(options) {
+      wrap.innerHTML = '';
+      if (!options.length) return;
+      var pairs = pairsFromSignature(signature, options);
+      if (pairs.length) {
+        pairs.forEach(function(pair) { appendPairRow(row, options, pair); });
+      } else if (appendEmptyWhenNone) {
+        appendPairRow(row, options, null);
+      }
+      syncRowData(row);
+    });
+  }
+
+  function closeBuilder(row) {
+    var rowEl = getRowEl(row);
+    if (!rowEl) return;
+    syncRowData(row);
+    rowEl.setAttribute('data-builder-open', '0');
+    var compact = rowEl.querySelector('.js-builder-compact');
+    var expanded = rowEl.querySelector('.js-builder-expanded');
+    var wrap = rowEl.querySelector('.js-pairs-wrap');
+    if (wrap) wrap.innerHTML = '';
+    if (expanded) expanded.style.display = 'none';
+    if (compact) compact.style.display = '';
+  }
+
+  function bindMappingRow(row) {
+    var rowEl = getRowEl(row);
+    if (!rowEl || rowEl.getAttribute('data-bound') === '1') return;
+    rowEl.setAttribute('data-bound', '1');
+
+    var editBtn = rowEl.querySelector('.js-edit-builder-btn');
+    var doneBtn = rowEl.querySelector('.js-done-builder-btn');
+    var addPairBtn = rowEl.querySelector('.js-add-pair-btn');
+
+    if (editBtn) editBtn.addEventListener('click', function() { openBuilder(row, true); });
+    if (doneBtn) doneBtn.addEventListener('click', function() { closeBuilder(row); });
+    if (addPairBtn) {
+      addPairBtn.addEventListener('click', function() {
+        loadProductOptions(productId).then(function(options) {
+          if (!options.length) return;
+          appendPairRow(row, options, null);
+          syncRowData(row);
+        });
+      });
+    }
+  }
+
+  function addMappingRow() {
+    var tbody = document.getElementById('tbody-product-' + productId);
+    if (!tbody) return;
+    var html = '';
+    html += '<tr id="vi-mapping-row-' + mapping_row + '" class="js-vi-mapping-row" data-product-id="' + productId + '" data-builder-open="0">';
+    html += '  <td><input type="hidden" name="module_cyberpunks_variant_identifiers_mappings[' + mapping_row + '][product_id]" value="' + productId + '" />';
+    html += '      <input type="hidden" name="module_cyberpunks_variant_identifiers_mappings[' + mapping_row + '][option_value_signature]" value="" class="js-signature-input" />';
+    html += '      <input type="hidden" name="module_cyberpunks_variant_identifiers_mappings[' + mapping_row + '][pairs_json]" value="[]" class="js-pairs-json-input" />';
+    html += '      <div class="js-builder-compact"><code class="js-signature-preview" style="display:block;white-space:normal;word-break:break-word;margin-bottom:6px;"></code>';
+    html += '        <button type="button" class="btn btn-default btn-sm js-edit-builder-btn" data-row="' + mapping_row + '">{{ button_edit_options|e('js') }}</button></div>';
+    html += '      <div class="js-builder-expanded" style="display:none;"><div class="js-pairs-wrap" data-row="' + mapping_row + '"></div>';
+    html += '        <div style="margin-top:8px;"><button type="button" class="btn btn-default js-add-pair-btn" data-row="' + mapping_row + '">{{ button_add_option_pair|e('js') }}</button> ';
+    html += '        <button type="button" class="btn btn-default js-done-builder-btn" data-row="' + mapping_row + '">{{ button_done_options|e('js') }}</button></div></div></td>';
+    html += '  <td><input type="text" name="module_cyberpunks_variant_identifiers_mappings[' + mapping_row + '][sku]" value="" class="form-control" /></td>';
+    html += '  <td><input type="text" name="module_cyberpunks_variant_identifiers_mappings[' + mapping_row + '][gtin]" value="" class="form-control" /></td>';
+    html += '  <td><select name="module_cyberpunks_variant_identifiers_mappings[' + mapping_row + '][status]" class="form-control"><option value="1" selected="selected">{{ text_enabled|e('js') }}</option><option value="0">{{ text_disabled|e('js') }}</option></select></td>';
+    html += '  <td class="text-right"><button type="button" onclick="document.getElementById(\'vi-mapping-row-' + mapping_row + '\').remove();" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>';
+    html += '</tr>';
+    tbody.insertAdjacentHTML('beforeend', html);
+    bindMappingRow(mapping_row);
+    openBuilder(mapping_row, true);
+    mapping_row++;
+  }
+
+  function buildPayload() {
+    var payload = [];
+    root.querySelectorAll('.js-vi-mapping-row').forEach(function(rowEl) {
+      var signatureInput = rowEl.querySelector('.js-signature-input');
+      var pairsInput = rowEl.querySelector('.js-pairs-json-input');
+      var skuInput = rowEl.querySelector('input[name*="[sku]"]');
+      var gtinInput = rowEl.querySelector('input[name*="[gtin]"]');
+      var statusSelect = rowEl.querySelector('select[name*="[status]"]');
+      var signature = signatureInput ? String(signatureInput.value || '').trim() : '';
+      var sku = skuInput ? String(skuInput.value || '').trim() : '';
+      var gtin = gtinInput ? String(gtinInput.value || '').trim() : '';
+      var pairsJson = pairsInput ? String(pairsInput.value || '[]') : '[]';
+      var status = statusSelect ? Number(statusSelect.value || 0) : 0;
+      if (!signature || (!sku && !gtin)) return;
+      payload.push({
+        product_id: productId,
+        option_value_signature: signature,
+        pairs_json: pairsJson,
+        sku: sku,
+        gtin: gtin,
+        status: status ? 1 : 0
+      });
+    });
+    return payload;
+  }
+
+  root.querySelectorAll('.js-vi-mapping-row').forEach(function(rowEl) {
+    bindMappingRow(Number(rowEl.id.replace('vi-mapping-row-', '')));
+  });
+
+  var addBtn = document.getElementById('cyberpunks-vi-add-row');
+  if (addBtn) addBtn.addEventListener('click', addMappingRow);
+
+  var formProduct = document.getElementById('form-product');
+  if (formProduct && formProduct.getAttribute('data-vi-bound') !== '1') {
+    formProduct.setAttribute('data-vi-bound', '1');
+    formProduct.addEventListener('submit', function() {
+      var payloadInput = root.querySelector('.js-vi-mappings-payload');
+      if (!payloadInput) return;
+      payloadInput.value = JSON.stringify(buildPayload());
+      root.querySelectorAll('.js-vi-mapping-row input[name], .js-vi-mapping-row select[name]').forEach(function(el) {
+        el.removeAttribute('name');
+      });
+    });
+  }
+})();
+//--></script>
+{% endif %}

@@ -65,6 +65,13 @@ Textarea HTML + `[[icon:name]]` shortcodes + `[[option:key]]` for Common Options
 
 ## Changelog
 
+### 1.7.3
+- Manufacturer attach: target unique `manufacturer_info` view line (previous search could be skipped on refresh)
+- **Upgrade:** Extensions → Modifications → remove old *Cyberpunks Shop Product Fields* → Installer upload this zip → Refresh
+
+### 1.7.2
+- Manufacturer listing: attach Custom fields so `product_card` can use `category_title` / `category_image` / `featured_price_label` (same as category)
+
 ### 1.7.1
 - Fix product edit page `<h1>` showing module name: restore catalog `heading_title` after loading product-fields language strings
 
