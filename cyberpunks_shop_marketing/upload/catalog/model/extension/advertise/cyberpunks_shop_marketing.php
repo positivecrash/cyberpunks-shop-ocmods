@@ -483,8 +483,13 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		$items = array();
 
 		foreach ($products as $product) {
+			$order_product_id = isset($product['order_product_id']) ? (int)$product['order_product_id'] : 0;
+			$options = $order_product_id > 0
+				? $this->model_checkout_order->getOrderOptions($order_id, $order_product_id)
+				: array();
+
 			$items[] = array(
-				'item_id'   => $this->resolveItemId($product),
+				'item_id'   => $this->resolveEcommerceItemId($product, $options),
 				'item_name' => isset($product['name']) ? (string)$product['name'] : '',
 				'price'     => $this->roundMoney(isset($product['price']) ? (float)$product['price'] : 0.0),
 				'quantity'  => isset($product['quantity']) ? (int)$product['quantity'] : 1,
@@ -802,10 +807,14 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		$items = array();
 
 		foreach ($products as $product) {
-			$sku = $this->resolveItemId($product);
+			$order_product_id = isset($product['order_product_id']) ? (int)$product['order_product_id'] : 0;
+			$options = $order_product_id > 0
+				? $this->model_checkout_order->getOrderOptions($order_id, $order_product_id)
+				: array();
+			$sku = $this->resolveEcommerceItemId($product, $options);
 
 			if ($sku === '') {
-				$sku = 'item-' . (isset($product['order_product_id']) ? (int)$product['order_product_id'] : 0);
+				$sku = 'item-' . $order_product_id;
 			}
 
 			$qty = isset($product['quantity']) ? (int)$product['quantity'] : 1;
@@ -864,13 +873,14 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		$price = $this->roundMoney($raw_price);
 
 		$currency = isset($this->session->data['currency']) ? (string)$this->session->data['currency'] : 'EUR';
+		$item_id = $this->resolveViewItemId($product_id, $product_info);
 
 		return array(
 			'currency' => $currency,
 			'value'    => $price,
 			'items'    => array(
 				array(
-					'item_id'   => $this->resolveItemId($product_info),
+					'item_id'   => $item_id,
 					'item_name' => isset($product_info['name']) ? (string)$product_info['name'] : '',
 					'price'     => $price,
 					'quantity'  => 1,
@@ -904,21 +914,14 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 				$quantity = 1;
 			}
 
-			$item_id = '';
-
-			if (!empty($product['variant_sku'])) {
-				$item_id = (string)$product['variant_sku'];
-			} else {
-				$item_id = $this->resolveItemId($product);
-			}
+			$options = (!empty($product['option']) && is_array($product['option'])) ? $product['option'] : array();
+			$item_id = $this->resolveEcommerceItemId($product, $options);
 
 			$variant_parts = array();
 
-			if (!empty($product['option']) && is_array($product['option'])) {
-				foreach ($product['option'] as $option) {
-					if (!empty($option['value'])) {
-						$variant_parts[] = (string)$option['value'];
-					}
+			foreach ($options as $option) {
+				if (!empty($option['value'])) {
+					$variant_parts[] = (string)$option['value'];
 				}
 			}
 
@@ -991,6 +994,124 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		$lines[] = '</script>';
 
 		return implode("\n", $lines);
+	}
+
+	/**
+	 * Prefer Variant Identifiers SKU (same as merchant feed g:id / add_to_cart).
+	 * Falls back to admin item_id field (model/sku) when no mapping matches.
+	 */
+	private function resolveEcommerceItemId($product_row, array $options = array()) {
+		if (!empty($product_row['variant_sku'])) {
+			return trim((string)$product_row['variant_sku']);
+		}
+
+		$product_id = !empty($product_row['product_id']) ? (int)$product_row['product_id'] : 0;
+		$variant_sku = $this->resolveVariantSku($product_id, $options);
+
+		if ($variant_sku !== '') {
+			return $variant_sku;
+		}
+
+		return $this->resolveItemId($product_row);
+	}
+
+	/**
+	 * view_item: use ?variant=SKU when it belongs to this product's identifiers.
+	 */
+	private function resolveViewItemId($product_id, $product_info) {
+		$product_id = (int)$product_id;
+		$requested = isset($this->request->get['variant']) ? trim((string)$this->request->get['variant']) : '';
+
+		if ($requested !== '' && $product_id > 0 && $this->variantSkuBelongsToProduct($product_id, $requested)) {
+			return $requested;
+		}
+
+		return $this->resolveItemId($product_info);
+	}
+
+	private function resolveVariantSku($product_id, array $options) {
+		$product_id = (int)$product_id;
+
+		if ($product_id <= 0 || !$options) {
+			return '';
+		}
+
+		if (!class_exists('CyberpunksShopVariantIdentifiersStorage')) {
+			$library = DIR_SYSTEM . 'library/cyberpunks_shop_variant_identifiers_storage.php';
+
+			if (!is_file($library)) {
+				return '';
+			}
+
+			require_once($library);
+		}
+
+		if (!class_exists('CyberpunksShopVariantIdentifiersStorage')) {
+			return '';
+		}
+
+		$mappings = $this->config->get('module_cyberpunks_variant_identifiers_mappings');
+
+		if (!is_array($mappings) || !$mappings) {
+			$mappings = CyberpunksShopVariantIdentifiersStorage::loadAll($this->registry);
+		}
+
+		if (!is_array($mappings) || !$mappings) {
+			return '';
+		}
+
+		$match = CyberpunksShopVariantIdentifiersStorage::resolveCartIdentifiers($mappings, $product_id, $options);
+
+		return !empty($match['sku']) ? trim((string)$match['sku']) : '';
+	}
+
+	private function variantSkuBelongsToProduct($product_id, $sku) {
+		$product_id = (int)$product_id;
+		$sku = trim((string)$sku);
+
+		if ($product_id <= 0 || $sku === '') {
+			return false;
+		}
+
+		if (!class_exists('CyberpunksShopVariantIdentifiersStorage')) {
+			$library = DIR_SYSTEM . 'library/cyberpunks_shop_variant_identifiers_storage.php';
+
+			if (!is_file($library)) {
+				return false;
+			}
+
+			require_once($library);
+		}
+
+		if (!class_exists('CyberpunksShopVariantIdentifiersStorage')) {
+			return false;
+		}
+
+		$mappings = $this->config->get('module_cyberpunks_variant_identifiers_mappings');
+
+		if (!is_array($mappings) || !$mappings) {
+			$mappings = CyberpunksShopVariantIdentifiersStorage::loadAll($this->registry);
+		}
+
+		if (!is_array($mappings)) {
+			return false;
+		}
+
+		foreach ($mappings as $row) {
+			if (!is_array($row)) {
+				continue;
+			}
+
+			$row_pid = isset($row['p']) ? (int)$row['p'] : (isset($row['product_id']) ? (int)$row['product_id'] : 0);
+			$row_sku = isset($row['k']) ? trim((string)$row['k']) : (isset($row['sku']) ? trim((string)$row['sku']) : '');
+			$row_status = isset($row['t']) ? $row['t'] : (isset($row['status']) ? $row['status'] : 1);
+
+			if ($row_pid === $product_id && $row_sku === $sku && !empty($row_status)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private function resolveItemId($product_row) {

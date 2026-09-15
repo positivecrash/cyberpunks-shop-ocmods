@@ -24,6 +24,10 @@ Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag i
 
 ## Changelog
 
+### 1.5.1
+- Align GA4 `item_id` with Variant Identifiers SKU (`g:id` / `add_to_cart`): resolve mapping from cart/order options for **begin_checkout**, **purchase**, and Matomo ecommerce
+- **view_item** uses `?variant=SKU` when it matches a product mapping; otherwise falls back to admin model/sku field
+
 ### 1.5.0
 - Meta Conversions API: server-side `Purchase` on checkout/success (issue #22)
 - Shared `event_id` / dataLayer `eventID` = `ecommerce.transaction_id` (matches GTM Meta Purchase tag)
