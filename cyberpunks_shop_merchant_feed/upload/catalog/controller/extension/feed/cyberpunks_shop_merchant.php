@@ -71,6 +71,11 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 				continue;
 			}
 
+			// Skip orphan numeric signatures (option value removed from the product).
+			if (!$this->signatureStillValid($product_id, $signature, $option_lookup_cache)) {
+				continue;
+			}
+
 			$title = html_entity_decode($product['name'], ENT_QUOTES, 'UTF-8');
 			$pairs = $this->namedPairsFromMapping($product_id, $signature, $option_lookup_cache);
 			$variant_attrs = $this->variantAttributesFromPairs($pairs);
@@ -176,6 +181,38 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 		CyberpunksShopVariantImagesStorage::hydrateConfig($this->registry);
 
 		return CyberpunksShopVariantImagesStorage::loadAllForConfig($this->registry);
+	}
+
+	/**
+	 * Named signatures (n:…) stay valid without live option rows.
+	 * Numeric signatures require every product_option_value_id to still exist on the product.
+	 */
+	private function signatureStillValid($product_id, $signature, array &$option_lookup_cache) {
+		$signature = trim((string)$signature);
+
+		if ($signature === '') {
+			return true;
+		}
+
+		if (strpos($signature, 'n:') === 0) {
+			return true;
+		}
+
+		$ids = array_values(array_unique(array_filter(array_map('intval', explode('-', $signature)))));
+
+		if (!$ids) {
+			return false;
+		}
+
+		$lookup = $this->productOptionValueLookup($product_id, $option_lookup_cache);
+
+		foreach ($ids as $id) {
+			if (!isset($lookup[$id])) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
