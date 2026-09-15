@@ -25,6 +25,26 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		return $this->isGtmEnabled() && (bool)$this->config->get('advertise_cyberpunks_shop_marketing_gtm_event_view_item');
 	}
 
+	public function isAddToCartEnabled() {
+		if (!$this->isGtmEnabled()) {
+			return false;
+		}
+
+		$value = $this->config->get('advertise_cyberpunks_shop_marketing_gtm_event_add_to_cart');
+
+		return ($value === null || $value === '') ? true : (bool)$value;
+	}
+
+	public function isBeginCheckoutEnabled() {
+		if (!$this->isGtmEnabled()) {
+			return false;
+		}
+
+		$value = $this->config->get('advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout');
+
+		return ($value === null || $value === '') ? true : (bool)$value;
+	}
+
 	public function isMatomoEcommerceEnabled() {
 		return $this->isMatomoEnabled() && (bool)$this->config->get('advertise_cyberpunks_shop_marketing_matomo_ecommerce');
 	}
@@ -112,12 +132,28 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 			$parts[] = $gtm;
 		}
 
+		$flags = $this->renderEcommerceFlagsSnippet();
+		if ($flags !== '') {
+			$parts[] = $flags;
+		}
+
 		$matomo = $this->renderMatomoHeadSnippet();
 		if ($matomo !== '') {
 			$parts[] = $matomo;
 		}
 
 		return implode("\n", $parts);
+	}
+
+	/**
+	 * Client flag for product-page add_to_cart (fires after cart/add AJAX success).
+	 */
+	public function renderEcommerceFlagsSnippet() {
+		if (!$this->isAddToCartEnabled()) {
+			return '';
+		}
+
+		return "<script>window.__cyberpunksMarketing=window.__cyberpunksMarketing||{};window.__cyberpunksMarketing.addToCart=true;</script>";
 	}
 
 	public function renderBodySnippet() {
@@ -473,6 +509,75 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 					'quantity'  => 1,
 				),
 			),
+		);
+	}
+
+	public function buildBeginCheckoutEcommerce() {
+		if (!$this->isBeginCheckoutEnabled()) {
+			return null;
+		}
+
+		$products = $this->cart->getProducts();
+
+		if (!$products) {
+			return null;
+		}
+
+		$currency = isset($this->session->data['currency']) ? (string)$this->session->data['currency'] : 'EUR';
+		$items = array();
+		$value = 0.0;
+
+		foreach ($products as $product) {
+			$unit = $this->tax->calculate($product['price'], $product['tax_class_id'], $this->config->get('config_tax'));
+			$unit = $this->currency->convert($unit, $this->config->get('config_currency'), $currency);
+			$unit = $this->roundMoney($unit);
+			$quantity = isset($product['quantity']) ? (int)$product['quantity'] : 1;
+
+			if ($quantity < 1) {
+				$quantity = 1;
+			}
+
+			$item_id = '';
+
+			if (!empty($product['variant_sku'])) {
+				$item_id = (string)$product['variant_sku'];
+			} else {
+				$item_id = $this->resolveItemId($product);
+			}
+
+			$variant_parts = array();
+
+			if (!empty($product['option']) && is_array($product['option'])) {
+				foreach ($product['option'] as $option) {
+					if (!empty($option['value'])) {
+						$variant_parts[] = (string)$option['value'];
+					}
+				}
+			}
+
+			$item = array(
+				'item_id'   => $item_id,
+				'item_name' => isset($product['name']) ? (string)$product['name'] : '',
+				'price'     => $unit,
+				'quantity'  => $quantity,
+			);
+
+			if ($variant_parts) {
+				$item['item_variant'] = implode(' / ', $variant_parts);
+			}
+
+			$items[] = $item;
+			$value += $unit * $quantity;
+		}
+
+		if (!$items) {
+			return null;
+		}
+
+		return array(
+			'currency' => $currency,
+			'value'    => $this->roundMoney($value),
+			'items'    => $items,
 		);
 	}
 

@@ -120,6 +120,52 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		$output = $html;
 	}
 
+	public function captureBeginCheckout(&$route, &$data) {
+		$this->registry->set('cyberpunks_marketing_begin_checkout_ecommerce', null);
+
+		if (!is_file(DIR_APPLICATION . 'model/extension/advertise/cyberpunks_shop_marketing.php')) {
+			return;
+		}
+
+		$this->load->model('extension/advertise/cyberpunks_shop_marketing');
+
+		if (!$this->model_extension_advertise_cyberpunks_shop_marketing->isBeginCheckoutEnabled()) {
+			return;
+		}
+
+		$ecommerce = $this->model_extension_advertise_cyberpunks_shop_marketing->buildBeginCheckoutEcommerce();
+
+		if ($ecommerce) {
+			$this->registry->set('cyberpunks_marketing_begin_checkout_ecommerce', $ecommerce);
+		}
+	}
+
+	public function injectBeginCheckout(&$route, &$data, &$output) {
+		$html = $this->response->getOutput();
+
+		if (!is_string($html) || $html === '' || stripos($html, '</body>') === false) {
+			return;
+		}
+
+		if (!is_file(DIR_APPLICATION . 'model/extension/advertise/cyberpunks_shop_marketing.php')) {
+			return;
+		}
+
+		$this->load->model('extension/advertise/cyberpunks_shop_marketing');
+
+		$ecommerce = $this->registry->get('cyberpunks_marketing_begin_checkout_ecommerce');
+		$this->registry->set('cyberpunks_marketing_begin_checkout_ecommerce', null);
+
+		if (!is_array($ecommerce) || empty($ecommerce['items'])) {
+			return;
+		}
+
+		$block = "\n" . $this->model_extension_advertise_cyberpunks_shop_marketing->renderDataLayerScript('begin_checkout', $ecommerce) . "\n";
+		$html = $this->injectBeforeBodyClose($html, $block);
+		$this->response->setOutput($html);
+		$output = $html;
+	}
+
 	private function injectBeforeBodyClose($html, $block) {
 		$pos = stripos($html, '</body>');
 

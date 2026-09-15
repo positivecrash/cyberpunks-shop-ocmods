@@ -13,6 +13,8 @@ Files live under `extension/advertise/` so the extension appears in **Extensions
 - **Google cookie consent banner** (configurable text, buttons, expiry) + Consent Mode v2 defaults
 - **purchase** dataLayer event + Matomo ecommerce order on checkout success
 - **view_item** dataLayer event on product pages
+- **add_to_cart** dataLayer event after successful add-to-cart AJAX
+- **begin_checkout** dataLayer event on checkout (non-empty cart)
 - Single admin screen for GTM and Matomo settings
 
 Google Merchant Center / product feed export is **not** included yet.
@@ -20,6 +22,11 @@ Google Merchant Center / product feed export is **not** included yet.
 Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag inside GTM.
 
 ## Changelog
+
+### 1.4.0
+- **add_to_cart** dataLayer push after successful product cart/add AJAX (theme `product-oc.js` + marketing flag)
+- **begin_checkout** dataLayer push on checkout page load when the cart is non-empty
+- Admin toggles for both events (default on when GTM is enabled)
 
 ### 1.3.0
 - Consent banner text fields (message, privacy/deny/grant labels) support all active store languages
