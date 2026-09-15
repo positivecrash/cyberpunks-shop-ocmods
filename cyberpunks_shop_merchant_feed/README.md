@@ -9,7 +9,7 @@ Google Merchant XML feed built from **Cyberpunks Variant Identifiers** (one `<it
 
 ## Install
 
-1. Upload `cyberpunks_shop_merchant_feed_1_1_2.ocmod.zip` via Extensions → Installer.
+1. Upload `cyberpunks_shop_merchant_feed_1_1_3.ocmod.zip` via Extensions → Installer.
 2. Modifications → Refresh.
 3. Extensions → Feeds → install/enable **Cyberpunks Merchant Feed**.
 4. Open the feed settings, set currency (EUR), optional Google category ID, Enable, Save.
@@ -36,6 +36,9 @@ Feed URL shape:
 | title | Product name + `, {color}` (or pattern / legacy option suffix) |
 
 ## Changelog
+
+### 1.1.3
+- `g:availability` also respects Option Fields palette **In stock** (per color); product qty still required
 
 ### 1.1.2
 - Skip feed items whose numeric option-value signature no longer exists on the product (deleted option values)

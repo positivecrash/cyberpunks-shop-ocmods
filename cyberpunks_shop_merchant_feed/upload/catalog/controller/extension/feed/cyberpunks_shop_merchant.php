@@ -109,7 +109,7 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 				false
 			);
 
-			$availability = ((int)$product['quantity'] > 0) ? 'in stock' : 'out of stock';
+			$availability = $this->resolveAvailability($product_id, $signature, $product, $option_lookup_cache);
 
 			$items_xml .= "<item>\n";
 			$items_xml .= '  <g:id>' . $this->xmlText($sku) . "</g:id>\n";
@@ -213,6 +213,92 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Product qty + palette "In stock" (Option Fields color palettes).
+	 * Emotion/pattern options without a palette link stay treated as in stock.
+	 */
+	private function resolveAvailability($product_id, $signature, array $product, array &$option_lookup_cache) {
+		if ((int)$product['quantity'] <= 0) {
+			return 'out of stock';
+		}
+
+		if (!$this->ensurePaletteStockLibrary()) {
+			return 'in stock';
+		}
+
+		$options = $this->optionsFromSignature($product_id, $signature, $option_lookup_cache);
+
+		foreach ($options as $option) {
+			$pov_id = isset($option['product_option_value_id']) ? (int)$option['product_option_value_id'] : 0;
+
+			if ($pov_id <= 0) {
+				$pov_id = $this->findProductOptionValueId(
+					$product_id,
+					isset($option['name']) ? $option['name'] : '',
+					isset($option['value']) ? $option['value'] : '',
+					$option_lookup_cache
+				);
+			}
+
+			if ($pov_id <= 0) {
+				continue;
+			}
+
+			if (!CyberpunksPaletteStock::isProductOptionValueInStock($this->db, $pov_id)) {
+				return 'out of stock';
+			}
+		}
+
+		return 'in stock';
+	}
+
+	private function ensurePaletteStockLibrary() {
+		if (class_exists('CyberpunksPaletteStock')) {
+			return true;
+		}
+
+		$file = DIR_SYSTEM . 'library/cyberpunks_palette_stock.php';
+
+		if (!is_file($file)) {
+			return false;
+		}
+
+		require_once($file);
+
+		return class_exists('CyberpunksPaletteStock');
+	}
+
+	/**
+	 * Resolve product_option_value_id from option key/name + value slug (for n: signatures).
+	 */
+	private function findProductOptionValueId($product_id, $option_name, $value_slug, array &$option_lookup_cache) {
+		$want_key = $this->optionKeyFromName($option_name);
+		$want_slug = strtolower(preg_replace('/[^a-z0-9]+/i', '', (string)$value_slug));
+
+		if ($want_slug === '') {
+			return 0;
+		}
+
+		$lookup = $this->productOptionValueLookup($product_id, $option_lookup_cache);
+
+		foreach ($lookup as $pov_id => $row) {
+			$row_key = $this->optionKeyFromName(isset($row['name']) ? $row['name'] : '');
+			$row_slug = strtolower(preg_replace('/[^a-z0-9]+/i', '', isset($row['value']) ? $row['value'] : ''));
+
+			if ($row_slug !== $want_slug) {
+				continue;
+			}
+
+			if ($want_key !== '' && $row_key !== '' && $want_key !== $row_key) {
+				continue;
+			}
+
+			return (int)$pov_id;
+		}
+
+		return 0;
 	}
 
 	/**
