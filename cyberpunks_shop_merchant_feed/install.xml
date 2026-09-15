@@ -2,9 +2,9 @@
 <modification>
 	<name>Cyberpunks Merchant Feed</name>
 	<code>cyberpunks_shop_merchant_feed</code>
-	<version>1.0.1</version>
+	<version>1.1.1</version>
 	<author>positivecrash</author>
-	<description>Google Merchant XML feed from Variant Identifiers + PDP schema fields (sku/gtin/price_amount/url).</description>
+	<description>Google Merchant XML feed from Variant Identifiers: color/pattern, per-variant image + ?variant=SKU deep links, PDP schema fields.</description>
 
 	<file path="catalog/controller/product/product.php">
 		<operation error="skip">

@@ -9,7 +9,7 @@ Google Merchant XML feed built from **Cyberpunks Variant Identifiers** (one `<it
 
 ## Install
 
-1. Upload `cyberpunks_shop_merchant_feed_1_0_1.ocmod.zip` via Extensions → Installer.
+1. Upload `cyberpunks_shop_merchant_feed_1_1_1.ocmod.zip` via Extensions → Installer.
 2. Modifications → Refresh.
 3. Extensions → Feeds → install/enable **Cyberpunks Merchant Feed**.
 4. Open the feed settings, set currency (EUR), optional Google category ID, Enable, Save.
@@ -29,8 +29,23 @@ Feed URL shape:
 | `g:mpn` | SKU (when GTIN empty but brand exists) |
 | `g:identifier_exists` | `false` only if no GTIN and no brand |
 | `g:image_link` | Variant Images (exact signature, or named/id subset match via `resolveCartImage`), else product image |
+| `g:color` | Case color(s): Dual = `UrbanColor/InsightColor`; Urban/Insight/Hood = single color |
+| `g:pattern` | Face/emotion (`smile`, `deadly`, `enjoy`) when present |
+| `link` | Product URL + `?variant={SKU}` (theme selects options on load) |
 | `g:price` | Product base/special price (taxed) in feed currency |
-| title | Product name + named-signature option values |
+| title | Product name + `, {color}` (or pattern / legacy option suffix) |
+
+## Changelog
+
+### 1.1.1
+- Derive `g:color` / `g:pattern` from numeric option-value signatures (not only `n:` named signatures)
+
+### 1.1.0
+- Issue #29: `g:color`, `g:pattern`, per-variant title color, `?variant=SKU` deep links
+- Theme: `product-oc.js` applies `?variant=` from Variant Identifiers mappings
+
+### 1.0.1
+- Initial Merchant feed from Variant Identifiers + Variant Images
 
 ## Theme schema (after Refresh)
 

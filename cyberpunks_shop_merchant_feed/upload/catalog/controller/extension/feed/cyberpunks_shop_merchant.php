@@ -72,13 +72,24 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 			}
 
 			$title = html_entity_decode($product['name'], ENT_QUOTES, 'UTF-8');
-			$option_label = $this->titleSuffixFromSignature($signature);
-			if ($option_label !== '') {
-				$title .= ' - ' . $option_label;
+			$pairs = $this->namedPairsFromMapping($product_id, $signature, $option_lookup_cache);
+			$variant_attrs = $this->variantAttributesFromPairs($pairs);
+
+			if ($variant_attrs['color'] !== '') {
+				$title .= ', ' . $variant_attrs['color'];
+			} elseif ($variant_attrs['pattern'] !== '') {
+				$title .= ', ' . $variant_attrs['pattern'];
+			} else {
+				$option_label = $this->titleSuffixFromSignature($signature);
+				if ($option_label !== '') {
+					$title .= ' - ' . $option_label;
+				}
 			}
 
 			$description = trim(strip_tags(html_entity_decode($product['description'], ENT_QUOTES, 'UTF-8')));
 			$link = $this->url->link('product/product', 'product_id=' . $product_id);
+			$link_sep = (strpos($link, '?') !== false) ? '&' : '?';
+			$link .= $link_sep . 'variant=' . rawurlencode($sku);
 			$brand = html_entity_decode(isset($product['manufacturer']) ? $product['manufacturer'] : '', ENT_QUOTES, 'UTF-8');
 
 			$image_link = $this->resolveImageLink($product_id, $signature, $product, $image_rows, $option_lookup_cache);
@@ -107,6 +118,13 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 			$items_xml .= '  <g:condition>new</g:condition>\n';
 			$items_xml .= '  <g:availability>' . $availability . "</g:availability>\n";
 			$items_xml .= '  <g:price>' . $this->xmlText($price . ' ' . $currency_code) . "</g:price>\n";
+
+			if ($variant_attrs['color'] !== '') {
+				$items_xml .= '  <g:color><![CDATA[' . $variant_attrs['color'] . "]]></g:color>\n";
+			}
+			if ($variant_attrs['pattern'] !== '') {
+				$items_xml .= '  <g:pattern><![CDATA[' . $variant_attrs['pattern'] . "]]></g:pattern>\n";
+			}
 
 			if ($brand !== '') {
 				$items_xml .= '  <g:brand><![CDATA[' . $brand . "]]></g:brand>\n";
@@ -321,11 +339,167 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 			list($key, $value) = explode('=', $part, 2);
 			$value = trim($value);
 			if ($value !== '') {
-				$parts[] = $value;
+				$parts[] = $this->labelFromSlug($value);
 			}
 		}
 
 		return implode(' / ', $parts);
+	}
+
+	/**
+	 * Named option pairs from identifier signature.
+	 * Supports n:key=value|… and numeric product_option_value_id signatures (local DB).
+	 *
+	 * @return array<string,string> option_key => value slug
+	 */
+	private function namedPairsFromMapping($product_id, $signature, array &$option_lookup_cache) {
+		$pairs = $this->namedPairsFromSignature($signature);
+
+		if ($pairs) {
+			return $pairs;
+		}
+
+		$options = $this->optionsFromSignature($product_id, $signature, $option_lookup_cache);
+
+		foreach ($options as $option) {
+			$name = isset($option['name']) ? (string)$option['name'] : '';
+			$value = isset($option['value']) ? (string)$option['value'] : '';
+			$key = $this->optionKeyFromName($name);
+
+			if ($key === '' || $value === '') {
+				continue;
+			}
+
+			$slug = strtolower(preg_replace('/[^a-z0-9]+/i', '', $value));
+
+			if ($slug !== '') {
+				$pairs[$key] = $slug;
+			}
+		}
+
+		return $pairs;
+	}
+
+	/**
+	 * Named option pairs from identifier signature (n:key=value|…).
+	 *
+	 * @return array<string,string> option_key => value slug
+	 */
+	private function namedPairsFromSignature($signature) {
+		$signature = trim((string)$signature);
+		$pairs = array();
+
+		if ($signature === '' || strpos($signature, 'n:') !== 0) {
+			return $pairs;
+		}
+
+		foreach (explode('|', substr($signature, 2)) as $part) {
+			$part = trim($part);
+			if ($part === '' || strpos($part, '=') === false) {
+				continue;
+			}
+			list($key, $value) = explode('=', $part, 2);
+			$key = strtolower(trim($key));
+			$value = strtolower(preg_replace('/[^a-z0-9]+/i', '', trim($value)));
+			if ($key !== '' && $value !== '') {
+				$pairs[$key] = $value;
+			}
+		}
+
+		return $pairs;
+	}
+
+	private function optionKeyFromName($name) {
+		$compact = strtolower(preg_replace('/[^a-z0-9]+/i', '', (string)$name));
+
+		if ($compact === '') {
+			return '';
+		}
+
+		if (strpos($compact, 'emotion') !== false) {
+			return 'urban-emotion';
+		}
+		if (strpos($compact, 'hood') !== false) {
+			return 'urban-hood-color';
+		}
+		if (strpos($compact, 'insight') !== false && strpos($compact, 'color') !== false) {
+			return 'insight-color';
+		}
+		if (strpos($compact, 'wall') !== false || strpos($compact, 'mount') !== false) {
+			return 'urban-wallmount';
+		}
+		if (strpos($compact, 'color') !== false) {
+			return 'urban-color';
+		}
+
+		$key = strtolower(trim((string)$name));
+		$key = preg_replace('/[\s_]+/', '-', $key);
+		$key = preg_replace('/[^a-z0-9\-]+/', '', $key);
+
+		return trim((string)$key, '-');
+	}
+
+	/**
+	 * Google Merchant variant attributes from named option pairs.
+	 * Dual: g:color = UrbanColor/InsightColor; g:pattern = emotion/face.
+	 *
+	 * @return array{color:string,pattern:string}
+	 */
+	private function variantAttributesFromPairs(array $pairs) {
+		$urban_color = isset($pairs['urban-color']) ? $this->labelFromSlug($pairs['urban-color']) : '';
+		$insight_color = isset($pairs['insight-color']) ? $this->labelFromSlug($pairs['insight-color']) : '';
+		$hood_color = isset($pairs['urban-hood-color']) ? $this->labelFromSlug($pairs['urban-hood-color']) : '';
+		$pattern = isset($pairs['urban-emotion']) ? $this->labelFromSlug($pairs['urban-emotion']) : '';
+
+		$color = '';
+
+		if ($urban_color !== '' && $insight_color !== '') {
+			$color = $urban_color . '/' . $insight_color;
+		} elseif ($urban_color !== '') {
+			$color = $urban_color;
+		} elseif ($insight_color !== '') {
+			$color = $insight_color;
+		} elseif ($hood_color !== '') {
+			$color = $hood_color;
+		}
+
+		return array(
+			'color'   => $color,
+			'pattern' => $pattern,
+		);
+	}
+
+	private function labelFromSlug($slug) {
+		$slug = strtolower(preg_replace('/[^a-z0-9]+/i', '', (string)$slug));
+		if ($slug === '') {
+			return '';
+		}
+
+		$labels = array(
+			'blue'            => 'Blue',
+			'brightgreen'     => 'Bright Green',
+			'cyan'            => 'Cyan',
+			'green'           => 'Green',
+			'lilac'           => 'Lilac',
+			'magenta'         => 'Magenta',
+			'mistletoegreen'  => 'Mistletoe Green',
+			'orange'          => 'Orange',
+			'red'             => 'Red',
+			'white'           => 'White',
+			'black'           => 'Black',
+			'jadewhite'       => 'Jade White',
+			'lilacpurple'     => 'Lilac',
+			'random'          => 'Random',
+			'smile'           => 'smile',
+			'deadly'          => 'deadly',
+			'enjoy'           => 'enjoy',
+		);
+
+		if (isset($labels[$slug])) {
+			return $labels[$slug];
+		}
+
+		return ucfirst($slug);
 	}
 
 	private function firstProductType($product_id) {
