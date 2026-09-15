@@ -12,6 +12,7 @@ Files live under `extension/advertise/` so the extension appears in **Extensions
 - Matomo tracking snippet in `<head>`
 - **Google cookie consent banner** (configurable text, buttons, expiry) + Consent Mode v2 defaults
 - **purchase** dataLayer event + Matomo ecommerce order on checkout success
+- **Meta Conversions API** server-side Purchase with shared `event_id` (= `transaction_id`)
 - **view_item** dataLayer event on product pages
 - **add_to_cart** dataLayer event after successful add-to-cart AJAX
 - **begin_checkout** dataLayer event on checkout (non-empty cart)
@@ -23,6 +24,12 @@ Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag i
 
 ## Changelog
 
+### 1.5.0
+- Meta Conversions API: server-side `Purchase` on checkout/success (issue #22)
+- Shared `event_id` / dataLayer `eventID` = `ecommerce.transaction_id` (matches GTM Meta Purchase tag)
+- Access token + pixel ID in admin settings only (token never returned to the browser form)
+- Consent cookie `cyberpunks_ad_storage` mirrors banner choice; CAPI skipped without grant
+
 ### 1.4.0
 - **add_to_cart** dataLayer push after successful product cart/add AJAX (theme `product-oc.js` + marketing flag)
 - **begin_checkout** dataLayer push on checkout page load when the cart is non-empty
@@ -30,7 +37,8 @@ Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag i
 
 ### 1.3.0
 - Consent banner text fields (message, privacy/deny/grant labels) support all active store languages
-- No hardcoded English fallbacks; incomplete consent text skips banner render (site stays up)
+- Missing text for the current language falls back to the store default language, then any filled language
+- Incomplete consent text (no language has message/buttons) skips banner render (site stays up)
 
 ### 1.2.8
 - Consent banner buttons: drop `button-small` class (match theme button sizing)

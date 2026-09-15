@@ -85,6 +85,8 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		$data['error_consent_expiry_days'] = isset($this->error['consent_expiry_days']) ? $this->error['consent_expiry_days'] : '';
 		$data['error_matomo_server'] = isset($this->error['matomo_server']) ? $this->error['matomo_server'] : '';
 		$data['error_matomo_site_id'] = isset($this->error['matomo_site_id']) ? $this->error['matomo_site_id'] : '';
+		$data['error_meta_pixel_id'] = isset($this->error['meta_pixel_id']) ? $this->error['meta_pixel_id'] : '';
+		$data['error_meta_access_token'] = isset($this->error['meta_access_token']) ? $this->error['meta_access_token'] : '';
 
 		if (isset($this->session->data['success'])) {
 			$data['success'] = $this->session->data['success'];
@@ -144,6 +146,21 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 			$data['advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout'] = 1;
 		}
 
+		if ($data['advertise_cyberpunks_shop_marketing_meta_capi_status'] === '' || $data['advertise_cyberpunks_shop_marketing_meta_capi_status'] === null) {
+			$data['advertise_cyberpunks_shop_marketing_meta_capi_status'] = 1;
+		}
+
+		$stored_token = '';
+		if (array_key_exists('advertise_cyberpunks_shop_marketing_meta_access_token', $stored)) {
+			$stored_token = trim((string)$stored['advertise_cyberpunks_shop_marketing_meta_access_token']);
+		}
+
+		if (isset($this->request->post['advertise_cyberpunks_shop_marketing_meta_access_token'])) {
+			$data['advertise_cyberpunks_shop_marketing_meta_access_token'] = trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_meta_access_token']);
+		} else {
+			$data['advertise_cyberpunks_shop_marketing_meta_access_token'] = $stored_token;
+		}
+
 		if ($data['advertise_cyberpunks_shop_marketing_consent_expiry_days'] === '' || $data['advertise_cyberpunks_shop_marketing_consent_expiry_days'] === null) {
 			$data['advertise_cyberpunks_shop_marketing_consent_expiry_days'] = 30;
 		}
@@ -161,6 +178,7 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		$data['text_model'] = $this->language->get('text_model');
 		$data['text_sku'] = $this->language->get('text_sku');
 		$data['text_gtm_section'] = $this->language->get('text_gtm_section');
+		$data['text_meta_section'] = $this->language->get('text_meta_section');
 		$data['text_consent_section'] = $this->language->get('text_consent_section');
 		$data['text_matomo_section'] = $this->language->get('text_matomo_section');
 		$data['text_shared_section'] = $this->language->get('text_shared_section');
@@ -172,6 +190,10 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		$data['entry_event_view_item'] = $this->language->get('entry_event_view_item');
 		$data['entry_event_add_to_cart'] = $this->language->get('entry_event_add_to_cart');
 		$data['entry_event_begin_checkout'] = $this->language->get('entry_event_begin_checkout');
+		$data['entry_meta_capi_status'] = $this->language->get('entry_meta_capi_status');
+		$data['entry_meta_pixel_id'] = $this->language->get('entry_meta_pixel_id');
+		$data['entry_meta_access_token'] = $this->language->get('entry_meta_access_token');
+		$data['entry_meta_test_event_code'] = $this->language->get('entry_meta_test_event_code');
 		$data['entry_consent_status'] = $this->language->get('entry_consent_status');
 		$data['entry_consent_message'] = $this->language->get('entry_consent_message');
 		$data['entry_consent_privacy_label'] = $this->language->get('entry_consent_privacy_label');
@@ -189,6 +211,10 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		$data['help_container'] = $this->language->get('help_container');
 		$data['help_events'] = $this->language->get('help_events');
 		$data['help_no_gtag'] = $this->language->get('help_no_gtag');
+		$data['help_meta_capi'] = $this->language->get('help_meta_capi');
+		$data['help_meta_pixel_id'] = $this->language->get('help_meta_pixel_id');
+		$data['help_meta_access_token'] = $this->language->get('help_meta_access_token');
+		$data['help_meta_test_event_code'] = $this->language->get('help_meta_test_event_code');
 		$data['help_consent'] = $this->language->get('help_consent');
 		$data['help_consent_message'] = $this->language->get('help_consent_message');
 		$data['help_consent_privacy'] = $this->language->get('help_consent_privacy');
@@ -250,6 +276,29 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 			}
 		}
 
+		if (!empty($this->request->post['advertise_cyberpunks_shop_marketing_status'])
+			&& !empty($this->request->post['advertise_cyberpunks_shop_marketing_meta_capi_status'])) {
+			$pixel_id = isset($this->request->post['advertise_cyberpunks_shop_marketing_meta_pixel_id'])
+				? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_meta_pixel_id'])
+				: '';
+
+			if ($pixel_id === '' || !preg_match('/^[0-9]{5,}$/', $pixel_id)) {
+				$this->error['meta_pixel_id'] = $this->language->get('error_meta_pixel_id');
+			}
+
+			$posted_token = isset($this->request->post['advertise_cyberpunks_shop_marketing_meta_access_token'])
+				? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_meta_access_token'])
+				: '';
+			$existing = $this->model_setting_setting->getSetting('advertise_cyberpunks_shop_marketing', $this->store_id);
+			$existing_token = isset($existing['advertise_cyberpunks_shop_marketing_meta_access_token'])
+				? trim((string)$existing['advertise_cyberpunks_shop_marketing_meta_access_token'])
+				: '';
+
+			if ($posted_token === '' && $existing_token === '') {
+				$this->error['meta_access_token'] = $this->language->get('error_meta_access_token');
+			}
+		}
+
 		return !$this->error;
 	}
 
@@ -262,6 +311,10 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 			'advertise_cyberpunks_shop_marketing_gtm_event_view_item',
 			'advertise_cyberpunks_shop_marketing_gtm_event_add_to_cart',
 			'advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout',
+			'advertise_cyberpunks_shop_marketing_meta_capi_status',
+			'advertise_cyberpunks_shop_marketing_meta_pixel_id',
+			'advertise_cyberpunks_shop_marketing_meta_access_token',
+			'advertise_cyberpunks_shop_marketing_meta_test_event_code',
 			'advertise_cyberpunks_shop_marketing_consent_status',
 			'advertise_cyberpunks_shop_marketing_consent_message',
 			'advertise_cyberpunks_shop_marketing_consent_privacy_label',
@@ -283,11 +336,15 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		return array(
 			'advertise_cyberpunks_shop_marketing_status'                    => 1,
 			'advertise_cyberpunks_shop_marketing_gtm_status'                => 1,
-			'advertise_cyberpunks_shop_marketing_gtm_container_id'          => 'GTM-K79KW7T2',
+			'advertise_cyberpunks_shop_marketing_gtm_container_id'          => '',
 			'advertise_cyberpunks_shop_marketing_gtm_event_purchase'        => 1,
 			'advertise_cyberpunks_shop_marketing_gtm_event_view_item'       => 1,
 			'advertise_cyberpunks_shop_marketing_gtm_event_add_to_cart'     => 1,
 			'advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout'  => 1,
+			'advertise_cyberpunks_shop_marketing_meta_capi_status'          => 1,
+			'advertise_cyberpunks_shop_marketing_meta_pixel_id'             => '',
+			'advertise_cyberpunks_shop_marketing_meta_access_token'         => '',
+			'advertise_cyberpunks_shop_marketing_meta_test_event_code'      => '',
 			'advertise_cyberpunks_shop_marketing_consent_status'           => 1,
 			'advertise_cyberpunks_shop_marketing_consent_message'           => array(),
 			'advertise_cyberpunks_shop_marketing_consent_privacy_label'    => array(),
@@ -379,6 +436,17 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 	}
 
 	private function buildSettingsFromPost() {
+		$posted_token = isset($this->request->post['advertise_cyberpunks_shop_marketing_meta_access_token'])
+			? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_meta_access_token'])
+			: '';
+
+		if ($posted_token === '') {
+			$existing = $this->model_setting_setting->getSetting('advertise_cyberpunks_shop_marketing', $this->store_id);
+			$posted_token = isset($existing['advertise_cyberpunks_shop_marketing_meta_access_token'])
+				? trim((string)$existing['advertise_cyberpunks_shop_marketing_meta_access_token'])
+				: '';
+		}
+
 		return array(
 			'advertise_cyberpunks_shop_marketing_status'                    => !empty($this->request->post['advertise_cyberpunks_shop_marketing_status']) ? 1 : 0,
 			'advertise_cyberpunks_shop_marketing_gtm_status'                => !empty($this->request->post['advertise_cyberpunks_shop_marketing_gtm_status']) ? 1 : 0,
@@ -387,6 +455,10 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 			'advertise_cyberpunks_shop_marketing_gtm_event_view_item'       => !empty($this->request->post['advertise_cyberpunks_shop_marketing_gtm_event_view_item']) ? 1 : 0,
 			'advertise_cyberpunks_shop_marketing_gtm_event_add_to_cart'     => !empty($this->request->post['advertise_cyberpunks_shop_marketing_gtm_event_add_to_cart']) ? 1 : 0,
 			'advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout'  => !empty($this->request->post['advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout']) ? 1 : 0,
+			'advertise_cyberpunks_shop_marketing_meta_capi_status'          => !empty($this->request->post['advertise_cyberpunks_shop_marketing_meta_capi_status']) ? 1 : 0,
+			'advertise_cyberpunks_shop_marketing_meta_pixel_id'             => isset($this->request->post['advertise_cyberpunks_shop_marketing_meta_pixel_id']) ? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_meta_pixel_id']) : '',
+			'advertise_cyberpunks_shop_marketing_meta_access_token'         => $posted_token,
+			'advertise_cyberpunks_shop_marketing_meta_test_event_code'      => isset($this->request->post['advertise_cyberpunks_shop_marketing_meta_test_event_code']) ? trim((string)$this->request->post['advertise_cyberpunks_shop_marketing_meta_test_event_code']) : '',
 			'advertise_cyberpunks_shop_marketing_consent_status'            => !empty($this->request->post['advertise_cyberpunks_shop_marketing_consent_status']) ? 1 : 0,
 			'advertise_cyberpunks_shop_marketing_consent_message'           => $this->normalizeLocalizedText(isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_message']) ? $this->request->post['advertise_cyberpunks_shop_marketing_consent_message'] : array()),
 			'advertise_cyberpunks_shop_marketing_consent_privacy_label'    => $this->normalizeLocalizedText(isset($this->request->post['advertise_cyberpunks_shop_marketing_consent_privacy_label']) ? $this->request->post['advertise_cyberpunks_shop_marketing_consent_privacy_label'] : array()),

@@ -21,6 +21,7 @@
 
 	cfg.expiryDays = cfg.expiryDays > 0 ? cfg.expiryDays : 30;
 	cfg.storageKey = cfg.storageKey || '';
+	cfg.cookieName = cfg.cookieName || 'cyberpunks_ad_storage';
 
 	var MS = 86400000;
 	var buttonSelector = '[' + BUTTON_DATA_ATTR + ']';
@@ -39,6 +40,17 @@
 			functionality_storage: v,
 			personalization_storage: v
 		};
+	}
+
+	/** Mirror choice to a first-party cookie so server-side Meta CAPI can gate on ad_storage. */
+	function syncConsentCookie(choice) {
+		if (!cfg.cookieName) return;
+		try {
+			var maxAge = cfg.expiryDays * 86400;
+			var secure = (w.location && w.location.protocol === 'https:') ? '; Secure' : '';
+			document.cookie = cfg.cookieName + '=' + encodeURIComponent(choice)
+				+ '; Path=/; Max-Age=' + maxAge + '; SameSite=Lax' + secure;
+		} catch (err) { /* ignore */ }
 	}
 
 	function readStoredChoice() {
@@ -73,6 +85,7 @@
 
 	function persistChoice(choice) {
 		w.__cyberpunksConsentChoice = choice;
+		syncConsentCookie(choice);
 		if (!cfg.storageKey) return;
 
 		try {
@@ -106,6 +119,7 @@
 	var stored = readChoice();
 	if (stored) {
 		consentUpdate(stored === CHOICE_GRANTED);
+		syncConsentCookie(stored);
 		w.__cyberpunksConsentReplayed = true;
 	}
 
@@ -115,7 +129,10 @@
 
 		var choice = readChoice();
 		if (choice) {
-			if (!w.__cyberpunksConsentReplayed) consentUpdate(choice === CHOICE_GRANTED);
+			if (!w.__cyberpunksConsentReplayed) {
+				consentUpdate(choice === CHOICE_GRANTED);
+				syncConsentCookie(choice);
+			}
 			banner.hidden = true;
 			return;
 		}

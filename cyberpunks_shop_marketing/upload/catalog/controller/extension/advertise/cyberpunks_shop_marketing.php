@@ -22,6 +22,9 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 			$this->registry->set('cyberpunks_marketing_purchase_ecommerce', $ecommerce);
 		}
 
+		// Meta CAPI Purchase (#22): shared event_id = transaction_id; gated on ad_storage cookie.
+		$this->model_extension_advertise_cyberpunks_shop_marketing->sendMetaPurchaseCapi($order_id, $ecommerce);
+
 		$snapshot = $this->model_extension_advertise_cyberpunks_shop_marketing->buildMatomoEcommerceSnapshot($order_id);
 
 		if ($snapshot) {
@@ -48,7 +51,8 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		$this->registry->set('cyberpunks_marketing_purchase_ecommerce', null);
 
 		if (is_array($ecommerce) && !empty($ecommerce['items'])) {
-			$blocks[] = $this->model_extension_advertise_cyberpunks_shop_marketing->renderDataLayerScript('purchase', $ecommerce);
+			$event_id = isset($ecommerce['transaction_id']) ? (string)$ecommerce['transaction_id'] : '';
+			$blocks[] = $this->model_extension_advertise_cyberpunks_shop_marketing->renderDataLayerScript('purchase', $ecommerce, $event_id);
 		}
 
 		$snapshot = $this->registry->get('cyberpunks_marketing_matomo_snapshot');

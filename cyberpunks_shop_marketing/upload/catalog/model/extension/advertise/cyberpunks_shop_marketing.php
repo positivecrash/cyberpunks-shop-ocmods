@@ -2,8 +2,10 @@
 class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 	private const CONSENT_CONFIG_ELEMENT_ID = 'cyberpunks-consent-config';
 	private const CONSENT_STORAGE_KEY = 'cyberpunks_google_consent';
+	private const CONSENT_COOKIE_NAME = 'cyberpunks_ad_storage';
 	private const CONSENT_DEFAULT_EXPIRY_DAYS = 30;
 	private const CONSENT_WAIT_FOR_UPDATE_MS = 500;
+	private const META_GRAPH_VERSION = 'v21.0';
 
 	public function isEnabled() {
 		return (bool)$this->config->get('advertise_cyberpunks_shop_marketing_status');
@@ -19,6 +21,24 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 
 	public function isPurchaseEnabled() {
 		return $this->isGtmEnabled() && (bool)$this->config->get('advertise_cyberpunks_shop_marketing_gtm_event_purchase');
+	}
+
+	public function isMetaCapiEnabled() {
+		if (!$this->isEnabled()) {
+			return false;
+		}
+
+		$status = $this->config->get('advertise_cyberpunks_shop_marketing_meta_capi_status');
+
+		if ($status === null || $status === '') {
+			$status = 1;
+		}
+
+		if (!(bool)$status) {
+			return false;
+		}
+
+		return $this->getMetaPixelId() !== '' && $this->getMetaAccessToken() !== '';
 	}
 
 	public function isViewItemEnabled() {
@@ -72,9 +92,38 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 	private function getConsentConfig() {
 		return array(
 			'storageKey' => self::CONSENT_STORAGE_KEY,
+			'cookieName' => self::CONSENT_COOKIE_NAME,
 			'expiryDays' => $this->getConsentExpiryDays(),
 			'waitForUpdate' => self::CONSENT_WAIT_FOR_UPDATE_MS,
 		);
+	}
+
+	public function getMetaPixelId() {
+		return trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_meta_pixel_id'));
+	}
+
+	public function getMetaAccessToken() {
+		return trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_meta_access_token'));
+	}
+
+	public function getMetaTestEventCode() {
+		return trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_meta_test_event_code'));
+	}
+
+	/**
+	 * Server-side ad_storage gate: cookie mirrored from the consent banner.
+	 * If the consent banner is disabled, CAPI is allowed (same as ungated Meta tags).
+	 */
+	public function hasAdStorageConsent() {
+		if (!$this->isConsentEnabled()) {
+			return true;
+		}
+
+		$cookie = isset($this->request->cookie[self::CONSENT_COOKIE_NAME])
+			? strtolower(trim((string)$this->request->cookie[self::CONSENT_COOKIE_NAME]))
+			: '';
+
+		return $cookie === 'granted';
 	}
 
 	private function loadCatalogJavascript($filename) {
@@ -228,7 +277,8 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 
 	/**
 	 * Resolve consent text for the current storefront language.
-	 * Supports legacy plain string and language_id => text map. No hardcoded defaults.
+	 * Supports legacy plain string and language_id => text map.
+	 * If the current language has no text, fall back to the store default language, then any filled language.
 	 */
 	private function resolveLocalizedText($value) {
 		if ($value === null) {
@@ -246,14 +296,82 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		}
 
 		if (is_array($value)) {
-			if ($language_id > 0 && isset($value[$language_id])) {
-				return trim((string)$value[$language_id]);
+			if ($language_id > 0 && !empty($value[$language_id])) {
+				$text = trim((string)$value[$language_id]);
+
+				if ($text !== '') {
+					return $text;
+				}
+			}
+
+			$default_language_id = $this->getStoreDefaultLanguageId();
+
+			if ($default_language_id > 0 && !empty($value[$default_language_id])) {
+				$text = trim((string)$value[$default_language_id]);
+
+				if ($text !== '') {
+					return $text;
+				}
+			}
+
+			ksort($value, SORT_NUMERIC);
+
+			foreach ($value as $text) {
+				$text = trim((string)$text);
+
+				if ($text !== '') {
+					return $text;
+				}
 			}
 
 			return '';
 		}
 
 		return trim((string)$value);
+	}
+
+	/**
+	 * Storefront default language_id from settings (not the visitor's selected language).
+	 */
+	private function getStoreDefaultLanguageId() {
+		static $cached = null;
+
+		if ($cached !== null) {
+			return $cached;
+		}
+
+		$cached = 0;
+		$code = '';
+
+		try {
+			$query = $this->db->query("SELECT `value` FROM `" . DB_PREFIX . "setting` WHERE `code` = 'config' AND `key` = 'config_language' AND `store_id` = '" . (int)$this->config->get('config_store_id') . "' LIMIT 1");
+
+			if ($query->num_rows) {
+				$code = trim((string)$query->row['value']);
+			}
+
+			if ($code === '') {
+				$query = $this->db->query("SELECT `value` FROM `" . DB_PREFIX . "setting` WHERE `code` = 'config' AND `key` = 'config_language' AND `store_id` = '0' LIMIT 1");
+
+				if ($query->num_rows) {
+					$code = trim((string)$query->row['value']);
+				}
+			}
+
+			if ($code !== '') {
+				$lang = $this->db->query("SELECT language_id FROM `" . DB_PREFIX . "language` WHERE `code` = '" . $this->db->escape($code) . "' AND `status` = '1' LIMIT 1");
+
+				if ($lang->num_rows) {
+					$cached = (int)$lang->row['language_id'];
+				}
+			}
+		} catch (Exception $e) {
+			$cached = 0;
+		} catch (Throwable $e) {
+			$cached = 0;
+		}
+
+		return $cached;
 	}
 
 	public function renderGtmHeadSnippet() {
@@ -385,6 +503,255 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 			'currency'       => isset($order['currency_code']) ? (string)$order['currency_code'] : '',
 			'items'          => $items,
 		);
+	}
+
+	/**
+	 * Meta Conversions API Purchase (issue #22).
+	 * event_id must match browser Meta Pixel eventID (= ecommerce.transaction_id in GTM).
+	 */
+	public function sendMetaPurchaseCapi($order_id, $ecommerce = null) {
+		if (!$this->isMetaCapiEnabled()) {
+			return false;
+		}
+
+		if (!$this->hasAdStorageConsent()) {
+			return false;
+		}
+
+		$order_id = (int)$order_id;
+
+		if ($order_id <= 0) {
+			return false;
+		}
+
+		if (!is_array($ecommerce) || empty($ecommerce['transaction_id'])) {
+			$ecommerce = $this->buildPurchaseEcommerce($order_id);
+
+			if (!$ecommerce) {
+				// CAPI can still fire without GTM purchase toggle if we have order totals.
+				$this->load->model('checkout/order');
+				$order = $this->model_checkout_order->getOrder($order_id);
+
+				if (!$order) {
+					return false;
+				}
+
+				$currency_value = isset($order['currency_value']) ? (float)$order['currency_value'] : 1.0;
+				$ecommerce = array(
+					'transaction_id' => (string)$order_id,
+					'value'          => $this->roundMoney((float)$order['total'] * $currency_value),
+					'currency'       => isset($order['currency_code']) ? (string)$order['currency_code'] : '',
+					'items'          => array(),
+				);
+			}
+		}
+
+		$this->load->model('checkout/order');
+		$order = $this->model_checkout_order->getOrder($order_id);
+
+		if (!$order) {
+			return false;
+		}
+
+		$event_id = isset($ecommerce['transaction_id']) ? (string)$ecommerce['transaction_id'] : (string)$order_id;
+		$event_time = !empty($order['date_added']) ? (int)strtotime($order['date_added']) : time();
+
+		if ($event_time <= 0) {
+			$event_time = time();
+		}
+
+		$user_data = array(
+			'client_ip_address' => $this->getClientIpAddress(),
+			'client_user_agent' => isset($this->request->server['HTTP_USER_AGENT'])
+				? (string)$this->request->server['HTTP_USER_AGENT']
+				: '',
+		);
+
+		$email_hash = $this->hashSha256Normalized(isset($order['email']) ? $order['email'] : '');
+		if ($email_hash !== '') {
+			$user_data['em'] = array($email_hash);
+		}
+
+		$phone_hash = $this->hashSha256Phone(isset($order['telephone']) ? $order['telephone'] : '');
+		if ($phone_hash !== '') {
+			$user_data['ph'] = array($phone_hash);
+		}
+
+		$fbp = $this->readCookieValue('_fbp');
+		if ($fbp !== '') {
+			$user_data['fbp'] = $fbp;
+		}
+
+		$fbc = $this->readCookieValue('_fbc');
+		if ($fbc !== '') {
+			$user_data['fbc'] = $fbc;
+		}
+
+		$custom_data = array(
+			'value'    => isset($ecommerce['value']) ? (float)$ecommerce['value'] : 0.0,
+			'currency' => isset($ecommerce['currency']) ? (string)$ecommerce['currency'] : '',
+		);
+
+		$content_ids = array();
+		$contents = array();
+		$num_items = 0;
+
+		if (!empty($ecommerce['items']) && is_array($ecommerce['items'])) {
+			foreach ($ecommerce['items'] as $item) {
+				$id = isset($item['item_id']) ? (string)$item['item_id'] : '';
+				$qty = isset($item['quantity']) ? (int)$item['quantity'] : 1;
+				$price = isset($item['price']) ? (float)$item['price'] : 0.0;
+
+				if ($qty < 1) {
+					$qty = 1;
+				}
+
+				if ($id !== '') {
+					$content_ids[] = $id;
+					$contents[] = array(
+						'id'         => $id,
+						'quantity'   => $qty,
+						'item_price' => $price,
+					);
+				}
+
+				$num_items += $qty;
+			}
+		}
+
+		if ($content_ids) {
+			$custom_data['content_ids'] = $content_ids;
+			$custom_data['contents'] = $contents;
+			$custom_data['content_type'] = 'product';
+			$custom_data['num_items'] = $num_items;
+		}
+
+		$payload = array(
+			'data' => array(
+				array(
+					'event_name'       => 'Purchase',
+					'event_time'       => $event_time,
+					'event_id'         => $event_id,
+					'event_source_url' => $this->getEventSourceUrl(),
+					'action_source'    => 'website',
+					'user_data'        => $user_data,
+					'custom_data'      => $custom_data,
+				),
+			),
+		);
+
+		$test_code = $this->getMetaTestEventCode();
+		if ($test_code !== '') {
+			$payload['test_event_code'] = $test_code;
+		}
+
+		return $this->postMetaCapiEvents($payload);
+	}
+
+	private function postMetaCapiEvents(array $payload) {
+		$pixel_id = rawurlencode($this->getMetaPixelId());
+		$token = $this->getMetaAccessToken();
+		$url = 'https://graph.facebook.com/' . self::META_GRAPH_VERSION . '/' . $pixel_id . '/events?access_token=' . rawurlencode($token);
+
+		$body = json_encode($payload);
+
+		if ($body === false) {
+			return false;
+		}
+
+		$response = false;
+
+		if (function_exists('curl_init')) {
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
+			$response = curl_exec($ch);
+			$errno = curl_errno($ch);
+			curl_close($ch);
+
+			if ($errno) {
+				$this->log->write('cyberpunks_shop_marketing Meta CAPI curl error #' . $errno);
+				return false;
+			}
+		} else {
+			$context = stream_context_create(array(
+				'http' => array(
+					'method'  => 'POST',
+					'header'  => "Content-Type: application/json\r\n",
+					'content' => $body,
+					'timeout' => 8,
+				),
+			));
+			$response = @file_get_contents($url, false, $context);
+		}
+
+		if ($response === false || $response === '') {
+			$this->log->write('cyberpunks_shop_marketing Meta CAPI empty response');
+			return false;
+		}
+
+		$decoded = json_decode($response, true);
+
+		if (!is_array($decoded) || empty($decoded['events_received'])) {
+			$this->log->write('cyberpunks_shop_marketing Meta CAPI unexpected response');
+			return false;
+		}
+
+		return true;
+	}
+
+	private function getEventSourceUrl() {
+		if (isset($this->request->server['HTTP_HOST'])) {
+			$https = !empty($this->request->server['HTTPS']) && $this->request->server['HTTPS'] !== 'off';
+			$scheme = $https ? 'https://' : 'http://';
+			$uri = isset($this->request->server['REQUEST_URI']) ? (string)$this->request->server['REQUEST_URI'] : '/';
+
+			return $scheme . $this->request->server['HTTP_HOST'] . $uri;
+		}
+
+		return $this->url->link('checkout/success', '', true);
+	}
+
+	private function getClientIpAddress() {
+		if (!empty($this->request->server['HTTP_X_FORWARDED_FOR'])) {
+			$parts = explode(',', (string)$this->request->server['HTTP_X_FORWARDED_FOR']);
+
+			return trim($parts[0]);
+		}
+
+		if (!empty($this->request->server['REMOTE_ADDR'])) {
+			return (string)$this->request->server['REMOTE_ADDR'];
+		}
+
+		return '';
+	}
+
+	private function readCookieValue($name) {
+		return isset($this->request->cookie[$name]) ? trim((string)$this->request->cookie[$name]) : '';
+	}
+
+	private function hashSha256Normalized($value) {
+		$value = strtolower(trim((string)$value));
+
+		if ($value === '') {
+			return '';
+		}
+
+		return hash('sha256', $value);
+	}
+
+	private function hashSha256Phone($value) {
+		$digits = preg_replace('/\D+/', '', (string)$value);
+
+		if ($digits === null || $digits === '') {
+			return '';
+		}
+
+		return hash('sha256', $digits);
 	}
 
 	public function buildMatomoEcommerceSnapshot($order_id) {
@@ -581,7 +948,7 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		);
 	}
 
-	public function renderDataLayerScript($event, array $ecommerce) {
+	public function renderDataLayerScript($event, array $ecommerce, $event_id = '') {
 		$payload = json_encode($ecommerce, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 		if ($payload === false) {
@@ -589,12 +956,19 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 		}
 
 		$event_name = json_encode((string)$event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		$push = '{ event: ' . $event_name . ', ecommerce: ' . $payload;
+
+		if ($event_id !== '') {
+			$push .= ', eventID: ' . json_encode((string)$event_id, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		}
+
+		$push .= ' }';
 
 		return "<!-- cyberpunks-marketing: " . htmlspecialchars((string)$event, ENT_QUOTES, 'UTF-8') . " -->\n"
 			. "<script>\n"
 			. "window.dataLayer = window.dataLayer || [];\n"
 			. "dataLayer.push({ ecommerce: null });\n"
-			. "dataLayer.push({ event: " . $event_name . ", ecommerce: " . $payload . " });\n"
+			. "dataLayer.push(" . $push . ");\n"
 			. "</script>";
 	}
 
