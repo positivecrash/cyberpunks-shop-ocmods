@@ -1,0 +1,169 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <a href="{{ tickets }}" data-toggle="tooltip" title="{{ button_tickets }}" class="btn btn-info"><i class="fa fa-life-ring"></i></a>
+        <a href="{{ fetch }}" data-toggle="tooltip" title="{{ button_imap_fetch }}" class="btn btn-warning"><i class="fa fa-download"></i></a>
+        <button type="submit" form="form-cyberpunks-shop-support" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+        <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+    <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> {{ success }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    {% if not imap_extension_ok %}
+    <div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> {{ text_imap_extension_missing }}</div>
+    {% endif %}
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3></div>
+      <div class="panel-body">
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-cyberpunks-shop-support" class="form-horizontal">
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-status">{{ entry_status }}</label>
+            <div class="col-sm-10">
+              <select name="module_cyberpunks_shop_support_status" id="input-status" class="form-control">
+                {% if module_cyberpunks_shop_support_status %}
+                <option value="1" selected="selected">{{ text_enabled }}</option>
+                <option value="0">{{ text_disabled }}</option>
+                {% else %}
+                <option value="1">{{ text_enabled }}</option>
+                <option value="0" selected="selected">{{ text_disabled }}</option>
+                {% endif %}
+              </select>
+              <p class="help-block">{{ help_status }}</p>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-email-signature">{{ entry_email_signature }}</label>
+            <div class="col-sm-10">
+              <textarea name="module_cyberpunks_shop_support_email_signature" rows="10" id="input-email-signature" class="form-control">{{ module_cyberpunks_shop_support_email_signature }}</textarea>
+              <p class="help-block">{{ help_email_signature }}</p>
+            </div>
+          </div>
+
+          <fieldset>
+            <legend>{{ text_imap_heading }}</legend>
+            <p class="help-block" style="margin-top:0;">{{ help_imap }}</p>
+
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-status">{{ entry_imap_status }}</label>
+              <div class="col-sm-10">
+                <select name="module_cyberpunks_shop_support_imap_status" id="input-imap-status" class="form-control">
+                  {% if module_cyberpunks_shop_support_imap_status %}
+                  <option value="1" selected="selected">{{ text_enabled }}</option>
+                  <option value="0">{{ text_disabled }}</option>
+                  {% else %}
+                  <option value="1">{{ text_enabled }}</option>
+                  <option value="0" selected="selected">{{ text_disabled }}</option>
+                  {% endif %}
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-host">{{ entry_imap_host }}</label>
+              <div class="col-sm-10">
+                <input type="text" name="module_cyberpunks_shop_support_imap_host" value="{{ module_cyberpunks_shop_support_imap_host }}" id="input-imap-host" class="form-control" placeholder="mail.example.com" autocomplete="off" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-port">{{ entry_imap_port }}</label>
+              <div class="col-sm-10">
+                <input type="number" name="module_cyberpunks_shop_support_imap_port" value="{{ module_cyberpunks_shop_support_imap_port }}" id="input-imap-port" class="form-control" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-encryption">{{ entry_imap_encryption }}</label>
+              <div class="col-sm-10">
+                <select name="module_cyberpunks_shop_support_imap_encryption" id="input-imap-encryption" class="form-control">
+                  <option value="ssl"{% if module_cyberpunks_shop_support_imap_encryption == 'ssl' %} selected="selected"{% endif %}>SSL</option>
+                  <option value="tls"{% if module_cyberpunks_shop_support_imap_encryption == 'tls' %} selected="selected"{% endif %}>TLS</option>
+                  <option value="none"{% if module_cyberpunks_shop_support_imap_encryption == 'none' %} selected="selected"{% endif %}>None</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-user">{{ entry_imap_user }}</label>
+              <div class="col-sm-10">
+                <input type="text" name="module_cyberpunks_shop_support_imap_user" value="{{ module_cyberpunks_shop_support_imap_user }}" id="input-imap-user" class="form-control" autocomplete="off" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-password">{{ entry_imap_password }}</label>
+              <div class="col-sm-10">
+                <input type="password" name="module_cyberpunks_shop_support_imap_password" value="" id="input-imap-password" class="form-control" autocomplete="new-password" />
+                <p class="help-block">{{ help_imap_password }}</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-folder">{{ entry_imap_folder }}</label>
+              <div class="col-sm-10">
+                <input type="text" name="module_cyberpunks_shop_support_imap_folder" value="{{ module_cyberpunks_shop_support_imap_folder }}" id="input-imap-folder" class="form-control" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-subject">{{ entry_imap_subject }}</label>
+              <div class="col-sm-10">
+                <input type="text" name="module_cyberpunks_shop_support_imap_subject" value="{{ module_cyberpunks_shop_support_imap_subject }}" id="input-imap-subject" class="form-control" />
+                <p class="help-block">{{ help_imap_subject }}</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label">{{ entry_imap_require_from_match }}</label>
+              <div class="col-sm-10">
+                <label class="radio-inline">
+                  <input type="radio" name="module_cyberpunks_shop_support_imap_require_from_match" value="1"{% if module_cyberpunks_shop_support_imap_require_from_match %} checked="checked"{% endif %} /> {{ text_yes }}
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="module_cyberpunks_shop_support_imap_require_from_match" value="0"{% if not module_cyberpunks_shop_support_imap_require_from_match %} checked="checked"{% endif %} /> {{ text_no }}
+                </label>
+                <p class="help-block">{{ help_imap_from }}</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label">{{ entry_imap_mark_seen }}</label>
+              <div class="col-sm-10">
+                <label class="radio-inline">
+                  <input type="radio" name="module_cyberpunks_shop_support_imap_mark_seen" value="1"{% if module_cyberpunks_shop_support_imap_mark_seen %} checked="checked"{% endif %} /> {{ text_yes }}
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="module_cyberpunks_shop_support_imap_mark_seen" value="0"{% if not module_cyberpunks_shop_support_imap_mark_seen %} checked="checked"{% endif %} /> {{ text_no }}
+                </label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-max">{{ entry_imap_max }}</label>
+              <div class="col-sm-10">
+                <input type="number" name="module_cyberpunks_shop_support_imap_max" value="{{ module_cyberpunks_shop_support_imap_max }}" id="input-imap-max" class="form-control" min="1" max="100" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-imap-cron-key">{{ entry_imap_cron_key }}</label>
+              <div class="col-sm-10">
+                <input type="text" name="module_cyberpunks_shop_support_imap_cron_key" value="{{ module_cyberpunks_shop_support_imap_cron_key }}" id="input-imap-cron-key" class="form-control" />
+                <p class="help-block">{{ help_imap_cron }}</p>
+                <p><code>{{ cron_url }}</code></p>
+              </div>
+            </div>
+          </fieldset>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{{ footer }}

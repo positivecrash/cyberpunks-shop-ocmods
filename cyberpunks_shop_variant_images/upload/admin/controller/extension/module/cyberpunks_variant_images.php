@@ -64,7 +64,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				}
 			}
 
-			$this->saveMappingsToSettings($merged_mappings, isset($this->request->post['module_cyberpunks_variant_images_status']) ? (int)$this->request->post['module_cyberpunks_variant_images_status'] : null);
+			$this->saveMappingsToSettings($merged_mappings, isset($this->request->post['module_cyberpunks_variant_images_status']) ? (int)$this->request->post['module_cyberpunks_variant_images_status'] : null, $active_product_id > 0 ? array($active_product_id) : array());
 
 			$this->session->data['success'] = $this->language->get('text_success');
 			$this->response->redirect($this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true));
@@ -292,7 +292,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		$has_shards = false;
 
 		foreach ($settings as $key => $value) {
-			if (preg_match('/^' . preg_quote(CyberpunksShopVariantImagesStorage::LEGACY_MAPPINGS_KEY, '/') . '_\d+$/', (string)$key)) {
+			if (CyberpunksShopVariantImagesStorage::productIdFromMappingsKey($key) > 0) {
 				$has_shards = true;
 				break;
 			}
@@ -312,7 +312,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 		}
 	}
 
-	private function saveMappingsToSettings($mappings, $status = null) {
+	private function saveMappingsToSettings($mappings, $status = null, $ensure_product_ids = array()) {
 		if (!class_exists('CyberpunksShopVariantImagesStorage')) {
 			require_once(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php');
 		}
@@ -327,6 +327,13 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 				$grouped[$product_id] = array();
 			}
 			$grouped[$product_id][] = $row;
+		}
+
+		foreach ((array)$ensure_product_ids as $product_id) {
+			$product_id = (int)$product_id;
+			if ($product_id > 0 && !isset($grouped[$product_id])) {
+				$grouped[$product_id] = array();
+			}
 		}
 
 		CyberpunksShopVariantImagesStorage::saveGrouped($this->registry, $grouped, $status);
@@ -484,7 +491,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			$merged_mappings[] = $mapping;
 		}
 
-		$this->saveMappingsToSettings($merged_mappings);
+		$this->saveMappingsToSettings($merged_mappings, null, array($product_id));
 	}
 
 	private function handleImportRequest() {
@@ -529,7 +536,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			$merged_mappings[] = $mapping;
 		}
 
-		$this->saveMappingsToSettings($merged_mappings);
+		$this->saveMappingsToSettings($merged_mappings, null, array_values($import_product_ids));
 		$this->session->data['success'] = sprintf($this->language->get('text_import_success_count'), count($import_mappings));
 	}
 
@@ -548,7 +555,7 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			}
 		}
 
-		$this->saveMappingsToSettings($filtered);
+		$this->saveMappingsToSettings($filtered, null, array($product_id));
 		$this->session->data['success'] = sprintf($this->language->get('text_delete_tab_success'), $product_id);
 	}
 
@@ -857,41 +864,43 @@ class ControllerExtensionModuleCyberpunksVariantImages extends Controller {
 			}
 
 			$index = $this->getCachedProductOptionIndex($product_id);
-			$pairs = array();
-			$signature_ids = array();
+			$named_parts = array();
+			$resolved_count = 0;
+			$declared_count = 0;
 
 			foreach ($options as $raw_option_name => $raw_value_name) {
+				$declared_count++;
 				$option_key = $this->canonicalNamedOptionKey($this->normalizeSlug($raw_option_name));
 				$value_key = $this->normalizeSlug($raw_value_name);
+				$value_slug = '';
 
-				if (!isset($index[$option_key]) || !isset($index[$option_key]['values'][$value_key])) {
-					$value_compact = str_replace('-', '', $value_key);
-					if (!isset($index[$option_key]) || !isset($index[$option_key]['values'][$value_compact])) {
-						continue;
-					}
-					$value_item = $index[$option_key]['values'][$value_compact];
+				if (isset($index[$option_key]['values'][$value_key])) {
+					$value_slug = $value_key;
 				} else {
-					$value_item = $index[$option_key]['values'][$value_key];
+					$value_compact = str_replace('-', '', $value_key);
+					if (isset($index[$option_key]['values'][$value_compact])) {
+						$value_slug = $value_compact;
+					}
 				}
 
-				$pairs[] = array(
-					'product_option_id' => (int)$index[$option_key]['product_option_id'],
-					'product_option_value_id' => (int)$value_item['product_option_value_id'],
-					'option_value_id' => (int)$value_item['option_value_id']
-				);
-				$signature_ids[] = (int)$value_item['product_option_value_id'];
+				// Skip the whole row if any YAML option fails — otherwise a Hood-* image can
+				// be stored under a shorter signature and win for "no hood" carts.
+				if ($option_key === '' || $value_slug === '') {
+					$named_parts = array();
+					break;
+				}
+
+				$named_parts[] = $option_key . '=' . $value_slug;
+				$resolved_count++;
 			}
 
-			if (!$signature_ids) {
+			if (!$named_parts || $resolved_count !== $declared_count) {
 				continue;
 			}
 
-			$signature_ids = array_values(array_unique($signature_ids));
-			sort($signature_ids, SORT_NUMERIC);
-
 			$result[] = array(
 				'product_id' => $product_id,
-				'option_value_signature' => implode('-', $signature_ids),
+				'option_value_signature' => 'n:' . implode('|', $named_parts),
 				'image' => $image,
 				'status' => 1
 			);

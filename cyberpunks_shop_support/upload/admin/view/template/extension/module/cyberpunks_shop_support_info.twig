@@ -1,0 +1,112 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        <button type="submit" form="form-support-info" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
+      </div>
+      <h1>{{ text_ticket }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+        <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+    <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> {{ success }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+
+    <div class="row">
+      <div class="col-md-4">
+        <div class="panel panel-default">
+          <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-info-circle"></i> {{ heading_title }}</h3></div>
+          <div class="panel-body">
+            <p><strong>{{ entry_request_code }}:</strong> {{ ticket.request_code }}</p>
+            <p><strong>{{ entry_status }}:</strong> {{ status_labels[ticket.status] is defined ? status_labels[ticket.status] : ticket.status }}</p>
+            <p><strong>{{ entry_email }}:</strong> <a href="mailto:{{ ticket.email }}">{{ ticket.email }}</a></p>
+            <p><strong>{{ column_reason }}:</strong> {{ ticket.reason ? ticket.reason : '—' }}</p>
+            <p><strong>{{ entry_language }}:</strong> {{ ticket.customer_language ? ticket.customer_language : '—' }}</p>
+            <p><strong>{{ entry_currency }}:</strong> {{ ticket.customer_currency ? ticket.customer_currency : '—' }}</p>
+            <p><strong>{{ entry_country }}:</strong> {{ ticket.customer_country ? ticket.customer_country : '—' }}</p>
+            <p><strong>{{ column_date_added }}:</strong> {{ ticket.date_added }}</p>
+            <p><strong>{{ column_date_modified }}:</strong> {{ ticket.date_modified }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-8">
+        <div class="panel panel-default">
+          <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-comments"></i> {{ text_thread }}</h3></div>
+          <div class="panel-body" style="max-height: 420px; overflow-y: auto;">
+            {% for message in messages %}
+            <div class="well well-sm" style="background: {% if message.author == 'admin' %}#eef7ff{% elseif message.author == 'internal' %}#fff8e6{% else %}#f7f7f7{% endif %};{% if message.author == 'internal' %} border-left: 3px solid #f0ad4e;{% endif %}">
+              <div style="margin-bottom: 6px;">
+                <strong>{{ message.author_label }}</strong>
+                <span class="text-muted pull-right">{{ message.date_added }}</span>
+              </div>
+              <div>{{ message.message|raw }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-reply"></i> {{ text_reply }}</h3></div>
+          <div class="panel-body">
+            <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-support-info" class="form-horizontal">
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-status">{{ entry_status }}</label>
+                <div class="col-sm-10">
+                  <select name="status" id="input-status" class="form-control">
+                    {% for status in statuses %}
+                    <option value="{{ status }}"{% if ticket.status == status %} selected="selected"{% endif %}>{{ status_labels[status] }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-reply">{{ entry_reply }}</label>
+                <div class="col-sm-10">
+                  <textarea name="reply" rows="8" id="input-reply" class="form-control" placeholder="{{ text_reply }}"></textarea>
+                  <div class="checkbox">
+                    <label><input type="checkbox" name="status_after_reply" value="waiting" checked="checked" id="input-status-after-reply" /> {{ text_set_waiting }}</label>
+                  </div>
+                  <div class="checkbox">
+                    <label><input type="checkbox" name="log_customer_reply" value="1" id="input-log-customer" /> {{ text_log_customer }}</label>
+                  </div>
+                  <div class="checkbox">
+                    <label><input type="checkbox" name="log_internal_note" value="1" id="input-log-internal" /> {{ text_log_internal }}</label>
+                  </div>
+                  <button type="submit" class="btn btn-primary" style="margin-top: 12px;"><i class="fa fa-save"></i> {{ button_save }}</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript"><!--
+(function () {
+  var customer = document.getElementById('input-log-customer');
+  var internal = document.getElementById('input-log-internal');
+  if (!customer || !internal) return;
+  customer.addEventListener('change', function () {
+    if (customer.checked) internal.checked = false;
+  });
+  internal.addEventListener('change', function () {
+    if (internal.checked) customer.checked = false;
+  });
+})();
+//--></script>
+{{ footer }}

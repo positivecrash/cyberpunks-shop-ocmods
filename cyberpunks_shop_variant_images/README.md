@@ -11,10 +11,11 @@ Resolve cart item variant image by selected option combination.
   `variant_image` → `fields.category_image` → `thumb`
 - Supports **named** signatures (`n:urban-color=green|…`) and legacy numeric id signatures.
 - Admin rows stay compact; Edit options expands the builder on demand.
+- Large catalogs (e.g. Dual ~1.4k rows) are stored as size-safe setting chunks (`mappings_{id}`, `mappings_{id}_c1`, …) so MySQL `TEXT` does not truncate them.
 
 ## Install
 
-1. Upload `cyberpunks_shop_variant_images_1_4_0.ocmod.zip` in Extensions → Installer.
+1. Upload `cyberpunks_shop_variant_images_1_4_2.ocmod.zip` in Extensions → Installer.
 2. Modifications → Refresh.
 3. Extensions → Modules → install/enable **Cyberpunks Variant Images**.
 
@@ -36,3 +37,12 @@ items:
 ```
 
 Options are matched by **name**, not option value IDs.
+
+## Changelog
+
+### 1.4.2
+- Fix: YAML import now stores named signatures (`n:opt=val|…`) and skips rows if any option fails to resolve — prevents Hood-* images matching “no hood” carts.
+- Fix: equal-specificity cart matches prefer the later mapping (no-hood rows after Hood-* in Dual YAML).
+
+### 1.4.1
+- Fix: Dual-sized mapping sets exceeded `oc_setting.value` TEXT (65KB) and were truncated/lost on save; now chunked and other products are preserved when one product is saved.

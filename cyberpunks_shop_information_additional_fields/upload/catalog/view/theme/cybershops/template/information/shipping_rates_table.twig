@@ -14,10 +14,13 @@
 			</thead>
 			<tbody>
 				{% for zone in shipping_rates %}
+					{% set method_count = zone.methods|length %}
 					{% for method in zone.methods %}
-					<tr>
-						<td data-label="{{ column_zone }}">{{ zone.name }}</td>
-						<td data-label="{{ column_countries }}">{{ zone.countries_text }}</td>
+					<tr{% if not loop.first %} class="information-shipping-rates__method-row"{% endif %}>
+						{% if loop.first %}
+						<td data-label="{{ column_zone }}" rowspan="{{ method_count }}">{{ zone.name }}</td>
+						<td data-label="{{ column_countries }}" rowspan="{{ method_count }}">{{ zone.countries_text }}</td>
+						{% endif %}
 						<td data-label="{{ column_service }}">{{ method.name }}</td>
 						<td data-label="{{ column_delivery }}">{% if method.delivery_days %}{{ method.delivery_days }}{% else %}&mdash;{% endif %}</td>
 						<td class="nowrap" data-label="{{ column_price }}">{{ method.price }}</td>

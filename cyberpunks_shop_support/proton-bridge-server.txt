@@ -1,0 +1,136 @@
+Proton Mail Bridge на сервере (для IMAP модуля Cyberpunks Shop Support)
+=======================================================================
+
+Зачем
+-----
+У Proton нет публичного IMAP в облаке. Bridge ставится на тот же сервер
+(или рядом), слушает localhost и даёт обычный IMAP/SMTP. Это не другой
+почтовый провайдер — клиент самого Proton.
+
+Требования
+----------
+- Платный план Proton (Mail Plus / Unlimited / Business / Family с Mail).
+  На бесплатном аккаунте Bridge не работает.
+- VPS / свой сервер с root и systemd (Debian/Ubuntu удобнее всего).
+  На shared hosting обычно нельзя.
+
+Важно: Bridge должен работать постоянно. Без него IMAP мёртв.
+Порты наружу не открывать — только 127.0.0.1.
+
+
+1. Установка (Debian/Ubuntu)
+----------------------------
+
+Актуальный .deb бери с https://proton.me/mail/bridge
+или по инструкции:
+https://proton.me/support/installing-bridge-linux-deb-file
+
+Версия в URL меняется — подставь актуальную с сайта.
+
+  sudo apt update
+  sudo apt install -y pass gnupg
+
+  wget https://proton.me/download/bridge/protonmail-bridge_X.Y.Z-1_amd64.deb
+  sudo apt install -y ./protonmail-bridge_X.Y.Z-1_amd64.deb
+
+На headless-сервере DEB может тянуть GUI-зависимости — для официального
+пакета это нормально. Альтернатива: собрать build-nogui из исходников
+Proton, но для старта проще DEB.
+
+
+2. Хранилище паролей (pass)
+---------------------------
+Bridge без GUI хранит секреты через pass. Лучше отдельный пользователь:
+
+  sudo adduser --disabled-password --gecos "" protonbridge
+  sudo -u protonbridge -i
+
+  gpg --batch --passphrase '' --quick-gen-key "Proton Bridge" default default never
+  pass init "Proton Bridge"
+
+
+3. Логин в Bridge (один раз, интерактивно)
+------------------------------------------
+
+  protonmail-bridge -c
+
+В CLI:
+
+  login
+
+Введи Proton-логин/пароль (+ 2FA при необходимости). Потом:
+
+  info
+
+Запиши Bridge password (это НЕ пароль аккаунта Proton) и порты.
+
+Обычно:
+
+  IMAP host:  127.0.0.1
+  IMAP port:  1143
+  SMTP host:  127.0.0.1
+  SMTP port:  1025
+  Encryption: STARTTLS
+  Username:   твой Proton email
+  Password:   сгенерированный Bridge (из info)
+
+Выход:
+
+  exit
+
+Официальный CLI-гайд: https://proton.me/support/bridge-cli-guide
+
+
+4. Автозапуск (systemd)
+-----------------------
+Файл: /etc/systemd/system/proton-bridge.service
+
+  [Unit]
+  Description=Proton Mail Bridge
+  After=network-online.target
+  Wants=network-online.target
+
+  [Service]
+  Type=simple
+  User=protonbridge
+  Environment=HOME=/home/protonbridge
+  Environment=PASSWORD_STORE_DIR=/home/protonbridge/.password-store
+  ExecStart=/usr/bin/protonmail-bridge --noninteractive
+  Restart=on-failure
+  RestartSec=10
+
+  [Install]
+  WantedBy=multi-user.target
+
+Команды:
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now proton-bridge
+  ss -ltn | grep -E ':1143|:1025'
+
+Ожидаемо: слушатели только на 127.0.0.1:1143 и 127.0.0.1:1025.
+
+
+5. Настройки в модуле Cyberpunks Shop Support
+---------------------------------------------
+Admin → Cyberpunks Shop Support → IMAP:
+
+  Host:       127.0.0.1
+  Port:       1143
+  Encryption: STARTTLS (как требует Bridge)
+  Username:   из info
+  Password:   Bridge password из info
+
+Если PHP/OpenCart в Docker, а Bridge на хосте:
+  127.0.0.1 внутри контейнера — это не хост.
+  Host = IP gateway Docker (часто 172.17.0.1) или host.docker.internal,
+  Bridge по-прежнему на loopback хоста; наружу в интернет не публиковать.
+
+
+Замечания
+---------
+- После смены пароля Proton или перелогина Bridge-пароль может смениться:
+  снова protonmail-bridge -c → info → обновить в модуле.
+- Linux overview: https://proton.me/support/bridge-for-linux
+- Без Bridge и без другого IMAP-ящика автоматический импорт ответов
+  в тикеты с Proton сделать нельзя.

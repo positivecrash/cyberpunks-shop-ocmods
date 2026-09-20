@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Variant Images</name>
 	<code>cyberpunks_shop_variant_images</code>
-	<version>1.4.0</version>
+	<version>1.4.2</version>
 	<author>positivecrash</author>
 	<description>Variant image mappings; product-form tab; YAML keyed by model for local↔server portability.</description>
 

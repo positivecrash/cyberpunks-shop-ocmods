@@ -3,9 +3,19 @@ class CyberpunksShopVariantImagesStorage {
 	const SETTING_CODE = 'module_cyberpunks_variant_images';
 	const LEGACY_MAPPINGS_KEY = 'module_cyberpunks_variant_images_mappings';
 	const MEDIA_PREFIX = 'catalog/view/theme/cybershops/media/';
+	/** Soft limit under MySQL TEXT (65535) used by oc_setting.value. */
+	const CHUNK_SOFT_BYTES = 50000;
 
 	public static function mappingsKeyForProduct($product_id) {
 		return self::LEGACY_MAPPINGS_KEY . '_' . (int)$product_id;
+	}
+
+	public static function productIdFromMappingsKey($key) {
+		if (!preg_match('/^' . preg_quote(self::LEGACY_MAPPINGS_KEY, '/') . '_(\d+)(_c\d+)?$/', (string)$key, $m)) {
+			return 0;
+		}
+
+		return (int)$m[1];
 	}
 
 	public static function loadAll($registry) {
@@ -84,19 +94,86 @@ class CyberpunksShopVariantImagesStorage {
 			$status = (int)$config->get('module_cyberpunks_variant_images_status');
 		}
 
+		$touched = array();
+		foreach ($mappings_by_product as $product_id => $rows) {
+			$product_id = (int)$product_id;
+			if ($product_id > 0) {
+				$touched[$product_id] = true;
+			}
+		}
+
 		$save_data = array(
 			'module_cyberpunks_variant_images_status' => (int)$status
 		);
+
+		// editSetting DELETEs the whole code — keep shards for products not in this write.
+		$existing = $model->getSetting(self::SETTING_CODE);
+		foreach ($existing as $key => $value) {
+			$product_id = self::productIdFromMappingsKey($key);
+			if ($product_id <= 0 || isset($touched[$product_id])) {
+				continue;
+			}
+			if ($value === null || $value === '') {
+				continue;
+			}
+			$save_data[$key] = $value;
+		}
 
 		foreach ($mappings_by_product as $product_id => $rows) {
 			$product_id = (int)$product_id;
 			if ($product_id <= 0) {
 				continue;
 			}
-			$save_data[self::mappingsKeyForProduct($product_id)] = is_array($rows) ? $rows : array();
+
+			$chunks = self::chunkRowsForStorage(is_array($rows) ? $rows : array());
+			$base = self::mappingsKeyForProduct($product_id);
+
+			foreach ($chunks as $index => $chunk_rows) {
+				$key = ($index === 0) ? $base : ($base . '_c' . $index);
+				$save_data[$key] = $chunk_rows;
+			}
 		}
 
 		$model->editSetting(self::SETTING_CODE, $save_data);
+	}
+
+	/**
+	 * Split compact rows so each JSON blob fits in oc_setting.value (TEXT).
+	 * Keys: mappings_{id}, mappings_{id}_c1, mappings_{id}_c2, ...
+	 */
+	public static function chunkRowsForStorage(array $rows) {
+		if (!$rows) {
+			return array(array());
+		}
+
+		$chunks = array();
+		$current = array();
+		$current_bytes = 2; // []
+
+		foreach ($rows as $row) {
+			$encoded = json_encode($row);
+			if (!is_string($encoded)) {
+				continue;
+			}
+
+			$add = strlen($encoded) + ($current ? 1 : 0); // comma between items
+
+			if ($current && ($current_bytes + $add) > self::CHUNK_SOFT_BYTES) {
+				$chunks[] = $current;
+				$current = array();
+				$current_bytes = 2;
+				$add = strlen($encoded);
+			}
+
+			$current[] = $row;
+			$current_bytes += $add;
+		}
+
+		if ($current) {
+			$chunks[] = $current;
+		}
+
+		return $chunks ? $chunks : array(array());
 	}
 
 	public static function groupCompactRowsByProduct(array $compact_rows) {
@@ -254,7 +331,9 @@ class CyberpunksShopVariantImagesStorage {
 				$match_size = count($map_ids);
 			}
 
-			if ($is_match && $match_size > $matched_map_size) {
+			// Prefer more specific matches; on a tie keep the later row so a full
+			// no-hood mapping listed after partial Hood-* rows can still win.
+			if ($is_match && $match_size >= $matched_map_size) {
 				$matched_map_size = $match_size;
 				$matched_map_image = $map_image;
 			}
