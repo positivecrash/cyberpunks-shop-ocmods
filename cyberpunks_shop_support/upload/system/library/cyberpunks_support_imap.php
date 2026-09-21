@@ -157,6 +157,16 @@ class CyberpunksSupportImap {
 			}
 
 			$from_email = $this->extractFromEmail($header_raw, isset($ov->from) ? $ov->from : '');
+
+			if (method_exists($model, 'isEmailBlocked') && $from_email !== '' && $model->isEmailBlocked($from_email)) {
+				$result['skipped']++;
+				$this->log->write('Cyberpunks Support IMAP: skip uid ' . $uid . ' — blacklisted sender ' . $from_email);
+				if ($mark_seen) {
+					@imap_setflag_full($inbox, (string)$uid, '\\Seen', ST_UID);
+				}
+				continue;
+			}
+
 			if ($require_from_match) {
 				$ticket_email = utf8_strtolower(trim((string)$ticket['email']));
 				if ($from_email === '' || $ticket_email === '' || $from_email !== $ticket_email) {

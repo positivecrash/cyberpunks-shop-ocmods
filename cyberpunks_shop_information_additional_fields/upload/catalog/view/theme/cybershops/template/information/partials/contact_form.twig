@@ -2,6 +2,7 @@
 	<h2 id="contact-us-heading" class="text-center">Contact us</h2>
 	<form id="information-contact-form" action="{{ contact_form_action }}" method="post" novalidate>
 		<input type="hidden" name="name" value="Support request" />
+		<input type="hidden" name="cyberpunks_form_token" value="{{ contact_form_token }}" />
 		<div class="form-rows">
 			<div class="form-row-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
 				<label>Website<input type="text" name="website" value="" tabindex="-1" autocomplete="off" /></label>

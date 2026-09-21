@@ -2,9 +2,9 @@
 <modification>
 	<name>Cyberpunks Shop Information Additional Fields</name>
 	<code>cyberpunks_shop_information_additional_fields</code>
-	<version>1.12.7</version>
+	<version>1.13.4</version>
 	<author>positivecrash</author>
-	<description>Information pages + contact form. Shipping rates table groups Standard/Express under one zone row.</description>
+	<description>Information pages + contact form (anti-spam via Support settings messages). Shipping rates table groups Standard/Express under one zone row.</description>
 
 	<file path="system/library/document.php">
 		<operation error="skip">
@@ -145,8 +145,16 @@
 			if (strpos($data['description'], '[contact_form]') !== false) {
 				$this->load->language('information/contact');
 
+				$contact_form_token = '';
+				if (is_file(DIR_SYSTEM . 'library/cyberpunks_support_guard.php')) {
+					require_once(DIR_SYSTEM . 'library/cyberpunks_support_guard.php');
+					$contact_form_guard = new CyberpunksSupportGuard($this->registry);
+					$contact_form_token = $contact_form_guard->issueToken();
+				}
+
 				$contact_form_html = $this->load->view('information/partials/contact_form', array(
 					'contact_form_action' => $this->url->link('information/contact', '', true),
+					'contact_form_token'  => $contact_form_token,
 					'entry_email'         => $this->language->get('entry_email')
 				));
 
@@ -161,18 +169,39 @@
 		<operation error="skip">
 			<search trim="false"><![CDATA[		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {]]></search>
 			<add position="replace" offset="18"><![CDATA[		$cyberpunks_contact_ajax = !empty($this->request->server['HTTP_X_REQUESTED_WITH']) && strtolower($this->request->server['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+		$cyberpunks_contact_error = '';
+		$cyberpunks_contact_send = false;
+
+		$cyberpunks_guard = null;
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_support_guard.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_support_guard.php');
+			$cyberpunks_guard = new CyberpunksSupportGuard($this->registry);
+		}
 
 		// Honeypot from Information [contact_form]
 		if ($this->request->server['REQUEST_METHOD'] == 'POST' && !empty($this->request->post['website'])) {
 			if ($cyberpunks_contact_ajax) {
 				$this->response->addHeader('Content-Type: application/json');
-				$this->response->setOutput(json_encode(array('success' => $this->language->get('text_message_plain'))));
+				$this->response->setOutput(json_encode(array('success' => ($cyberpunks_guard ? $cyberpunks_guard->getFormMessage('success') : ''))));
 				return;
 			}
 			$this->response->redirect($this->url->link('information/contact/success'));
 		}
 
-		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
+		// Form token + minimum fill time (Cyberpunks Shop Support settings)
+		if ($cyberpunks_guard && ($this->request->server['REQUEST_METHOD'] == 'POST')) {
+			$cyberpunks_guard_result = $cyberpunks_guard->checkSubmission($this->request->post);
+			$cyberpunks_guard_error = !empty($cyberpunks_guard_result['error']) ? $cyberpunks_guard_result['error'] : '';
+
+			if ($cyberpunks_guard_error === 'too_fast') {
+				$wait = !empty($cyberpunks_guard_result['wait_seconds']) ? (int)$cyberpunks_guard_result['wait_seconds'] : max(1, (int)$cyberpunks_guard->getMinSeconds());
+				$cyberpunks_contact_error = sprintf($cyberpunks_guard->getFormMessage('too_fast'), $wait);
+			} elseif ($cyberpunks_guard_error !== '') {
+				$cyberpunks_contact_error = $cyberpunks_guard->getFormMessage('token');
+			}
+		}
+
+		if (($cyberpunks_contact_error === '') && ($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
 			$customer_email = trim((string)$this->request->post['email']);
 			$enquiry_raw = (string)$this->request->post['enquiry'];
 			$reason = isset($this->request->post['reason']) ? trim((string)$this->request->post['reason']) : '';
@@ -195,9 +224,10 @@
 
 			$request_id = strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
 			$ticket_first_for_email = true;
+			$ticket_action = 'skipped';
 			if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_support.php')) {
 				$this->load->model('extension/module/cyberpunks_shop_support');
-				$ticket = $this->model_extension_module_cyberpunks_shop_support->createFromContact(array(
+				$ticket = $this->model_extension_module_cyberpunks_shop_support->submitFromContact(array(
 					'email' => $customer_email,
 					'message' => $enquiry_raw,
 					'reason' => $reason,
@@ -206,6 +236,7 @@
 					'currency' => $support_currency,
 					'country' => $support_country
 				));
+				$ticket_action = !empty($ticket['action']) ? $ticket['action'] : 'skipped';
 				if (!empty($ticket['request_code'])) {
 					$request_id = $ticket['request_code'];
 				}
@@ -214,6 +245,20 @@
 				}
 			}
 
+			if ($ticket_action === 'blocked') {
+				$cyberpunks_contact_error = $cyberpunks_guard ? $cyberpunks_guard->getFormMessage('blocked') : '';
+			} elseif ($ticket_action === 'soft_limit') {
+				// Do not store/email; show as form error (not a success).
+				$cyberpunks_contact_error = $cyberpunks_guard ? $cyberpunks_guard->getFormMessage('soft_limit') : '';
+			} elseif ($ticket_action === 'throttled') {
+				$wait = !empty($ticket['wait_seconds']) ? (int)$ticket['wait_seconds'] : 60;
+				$cyberpunks_contact_error = $cyberpunks_guard ? sprintf($cyberpunks_guard->getFormMessage('too_fast'), max(1, $wait)) : '';
+			} else {
+				$cyberpunks_contact_send = true;
+			}
+		}
+
+		if ($cyberpunks_contact_send) {
 			$mail = new Mail($this->config->get('config_mail_engine'));
 			$mail->parameter = $this->config->get('config_mail_parameter');
 			$mail->smtp_hostname = $this->config->get('config_mail_smtp_hostname');
@@ -233,6 +278,7 @@
 				. 'Language: ' . $support_language . "\n"
 				. 'Currency: ' . $support_currency . "\n"
 				. 'Country: ' . ($support_country !== '' ? $support_country : '—') . "\n"
+				. 'Type: ' . ($ticket_action === 'appended' ? 'Follow-up on existing request' : 'New request') . "\n"
 				. 'Admin: Cyberpunks Shop Support' . "\n\n"
 				. $enquiry_raw
 			);
@@ -262,7 +308,7 @@
 
 			if ($cyberpunks_contact_ajax) {
 				$this->response->addHeader('Content-Type: application/json');
-				$this->response->setOutput(json_encode(array('success' => $this->language->get('text_message_plain'))));
+				$this->response->setOutput(json_encode(array('success' => ($cyberpunks_guard ? $cyberpunks_guard->getFormMessage('success') : ''))));
 				return;
 			}
 
@@ -271,7 +317,9 @@
 
 		if ($cyberpunks_contact_ajax && ($this->request->server['REQUEST_METHOD'] == 'POST')) {
 			$error = '';
-			if (!empty($this->error['email'])) {
+			if ($cyberpunks_contact_error !== '') {
+				$error = $cyberpunks_contact_error;
+			} elseif (!empty($this->error['email'])) {
 				$error = $this->error['email'];
 			} elseif (!empty($this->error['enquiry'])) {
 				$error = $this->error['enquiry'];
@@ -285,7 +333,14 @@
 			$this->response->addHeader('Content-Type: application/json');
 			$this->response->setOutput(json_encode(array('error' => $error)));
 			return;
-		}]]></add>
+		}
+
+		// Non-AJAX fallback: show the guard/anti-spam message with the form.
+		if ($cyberpunks_contact_error !== '') {
+			$this->error['enquiry'] = $cyberpunks_contact_error;
+		}
+
+		$data['cyberpunks_form_token'] = $cyberpunks_guard ? $cyberpunks_guard->issueToken() : '';]]></add>
 		</operation>
 	</file>
 
@@ -294,8 +349,15 @@
 			<search trim="false"><![CDATA[$_['email_subject']  = 'Enquiry %s';]]></search>
 			<add position="replace"><![CDATA[$_['email_subject']  = 'Cyberpunks.shop - Support request - %s';
 $_['email_text_auto']    = "Thank you for your request and for your interest in our products.\n\nWe have received your message and will get back to you as soon as we can.\n";
-$_['text_message_plain'] = 'Thanks — your message has been sent. We will get back to you soon.';
 ]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/view/theme/default/template/information/contact.twig">
+		<operation error="skip">
+			<ignoreif><![CDATA[cyberpunks_form_token]]></ignoreif>
+			<search trim="false"><![CDATA[      <form action="{{ action }}" method="post" enctype="multipart/form-data" class="form-horizontal">]]></search>
+			<add position="after"><![CDATA[        <input type="hidden" name="cyberpunks_form_token" value="{{ cyberpunks_form_token }}" />]]></add>
 		</operation>
 	</file>
 

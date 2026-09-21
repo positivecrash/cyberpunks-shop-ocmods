@@ -4,6 +4,7 @@
     <div class="container-fluid">
       <div class="pull-right">
         <a href="{{ tickets }}" data-toggle="tooltip" title="{{ button_tickets }}" class="btn btn-info"><i class="fa fa-life-ring"></i></a>
+        <a href="{{ blocklist }}" data-toggle="tooltip" title="{{ button_blocklist }}" class="btn btn-default"><i class="fa fa-ban"></i></a>
         <a href="{{ fetch }}" data-toggle="tooltip" title="{{ button_imap_fetch }}" class="btn btn-warning"><i class="fa fa-download"></i></a>
         <button type="submit" form="form-cyberpunks-shop-support" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
         <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a>
@@ -56,6 +57,91 @@
               <p class="help-block">{{ help_email_signature }}</p>
             </div>
           </div>
+
+          <fieldset>
+            <legend>{{ text_antispam_heading }}</legend>
+            <p class="help-block" style="margin-top:0;">{{ help_antispam }}</p>
+
+            <div class="form-group">
+              <label class="col-sm-2 control-label">{{ entry_antispam_append_open }}</label>
+              <div class="col-sm-10">
+                <label class="radio-inline">
+                  <input type="radio" name="module_cyberpunks_shop_support_antispam_append_open" value="1"{% if module_cyberpunks_shop_support_antispam_append_open %} checked="checked"{% endif %} /> {{ text_yes }}
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="module_cyberpunks_shop_support_antispam_append_open" value="0"{% if not module_cyberpunks_shop_support_antispam_append_open %} checked="checked"{% endif %} /> {{ text_no }}
+                </label>
+                <p class="help-block">{{ help_antispam_append_open }}</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-antispam-daily-max">{{ entry_antispam_daily_max }}</label>
+              <div class="col-sm-10">
+                <input type="number" name="module_cyberpunks_shop_support_antispam_daily_max" value="{{ module_cyberpunks_shop_support_antispam_daily_max }}" id="input-antispam-daily-max" class="form-control" min="0" max="50" />
+                <p class="help-block">{{ help_antispam_daily_max }}</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-antispam-cooldown">{{ entry_antispam_cooldown_hours }}</label>
+              <div class="col-sm-10">
+                <input type="number" name="module_cyberpunks_shop_support_antispam_cooldown_hours" value="{{ module_cyberpunks_shop_support_antispam_cooldown_hours }}" id="input-antispam-cooldown" class="form-control" min="1" max="720" />
+                <p class="help-block">{{ help_antispam_cooldown_hours }}</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label">{{ entry_form_token }}</label>
+              <div class="col-sm-10">
+                <label class="radio-inline">
+                  <input type="radio" name="module_cyberpunks_shop_support_form_token" value="1"{% if module_cyberpunks_shop_support_form_token %} checked="checked"{% endif %} /> {{ text_yes }}
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="module_cyberpunks_shop_support_form_token" value="0"{% if not module_cyberpunks_shop_support_form_token %} checked="checked"{% endif %} /> {{ text_no }}
+                </label>
+                <p class="help-block">{{ help_form_token }}</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-form-min-seconds">{{ entry_form_min_seconds }}</label>
+              <div class="col-sm-10">
+                <input type="number" name="module_cyberpunks_shop_support_form_min_seconds" value="{{ module_cyberpunks_shop_support_form_min_seconds }}" id="input-form-min-seconds" class="form-control" min="0" max="120" />
+                <p class="help-block">{{ help_form_min_seconds }}</p>
+              </div>
+            </div>
+
+            <h4 style="margin: 20px 0 10px;">{{ text_form_messages_heading }}</h4>
+            <p class="help-block">{{ help_form_messages }}</p>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-msg-success">{{ entry_msg_success }}</label>
+              <div class="col-sm-10">
+                <textarea name="module_cyberpunks_shop_support_msg_success" rows="2" id="input-msg-success" class="form-control">{{ module_cyberpunks_shop_support_msg_success }}</textarea>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-msg-token">{{ entry_msg_token }}</label>
+              <div class="col-sm-10">
+                <textarea name="module_cyberpunks_shop_support_msg_token" rows="2" id="input-msg-token" class="form-control">{{ module_cyberpunks_shop_support_msg_token }}</textarea>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-msg-too-fast">{{ entry_msg_too_fast }}</label>
+              <div class="col-sm-10">
+                <textarea name="module_cyberpunks_shop_support_msg_too_fast" rows="2" id="input-msg-too-fast" class="form-control">{{ module_cyberpunks_shop_support_msg_too_fast }}</textarea>
+                <p class="help-block">{{ help_msg_too_fast }}</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-msg-blocked">{{ entry_msg_blocked }}</label>
+              <div class="col-sm-10">
+                <textarea name="module_cyberpunks_shop_support_msg_blocked" rows="2" id="input-msg-blocked" class="form-control">{{ module_cyberpunks_shop_support_msg_blocked }}</textarea>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-msg-soft-limit">{{ entry_msg_soft_limit }}</label>
+              <div class="col-sm-10">
+                <textarea name="module_cyberpunks_shop_support_msg_soft_limit" rows="2" id="input-msg-soft-limit" class="form-control">{{ module_cyberpunks_shop_support_msg_soft_limit }}</textarea>
+              </div>
+            </div>
+          </fieldset>
 
           <fieldset>
             <legend>{{ text_imap_heading }}</legend>

@@ -11,6 +11,31 @@ Stores contact-form submissions as support tickets. Top-level admin left nav: **
 - Admin reply emails + editable signature in module settings
 - Log customer reply / internal notes manually
 - **IMAP inbound**: unread mail with support subject → ticket message (optional)
+- **Contact-form protection**: email blacklist, max messages/day, append to open request, form token + minimum fill time, editable form messages in module settings
+
+## Contact form protection
+
+Order of checks on submit (themed Contact us form):
+
+1. Honeypot field (Information Additional Fields) — silent success
+2. Form token + minimum fill time (module settings) — error shows remaining seconds
+3. **Blacklist** → refused, no ticket, no email
+4. **Max messages / window** (default 2 per 24h) — refused with an error message, nothing stored
+5. Open / In progress / Waiting request for that email → message **appended** to that thread
+   (throttled to one append per 60 seconds; wait message shows remaining seconds)
+6. Otherwise a new ticket is created
+
+Closed requests always start a new ticket. Daily max `0` disables the count limit.
+
+### Blacklist
+
+Left nav → **Cyberpunks Shop Support**:
+
+- Orange **ban** button in the list blacklists the emails of the selected requests
+- **Blacklist** page: add emails manually (space/comma/newline separated) and remove them
+
+Blacklisted addresses see a refusal message in the form and never reach the mailbox.
+IMAP import skips mail from blacklisted senders too.
 
 ## IMAP security (important)
 
@@ -31,7 +56,7 @@ Requires PHP **imap** extension (`php-imap`).
 
 ## Install
 
-1. Upload `cyberpunks_shop_support_1_1_0.ocmod.zip` (Extensions → Installer).  
+1. Upload `cyberpunks_shop_support_1_2_2.ocmod.zip` (Extensions → Installer).  
 2. Extensions → Modifications → Refresh.  
 3. Extensions → Modules → **Cyberpunks Shop Support** → Install / Edit → Save.  
 4. Keep **Information Additional Fields** updated for the contact form.  

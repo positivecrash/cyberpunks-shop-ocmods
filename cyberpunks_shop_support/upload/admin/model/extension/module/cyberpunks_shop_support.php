@@ -33,6 +33,16 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 			KEY `email_message_id` (`email_message_id`)
 		) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
 
+		$this->db->query("CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "cyberpunks_support_blocklist` (
+			`block_id` INT(11) NOT NULL AUTO_INCREMENT,
+			`email` VARCHAR(96) NOT NULL,
+			`note` VARCHAR(255) NOT NULL DEFAULT '',
+			`user_id` INT(11) NOT NULL DEFAULT '0',
+			`date_added` DATETIME NOT NULL,
+			PRIMARY KEY (`block_id`),
+			UNIQUE KEY `email` (`email`)
+		) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci");
+
 		foreach (array('customer_language' => "VARCHAR(32) NOT NULL DEFAULT ''", 'customer_currency' => "VARCHAR(16) NOT NULL DEFAULT ''", 'customer_country' => "VARCHAR(64) NOT NULL DEFAULT ''") as $column => $definition) {
 			$col = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "cyberpunks_support_ticket` LIKE '" . $this->db->escape($column) . "'");
 			if (!$col->num_rows) {
@@ -246,5 +256,111 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 	public function deleteTicket($ticket_id) {
 		$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_support_message` WHERE ticket_id = '" . (int)$ticket_id . "'");
 		$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_support_ticket` WHERE ticket_id = '" . (int)$ticket_id . "'");
+	}
+
+	public function normalizeEmail($email) {
+		$email = trim((string)$email);
+		return ($email === '') ? '' : utf8_strtolower($email);
+	}
+
+	public function getBlocklist($data = array()) {
+		$this->ensureSchema();
+
+		$sql = "SELECT * FROM `" . DB_PREFIX . "cyberpunks_support_blocklist` WHERE 1";
+
+		if (!empty($data['filter_email'])) {
+			$sql .= " AND email LIKE '%" . $this->db->escape($this->normalizeEmail($data['filter_email'])) . "%'";
+		}
+
+		$sql .= " ORDER BY date_added DESC, block_id DESC";
+
+		$start = isset($data['start']) ? max(0, (int)$data['start']) : 0;
+		$limit = isset($data['limit']) ? (int)$data['limit'] : 20;
+		if ($limit < 1) {
+			$limit = 20;
+		}
+
+		$sql .= " LIMIT " . $start . "," . $limit;
+
+		return $this->db->query($sql)->rows;
+	}
+
+	public function getTotalBlocklist($data = array()) {
+		$this->ensureSchema();
+
+		$sql = "SELECT COUNT(*) AS total FROM `" . DB_PREFIX . "cyberpunks_support_blocklist` WHERE 1";
+
+		if (!empty($data['filter_email'])) {
+			$sql .= " AND email LIKE '%" . $this->db->escape($this->normalizeEmail($data['filter_email'])) . "%'";
+		}
+
+		return (int)$this->db->query($sql)->row['total'];
+	}
+
+	/**
+	 * @return bool true when a new row was inserted
+	 */
+	public function addBlockedEmail($email, $note = '', $user_id = 0) {
+		$email = $this->normalizeEmail($email);
+
+		if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+			return false;
+		}
+
+		$this->ensureSchema();
+
+		$exists = $this->db->query("SELECT block_id FROM `" . DB_PREFIX . "cyberpunks_support_blocklist`
+			WHERE email = '" . $this->db->escape($email) . "' LIMIT 1");
+
+		if ($exists->num_rows) {
+			return false;
+		}
+
+		$this->db->query("INSERT INTO `" . DB_PREFIX . "cyberpunks_support_blocklist` SET
+			email = '" . $this->db->escape(utf8_substr($email, 0, 96)) . "',
+			note = '" . $this->db->escape(utf8_substr(trim((string)$note), 0, 255)) . "',
+			user_id = '" . (int)$user_id . "',
+			date_added = NOW()");
+
+		return true;
+	}
+
+	public function deleteBlockedEmail($block_id) {
+		$this->db->query("DELETE FROM `" . DB_PREFIX . "cyberpunks_support_blocklist` WHERE block_id = '" . (int)$block_id . "'");
+	}
+
+	/**
+	 * Block the email addresses of the given tickets.
+	 * @return array{added:int,skipped:int}
+	 */
+	public function blockEmailsFromTickets($ticket_ids, $user_id = 0) {
+		$result = array('added' => 0, 'skipped' => 0);
+
+		$ids = array();
+		foreach ((array)$ticket_ids as $ticket_id) {
+			$ticket_id = (int)$ticket_id;
+			if ($ticket_id > 0) {
+				$ids[$ticket_id] = $ticket_id;
+			}
+		}
+
+		if (!$ids) {
+			return $result;
+		}
+
+		$this->ensureSchema();
+
+		$rows = $this->db->query("SELECT DISTINCT email, request_code FROM `" . DB_PREFIX . "cyberpunks_support_ticket`
+			WHERE ticket_id IN (" . implode(',', $ids) . ")")->rows;
+
+		foreach ($rows as $row) {
+			if ($this->addBlockedEmail($row['email'], 'Blocked from request ' . $row['request_code'], $user_id)) {
+				$result['added']++;
+			} else {
+				$result['skipped']++;
+			}
+		}
+
+		return $result;
 	}
 }
