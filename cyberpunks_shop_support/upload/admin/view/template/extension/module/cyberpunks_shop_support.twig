@@ -107,6 +107,28 @@
                 <p class="help-block">{{ help_form_min_seconds }}</p>
               </div>
             </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-antispam-stopwords">{{ entry_antispam_stopwords }}</label>
+              <div class="col-sm-10">
+                <textarea name="module_cyberpunks_shop_support_antispam_stopwords" rows="6" id="input-antispam-stopwords" class="form-control">{{ module_cyberpunks_shop_support_antispam_stopwords }}</textarea>
+                <p class="help-block">{{ help_antispam_stopwords }}</p>
+              </div>
+            </div>
+
+            <h4 style="margin: 20px 0 10px;">{{ text_recaptcha_heading }}</h4>
+            <p class="help-block">{{ help_recaptcha }}</p>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-recaptcha-site">{{ entry_recaptcha_site_key }}</label>
+              <div class="col-sm-10">
+                <input type="text" name="module_cyberpunks_shop_support_recaptcha_site_key" value="{{ module_cyberpunks_shop_support_recaptcha_site_key }}" id="input-recaptcha-site" class="form-control" autocomplete="off" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-recaptcha-secret">{{ entry_recaptcha_secret_key }}</label>
+              <div class="col-sm-10">
+                <input type="text" name="module_cyberpunks_shop_support_recaptcha_secret_key" value="{{ module_cyberpunks_shop_support_recaptcha_secret_key }}" id="input-recaptcha-secret" class="form-control" autocomplete="off" />
+              </div>
+            </div>
 
             <h4 style="margin: 20px 0 10px;">{{ text_form_messages_heading }}</h4>
             <p class="help-block">{{ help_form_messages }}</p>
@@ -139,6 +161,12 @@
               <label class="col-sm-2 control-label" for="input-msg-soft-limit">{{ entry_msg_soft_limit }}</label>
               <div class="col-sm-10">
                 <textarea name="module_cyberpunks_shop_support_msg_soft_limit" rows="2" id="input-msg-soft-limit" class="form-control">{{ module_cyberpunks_shop_support_msg_soft_limit }}</textarea>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-2 control-label" for="input-msg-recaptcha">{{ entry_msg_recaptcha }}</label>
+              <div class="col-sm-10">
+                <textarea name="module_cyberpunks_shop_support_msg_recaptcha" rows="2" id="input-msg-recaptcha" class="form-control">{{ module_cyberpunks_shop_support_msg_recaptcha }}</textarea>
               </div>
             </div>
           </fieldset>

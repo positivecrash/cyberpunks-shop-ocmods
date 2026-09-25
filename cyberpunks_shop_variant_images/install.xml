@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Variant Images</name>
 	<code>cyberpunks_shop_variant_images</code>
-	<version>1.4.2</version>
+	<version>1.4.9</version>
 	<author>positivecrash</author>
 	<description>Variant image mappings; product-form tab; YAML keyed by model for local↔server portability.</description>
 
@@ -20,10 +20,11 @@
 		<!--
 			Resolve variant match into $cart_image (drives product.thumb — required while live theme still uses thumb)
 			and product.variant_image (for theme priority: variant → category_image → thumb).
+			Use $cart_image for the if-condition so products without a main OC image still get variant previews.
 		-->
 		<operation error="skip">
 			<search><![CDATA[if ($product['image']) {]]></search>
-			<add position="before"><![CDATA[$variant_image = '';
+			<add position="replace"><![CDATA[$variant_image = '';
 				$cart_image = isset($product['image']) ? (string)$product['image'] : '';
 
 				$variant_mappings = $this->config->get('module_cyberpunks_variant_images_mappings');
@@ -36,7 +37,8 @@
 				if ($matched_map_image !== '') {
 					$cart_image = $matched_map_image;
 				}
-			]]></add>
+
+				if ($cart_image) {]]></add>
 		</operation>
 		<operation error="skip">
 			<search><![CDATA[$image = $this->model_tool_image->resize($product['image'], $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_height'));]]></search>
@@ -44,13 +46,14 @@
 
 					// Theme asset path (outside DIR_IMAGE), e.g. catalog/view/theme/...
 					if (strpos($cart_image, 'catalog/view/theme/') === 0) {
-						$image = '/' . $cart_image;
+						$resolved_theme = CyberpunksShopVariantImagesStorage::preferExistingThemePath($cart_image);
+						$image = $resolved_theme !== '' ? '/' . ltrim($resolved_theme, '/') : '';
 					} else {
 						$image = $this->model_tool_image->resize($cart_image, $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_width'), $this->config->get('theme_' . $this->config->get('config_theme') . '_image_cart_height'));
 					}
 
 					// Same URL for theme-side priority picker (variant_image → category_image → thumb).
-					if ($matched_map_image !== '') {
+					if ($matched_map_image !== '' && $image !== '') {
 						$variant_image = $image;
 					}]]></add>
 		</operation>
@@ -88,35 +91,47 @@
 			}
 ]]></add>
 		</operation>
-		<!-- Vanilla add (no identifiers / product_fields rewrite) -->
+		<!-- After identifiers save on edit -->
 		<operation error="skip">
-			<search trim="false"><![CDATA[			$this->model_catalog_product->addProduct($this->request->post);
+			<search trim="false"><![CDATA[			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_identifiers.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_identifiers/saveFromProductForm', $product_id);
+			}
 
-			$this->session->data['success'] = $this->language->get('text_success');]]></search>
-			<add position="replace"><![CDATA[			$product_id = $this->model_catalog_product->addProduct($this->request->post);
+			$this->session->data['success'] = $this->language->get('text_success');
+
+			$url = '';]]></search>
+			<add position="replace"><![CDATA[			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_identifiers.php')) {
+				$this->load->controller('extension/module/cyberpunks_variant_identifiers/saveFromProductForm', $product_id);
+			}
 			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_images.php')) {
 				$this->load->controller('extension/module/cyberpunks_variant_images/saveFromProductForm', $product_id);
 			}
 
-			$this->session->data['success'] = $this->language->get('text_success');]]></add>
+			$this->session->data['success'] = $this->language->get('text_success');
+
+			$url = '';]]></add>
 		</operation>
+		<!-- After product_fields save on edit -->
 		<operation error="skip">
-			<search trim="false"><![CDATA[			$this->model_catalog_product->editProduct($this->request->get['product_id'], $this->request->post);]]></search>
+			<search trim="false"><![CDATA[			$this->model_extension_module_cyberpunks_shop_product_fields->saveProductFieldValues((int)$this->request->get['product_id'], isset($this->request->post['cyberpunks_product_fields']) ? $this->request->post['cyberpunks_product_fields'] : array());]]></search>
 			<add position="after"><![CDATA[
 			if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_images.php')) {
 				$this->load->controller('extension/module/cyberpunks_variant_images/saveFromProductForm', (int)$this->request->get['product_id']);
 			}
 ]]></add>
 		</operation>
+		<!-- Tab data -->
 		<operation error="skip">
-			<search trim="false"><![CDATA[		if (isset($this->request->post['product_layout'])) {]]></search>
-			<add position="before"><![CDATA[		$cyberpunks_vimg_product_id = !empty($product_info['product_id']) ? (int)$product_info['product_id'] : (isset($this->request->get['product_id']) ? (int)$this->request->get['product_id'] : 0);
-		if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_images.php')) {
-			$data['cyberpunks_variant_images_form'] = $this->load->controller('extension/module/cyberpunks_variant_images/productForm', $cyberpunks_vimg_product_id);
-			$data['cyberpunks_variant_images_import_action'] = $this->url->link('extension/module/cyberpunks_variant_images', 'user_token=' . $this->session->data['user_token'], true);
+			<search trim="false"><![CDATA[		if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_identifiers.php')) {
+			$data['cyberpunks_variant_identifiers'] = $this->load->controller('extension/module/cyberpunks_variant_identifiers/productForm', $this->request->get['product_id']);
 		} else {
-			$data['cyberpunks_variant_images_form'] = '';
-			$data['cyberpunks_variant_images_import_action'] = '';
+			$data['cyberpunks_variant_identifiers'] = '';
+		}]]></search>
+			<add position="after"><![CDATA[
+		if (is_file(DIR_APPLICATION . 'controller/extension/module/cyberpunks_variant_images.php')) {
+			$data['cyberpunks_variant_images'] = $this->load->controller('extension/module/cyberpunks_variant_images/productForm', isset($this->request->get['product_id']) ? $this->request->get['product_id'] : 0);
+		} else {
+			$data['cyberpunks_variant_images'] = '';
 		}
 ]]></add>
 		</operation>
@@ -124,23 +139,18 @@
 
 	<file path="admin/view/template/catalog/product_form.twig">
 		<operation error="skip">
-			<search trim="false"><![CDATA[<li><a href="#tab-data" data-toggle="tab">{{ tab_data }}</a></li>]]></search>
-			<add position="after"><![CDATA[            <li><a href="#tab-cyberpunks-variant-images" data-toggle="tab">Variant Images</a></li>
-]]></add>
+			<search trim="false"><![CDATA[            <li><a href="#tab-cyberpunks-variant-identifiers" data-toggle="tab">{{ tab_variant_identifiers }}</a></li>]]></search>
+			<add position="after"><![CDATA[
+            <li><a href="#tab-cyberpunks-variant-images" data-toggle="tab">{{ tab_variant_images }}</a></li>]]></add>
 		</operation>
 		<operation error="skip">
-			<search trim="false"><![CDATA[<div class="tab-pane" id="tab-links">]]></search>
-			<add position="before"><![CDATA[            <div class="tab-pane" id="tab-cyberpunks-variant-images">
-              {{ cyberpunks_variant_images_form }}
-            </div>
-]]></add>
-		</operation>
-		<operation error="skip">
-			<search trim="false"><![CDATA[        </form>]]></search>
-			<add position="after"><![CDATA[        {% if cyberpunks_variant_images_import_action %}
-        <form id="cyberpunks-vimg-import-form" action="{{ cyberpunks_variant_images_import_action }}" method="post" enctype="multipart/form-data" style="display:none;"></form>
-        {% endif %}
-]]></add>
+			<search trim="false"><![CDATA[          <div class="tab-pane" id="tab-cyberpunks-variant-identifiers">
+            {{ cyberpunks_variant_identifiers }}
+          </div>]]></search>
+			<add position="after"><![CDATA[
+          <div class="tab-pane" id="tab-cyberpunks-variant-images">
+            {{ cyberpunks_variant_images }}
+          </div>]]></add>
 		</operation>
 	</file>
 </modification>

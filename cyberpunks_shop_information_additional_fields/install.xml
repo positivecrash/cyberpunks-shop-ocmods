@@ -2,9 +2,9 @@
 <modification>
 	<name>Cyberpunks Shop Information Additional Fields</name>
 	<code>cyberpunks_shop_information_additional_fields</code>
-	<version>1.13.4</version>
+	<version>1.13.5</version>
 	<author>positivecrash</author>
-	<description>Information pages + contact form (anti-spam via Support settings messages). Shipping rates table groups Standard/Express under one zone row.</description>
+	<description>Information pages + contact form (Support stop words / spam tab / reCAPTCHA). Shipping rates table groups Standard/Express under one zone row.</description>
 
 	<file path="system/library/document.php">
 		<operation error="skip">
@@ -152,9 +152,19 @@
 					$contact_form_token = $contact_form_guard->issueToken();
 				}
 
+				$contact_recaptcha_site_key = '';
+				if (is_file(DIR_SYSTEM . 'library/cyberpunks_support_guard.php')) {
+					if (!isset($contact_form_guard)) {
+						require_once(DIR_SYSTEM . 'library/cyberpunks_support_guard.php');
+						$contact_form_guard = new CyberpunksSupportGuard($this->registry);
+					}
+					$contact_recaptcha_site_key = $contact_form_guard->getRecaptchaSiteKey();
+				}
+
 				$contact_form_html = $this->load->view('information/partials/contact_form', array(
 					'contact_form_action' => $this->url->link('information/contact', '', true),
 					'contact_form_token'  => $contact_form_token,
+					'contact_recaptcha_site_key' => $contact_recaptcha_site_key,
 					'entry_email'         => $this->language->get('entry_email')
 				));
 
@@ -188,8 +198,17 @@
 			$this->response->redirect($this->url->link('information/contact/success'));
 		}
 
+		// Google reCAPTCHA v2 Invisible (keys in Support settings)
+		if (($cyberpunks_contact_error === '') && $cyberpunks_guard && ($this->request->server['REQUEST_METHOD'] == 'POST') && $cyberpunks_guard->isRecaptchaEnabled()) {
+			$recaptcha_response = isset($this->request->post['g-recaptcha-response']) ? $this->request->post['g-recaptcha-response'] : '';
+			$remote_ip = isset($this->request->server['REMOTE_ADDR']) ? $this->request->server['REMOTE_ADDR'] : '';
+			if (!$cyberpunks_guard->verifyRecaptcha($recaptcha_response, $remote_ip)) {
+				$cyberpunks_contact_error = $cyberpunks_guard->getFormMessage('recaptcha');
+			}
+		}
+
 		// Form token + minimum fill time (Cyberpunks Shop Support settings)
-		if ($cyberpunks_guard && ($this->request->server['REQUEST_METHOD'] == 'POST')) {
+		if (($cyberpunks_contact_error === '') && $cyberpunks_guard && ($this->request->server['REQUEST_METHOD'] == 'POST')) {
 			$cyberpunks_guard_result = $cyberpunks_guard->checkSubmission($this->request->post);
 			$cyberpunks_guard_error = !empty($cyberpunks_guard_result['error']) ? $cyberpunks_guard_result['error'] : '';
 
@@ -253,6 +272,14 @@
 			} elseif ($ticket_action === 'throttled') {
 				$wait = !empty($ticket['wait_seconds']) ? (int)$ticket['wait_seconds'] : 60;
 				$cyberpunks_contact_error = $cyberpunks_guard ? sprintf($cyberpunks_guard->getFormMessage('too_fast'), max(1, $wait)) : '';
+			} elseif ($ticket_action === 'spam') {
+				// Stored as Spam tab only — silent success, no emails.
+				if ($cyberpunks_contact_ajax) {
+					$this->response->addHeader('Content-Type: application/json');
+					$this->response->setOutput(json_encode(array('success' => ($cyberpunks_guard ? $cyberpunks_guard->getFormMessage('success') : ''))));
+					return;
+				}
+				$this->response->redirect($this->url->link('information/contact/success'));
 			} else {
 				$cyberpunks_contact_send = true;
 			}

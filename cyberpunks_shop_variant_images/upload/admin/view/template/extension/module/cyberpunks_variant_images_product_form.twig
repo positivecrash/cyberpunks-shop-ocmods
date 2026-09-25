@@ -13,6 +13,12 @@
     <input type="hidden" name="active_product_id" value="{{ product_id }}" />
 
     <div class="well well-sm" style="margin-bottom:12px;">
+      <label for="input-vimg-media-path"><strong>{{ entry_media_path }}</strong></label>
+      <input type="text" name="module_cyberpunks_variant_images_media_path" value="{{ media_path }}" placeholder="catalog/view/theme/cybershops/media/products/altruist-urban/product-previews" id="input-vimg-media-path" class="form-control" />
+      <small class="text-muted">{{ help_media_path }}</small>
+    </div>
+
+    <div class="well well-sm" style="margin-bottom:12px;">
       <div class="row">
         <div class="col-sm-6">
           <input type="file" name="import_file" id="cyberpunks-vimg-import-file" class="form-control" accept=".txt,.json,.yaml,.yml,.conf" form="cyberpunks-vimg-import-form" />

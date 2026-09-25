@@ -45,17 +45,17 @@ Values are stored as JSON (one DB row per repeater field). In Twig: `fields.my_l
 
 ### `3d_scripts` (checkbox list)
 
-Checked script paths are registered **once** in `<head>` via `registerProductScripts()` (product controller).  
+Checked script paths (e.g. `three-libs.js`, `3d-altruist-bundle.js`) are **deferred**: JSON `#cyberpunks-3d-scripts-deferred` + theme `product-oc.js` loads them on the **first 3D gallery tab** click (not in `<head>` on first paint).  
 Do **not** also loop them as `<script>` in product/gallery twig — that loads Three.js twice (`WARNING: Multiple instances of Three.js`).
 
-Prefix a path with `module:` to emit `type="module"` (Head Includes script-type map).
+Keep checkbox order = load order (`three-libs` before viewers). Prefix `module:` for ES modules.
 
 ### Multiple 3D models in gallery
 
 Use a **List** field with key `3dmodels` in section **3D model** (sub-fields: `model`, `texture`, `model_show`, `script`).
 
 The theme renders gallery tabs from `fields['3dmodels']` — see `github-templates/template/product/partials/gallery.twig`.  
-Product-level **Scripts for this product** (`3d_scripts` checkbox list) loads shared JS once in the header.
+Product-level **Scripts for this product** (`3d_scripts`) stays the checkbox list above (deferred load).
 
 Home sections list categories that have products with checkbox key `featured` = yes (up to 3 newest per category). Card title/image/label keys are chosen in the theme, not in this OCMOD.
 
@@ -64,6 +64,9 @@ Home sections list categories that have products with checkbox key `featured` = 
 Textarea HTML + `[[icon:name]]` shortcodes + `[[option:key]]` for Common Options values. Theme: `{{ fields.page_content|raw }}`.
 
 ## Changelog
+
+### 1.7.4
+- `3d_scripts`: deferred until first 3D gallery tab (theme `product-oc.js`); no longer injected into `<head>` on load
 
 ### 1.7.3
 - Manufacturer attach: target unique `manufacturer_info` view line (previous search could be skipped on refresh)

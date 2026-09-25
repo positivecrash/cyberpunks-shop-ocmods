@@ -1,8 +1,11 @@
 <section class="content-narrow section" aria-labelledby="contact-us-heading" data-contact-form>
 	<h2 id="contact-us-heading" class="text-center">Contact us</h2>
-	<form id="information-contact-form" action="{{ contact_form_action }}" method="post" novalidate>
+	<form id="information-contact-form" action="{{ contact_form_action }}" method="post" novalidate{% if contact_recaptcha_site_key %} data-recaptcha-sitekey="{{ contact_recaptcha_site_key }}"{% endif %}>
 		<input type="hidden" name="name" value="Support request" />
 		<input type="hidden" name="cyberpunks_form_token" value="{{ contact_form_token }}" />
+		{% if contact_recaptcha_site_key %}
+		<div id="contact-recaptcha" class="g-recaptcha" data-sitekey="{{ contact_recaptcha_site_key }}" data-size="invisible" data-callback="cyberpunksContactRecaptchaOk" data-error-callback="cyberpunksContactRecaptchaError" data-expired-callback="cyberpunksContactRecaptchaError"></div>
+		{% endif %}
 		<div class="form-rows">
 			<div class="form-row-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
 				<label>Website<input type="text" name="website" value="" tabindex="-1" autocomplete="off" /></label>
@@ -31,6 +34,9 @@
 		</div>
 	</form>
 </section>
+{% if contact_recaptcha_site_key %}
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{% endif %}
 <script>
 (function () {
 	var form = document.getElementById('information-contact-form');
@@ -40,8 +46,10 @@
 	var statusEl = form.querySelector('[data-contact-status]');
 	var submitBtn = form.querySelector('[data-contact-submit]');
 	var action = form.getAttribute('action');
+	var siteKey = form.getAttribute('data-recaptcha-sitekey') || '';
 	var MIN_LOADING_MS = 1000;
 	var loading = false;
+	var pendingSubmit = false;
 
 	function setStatus(text, isError) {
 		if (!statusEl) return;
@@ -79,22 +87,16 @@
 				fn();
 			} finally {
 				loading = false;
+				pendingSubmit = false;
 				setSubmitLoading(false);
+				if (siteKey && typeof grecaptcha !== 'undefined' && grecaptcha.reset) {
+					try { grecaptcha.reset(); } catch (e) {}
+				}
 			}
 		}, wait);
 	}
 
-	form.addEventListener('submit', function (e) {
-		e.preventDefault();
-		if (loading) return;
-
-		setStatus('', false);
-		if (typeof form.reportValidity === 'function' && !form.reportValidity()) return;
-
-		var label = reason && reason.value ? reason.options[reason.selectedIndex].text : '';
-		var body = (enquiry.value || '').replace(/^\s*Reason:\s*.+(?:\r?\n)+/, '');
-		if (label) enquiry.value = 'Reason: ' + label + '\n\n' + body;
-
+	function sendForm() {
 		var fd = new FormData(form);
 		loading = true;
 		setSubmitLoading(true);
@@ -122,6 +124,51 @@
 				setStatus('Could not send your message. Please try again later.', true);
 			});
 		});
+	}
+
+	window.cyberpunksContactRecaptchaOk = function () {
+		if (!pendingSubmit) return;
+		sendForm();
+	};
+
+	window.cyberpunksContactRecaptchaError = function () {
+		pendingSubmit = false;
+		loading = false;
+		setSubmitLoading(false);
+		setStatus('Could not verify reCAPTCHA. Please try again.', true);
+	};
+
+	form.addEventListener('submit', function (e) {
+		e.preventDefault();
+		if (loading || pendingSubmit) return;
+
+		setStatus('', false);
+		if (typeof form.reportValidity === 'function' && !form.reportValidity()) return;
+
+		var label = reason && reason.value ? reason.options[reason.selectedIndex].text : '';
+		var body = (enquiry.value || '').replace(/^\s*Reason:\s*.+(?:\r?\n)+/, '');
+		if (label) enquiry.value = 'Reason: ' + label + '\n\n' + body;
+
+		if (siteKey) {
+			if (typeof grecaptcha === 'undefined' || !grecaptcha.execute) {
+				setStatus('Could not load reCAPTCHA. Please refresh and try again.', true);
+				return;
+			}
+			pendingSubmit = true;
+			loading = true;
+			setSubmitLoading(true);
+			try {
+				grecaptcha.execute();
+			} catch (err) {
+				pendingSubmit = false;
+				loading = false;
+				setSubmitLoading(false);
+				setStatus('Could not verify reCAPTCHA. Please try again.', true);
+			}
+			return;
+		}
+
+		sendForm();
 	});
 })();
 </script>

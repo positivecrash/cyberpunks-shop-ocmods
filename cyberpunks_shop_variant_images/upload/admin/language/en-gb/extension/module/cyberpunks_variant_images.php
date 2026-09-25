@@ -10,11 +10,14 @@ $_['text_disabled'] = 'Disabled';
 $_['entry_status'] = 'Status';
 $_['entry_product_id'] = 'Product ID';
 $_['entry_signature'] = 'Variant Builder';
-$_['entry_image'] = 'Image (catalog/...)';
+$_['entry_image'] = 'Image filename';
+$_['entry_media_path'] = 'Full path to image';
 $_['entry_mapping_status'] = 'Row Status';
 
 $_['button_add_mapping'] = 'Add mapping';
 $_['button_remove'] = 'Remove';
+$_['button_save'] = 'Save';
+$_['button_cancel'] = 'Cancel';
 $_['button_add_option_pair'] = 'Add option';
 $_['button_edit_options'] = 'Edit options';
 $_['button_done_options'] = 'Done';
@@ -23,12 +26,13 @@ $_['button_export'] = 'Export';
 $_['button_delete_tab'] = 'Delete all tab';
 
 $_['help_signature'] = 'Rows stay compact for speed. Click Edit options to change the variant builder; signature updates automatically.';
-$_['help_image'] = 'Use relative image path from image/ directory, example: catalog/products/altruist/cyan_green.jpg';
-$_['help_import'] = 'YAML keyed by model (portable across local/server). Legacy product_id still accepted. Import replaces mappings only for the resolved product.';
+$_['help_image'] = 'Filename only (uses Full path to image above), e.g. Altruist-Smile-Urban-Green.webp';
+$_['help_media_path'] = 'Folder for preview images, relative to store root. Example: catalog/view/theme/cybershops/media/products/altruist-urban/product-previews';
+$_['help_import'] = 'YAML keyed by model (portable across local/server). Optional media_path sets this product’s Full path to image. Legacy product_id still accepted. Import replaces mappings only for the resolved product.';
 $_['help_import_product'] = 'Import YAML into this product tab. Option names + image; binds to this product (model/product_id in file are ignored for targeting).';
 $_['help_tab_import'] = 'Open a product tab, then use Import next to Export inside that tab.';
 $_['help_export_model'] = 'Export uses product Model (not numeric ID), so the same file works locally and on the server.';
-$_['help_product_tab_save'] = 'Save the product (top-right Save) to persist mapping rows edited here.';
+$_['help_product_tab_save'] = 'Save the product (top-right Save) to persist the Full path to image and mapping rows edited here.';
 $_['text_save_product_first'] = 'Save the product first, then reopen Edit to import or manage variant image mappings.';
 
 $_['text_import_success'] = 'Import completed successfully.';

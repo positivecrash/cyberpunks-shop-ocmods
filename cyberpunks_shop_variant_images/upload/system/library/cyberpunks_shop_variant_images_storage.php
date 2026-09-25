@@ -2,9 +2,14 @@
 class CyberpunksShopVariantImagesStorage {
 	const SETTING_CODE = 'module_cyberpunks_variant_images';
 	const LEGACY_MAPPINGS_KEY = 'module_cyberpunks_variant_images_mappings';
+	/** JSON map: { "50": "catalog/view/theme/cybershops/media/products/altruist-urban/product-previews", ... } */
+	const MEDIA_PATHS_KEY = 'module_cyberpunks_variant_images_media_paths';
 	const MEDIA_PREFIX = 'catalog/view/theme/cybershops/media/';
 	/** Soft limit under MySQL TEXT (65535) used by oc_setting.value. */
 	const CHUNK_SOFT_BYTES = 50000;
+
+	/** @var array|null product_id => media base path (hydrated) */
+	private static $media_paths = null;
 
 	public static function mappingsKeyForProduct($product_id) {
 		return self::LEGACY_MAPPINGS_KEY . '_' . (int)$product_id;
@@ -78,11 +83,112 @@ class CyberpunksShopVariantImagesStorage {
 	}
 
 	public static function hydrateConfig($registry) {
+		$config = $registry->get('config');
+		$paths = self::loadMediaPaths($registry);
+		self::$media_paths = $paths;
+		$config->set(self::MEDIA_PATHS_KEY, $paths);
+
+		$status = (int)$config->get('module_cyberpunks_variant_images_status');
+		if (!$status) {
+			// Keep mappings out of catalog when module is Disabled.
+			$config->set(self::LEGACY_MAPPINGS_KEY, array());
+			return;
+		}
+
 		$rows = self::loadAllForConfig($registry);
 
 		if ($rows) {
-			$registry->get('config')->set(self::LEGACY_MAPPINGS_KEY, $rows);
+			$config->set(self::LEGACY_MAPPINGS_KEY, $rows);
 		}
+	}
+
+	public static function loadMediaPaths($registry) {
+		$registry->get('load')->model('setting/setting');
+		$settings = $registry->get('model_setting_setting')->getSetting(self::SETTING_CODE);
+		$raw = isset($settings[self::MEDIA_PATHS_KEY]) ? $settings[self::MEDIA_PATHS_KEY] : array();
+
+		if (is_string($raw) && $raw !== '') {
+			$decoded = json_decode($raw, true);
+			$raw = is_array($decoded) ? $decoded : array();
+		}
+
+		if (!is_array($raw)) {
+			return array();
+		}
+
+		$result = array();
+		foreach ($raw as $product_id => $path) {
+			$product_id = (int)$product_id;
+			$path = self::normalizeMediaBase($path);
+			if ($product_id > 0 && $path !== '') {
+				$result[$product_id] = $path;
+			}
+		}
+
+		return $result;
+	}
+
+	public static function getProductMediaPath($product_id) {
+		$product_id = (int)$product_id;
+		if ($product_id <= 0) {
+			return '';
+		}
+
+		if (is_array(self::$media_paths) && isset(self::$media_paths[$product_id])) {
+			return self::$media_paths[$product_id];
+		}
+
+		return '';
+	}
+
+	public static function normalizeMediaBase($path) {
+		$path = trim((string)$path);
+		$path = str_replace('\\', '/', $path);
+		$path = ltrim($path, '/');
+		$path = rtrim($path, '/');
+		return $path;
+	}
+
+	/**
+	 * Persist per-product preview folder paths. Merges into existing map.
+	 * Pass product_id => path; empty path removes that product entry.
+	 */
+	public static function saveMediaPaths($registry, array $paths_by_product) {
+		$registry->get('load')->model('setting/setting');
+		$model = $registry->get('model_setting_setting');
+		$existing = $model->getSetting(self::SETTING_CODE);
+		$current = self::loadMediaPaths($registry);
+
+		foreach ($paths_by_product as $product_id => $path) {
+			$product_id = (int)$product_id;
+			if ($product_id <= 0) {
+				continue;
+			}
+			$path = self::normalizeMediaBase($path);
+			if ($path === '') {
+				unset($current[$product_id]);
+			} else {
+				$current[$product_id] = $path;
+			}
+		}
+
+		self::$media_paths = $current;
+
+		$save_data = array();
+		foreach ($existing as $key => $value) {
+			if ($key === self::MEDIA_PATHS_KEY) {
+				continue;
+			}
+			$save_data[$key] = $value;
+		}
+		$save_data[self::MEDIA_PATHS_KEY] = $current;
+		if (!isset($save_data['module_cyberpunks_variant_images_status'])) {
+			$save_data['module_cyberpunks_variant_images_status'] = isset($existing['module_cyberpunks_variant_images_status'])
+				? (int)$existing['module_cyberpunks_variant_images_status']
+				: 1;
+		}
+
+		$model->editSetting(self::SETTING_CODE, $save_data);
 	}
 
 	public static function saveGrouped($registry, array $mappings_by_product, $status = null) {
@@ -109,6 +215,10 @@ class CyberpunksShopVariantImagesStorage {
 		// editSetting DELETEs the whole code — keep shards for products not in this write.
 		$existing = $model->getSetting(self::SETTING_CODE);
 		foreach ($existing as $key => $value) {
+			if ($key === self::MEDIA_PATHS_KEY) {
+				$save_data[$key] = $value;
+				continue;
+			}
 			$product_id = self::productIdFromMappingsKey($key);
 			if ($product_id <= 0 || isset($touched[$product_id])) {
 				continue;
@@ -197,15 +307,16 @@ class CyberpunksShopVariantImagesStorage {
 			return '';
 		}
 
-		$prefix = self::MEDIA_PREFIX;
-		if (stripos($image, $prefix) === 0) {
-			return ltrim(substr($image, strlen($prefix)), '/');
+		$image = str_replace('\\', '/', $image);
+		$image = ltrim($image, '/');
+
+		// Always store basename — full folder lives in per-product media_path.
+		if (strpos($image, '/') !== false) {
+			$base = basename($image);
+			return $base !== '' ? $base : $image;
 		}
 
-		$image = preg_replace('#^/?catalog/view/theme/cybershops/media/#i', '', $image);
-		$image = preg_replace('#^altruist-bundle/product-previews/#i', '', $image);
-
-		return ltrim($image, '/');
+		return $image;
 	}
 
 	/**
@@ -224,7 +335,8 @@ class CyberpunksShopVariantImagesStorage {
 
 		// Theme asset path (outside DIR_IMAGE), e.g. catalog/view/theme/...
 		if (strpos($image, 'catalog/view/theme/') === 0) {
-			return '/' . $image;
+			$resolved = self::preferExistingThemePath($image);
+			return $resolved !== '' ? '/' . $resolved : '';
 		}
 
 		if (is_object($model_tool_image) && method_exists($model_tool_image, 'resize') && defined('DIR_IMAGE') && is_file(DIR_IMAGE . $image)) {
@@ -234,21 +346,97 @@ class CyberpunksShopVariantImagesStorage {
 		return '/' . $image;
 	}
 
+	/**
+	 * Pick a usable theme-media path. Prefers a candidate that exists on disk;
+	 * never blanks a non-empty input (so cart still gets a URL when checks fail).
+	 * Soft-rewrites legacy media/{slug}/product-previews → media/products/{slug}/...
+	 */
+	public static function preferExistingThemePath($path) {
+		$path = ltrim((string)$path, '/');
+		if ($path === '') {
+			return '';
+		}
+
+		$candidates = array($path);
+
+		if (preg_match('#^(catalog/view/theme/cybershops/media/)(?!products/)(.+/product-previews/.+)$#i', $path, $m)) {
+			$candidates[] = $m[1] . 'products/' . $m[2];
+		}
+
+		foreach ($candidates as $candidate) {
+			if (self::themeMediaFileExists($candidate)) {
+				return $candidate;
+			}
+		}
+
+		// Prefer the products/ rewrite when that was the only alternative.
+		if (count($candidates) > 1) {
+			return $candidates[1];
+		}
+
+		return $path;
+	}
+
+	/** @deprecated Use preferExistingThemePath — kept for older call sites. */
+	public static function resolveExistingThemeMediaPath($path) {
+		return self::preferExistingThemePath($path);
+	}
+
+	public static function themeMediaFileExists($path) {
+		$path = ltrim((string)$path, '/');
+		if ($path === '') {
+			return false;
+		}
+
+		if (defined('DIR_APPLICATION')) {
+			$root = dirname(DIR_APPLICATION);
+			if (is_file($root . '/' . $path)) {
+				return true;
+			}
+		}
+
+		if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+			$doc = rtrim((string)$_SERVER['DOCUMENT_ROOT'], '/');
+			if ($doc !== '' && is_file($doc . '/' . $path)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	public static function expandImagePathFromStorage($image, $product_id = 0) {
 		$image = trim((string)$image);
 		if ($image === '') {
 			return '';
 		}
 
-		if (stripos($image, 'catalog/') === 0) {
+		if (preg_match('#^(https?:)?//#i', $image)) {
 			return $image;
 		}
 
-		if (strpos($image, '/') !== false) {
-			return self::MEDIA_PREFIX . ltrim($image, '/');
+		$image = ltrim($image, '/');
+		$base = self::normalizeMediaBase(self::getProductMediaPath((int)$product_id));
+
+		// Already a store-root path.
+		if (stripos($image, 'catalog/') === 0) {
+			return self::preferExistingThemePath($image);
 		}
 
-		return self::MEDIA_PREFIX . 'altruist-bundle/product-previews/' . $image;
+		// Per-product folder from admin: filenames or paths relative to that folder.
+		if ($base !== '') {
+			if (stripos($image, $base . '/') === 0 || strcasecmp($image, $base) === 0) {
+				return self::preferExistingThemePath($image);
+			}
+			return self::preferExistingThemePath($base . '/' . $image);
+		}
+
+		// No admin path: treat as under theme media/.
+		if (strpos($image, '/') !== false) {
+			return self::preferExistingThemePath(self::MEDIA_PREFIX . $image);
+		}
+
+		return self::preferExistingThemePath(self::MEDIA_PREFIX . 'products/' . $image);
 	}
 
 	/**

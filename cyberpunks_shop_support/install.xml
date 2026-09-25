@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Support</name>
 	<code>cyberpunks_shop_support</code>
-	<version>1.2.3</version>
+	<version>1.2.5</version>
 	<author>positivecrash</author>
-	<description>Support tickets + IMAP inbound (subject-filtered). Contact-form protection: email blacklist, max messages/day, append, form token, editable form messages. Left nav via event.</description>
+	<description>Support tickets + IMAP inbound. Contact-form protection: stop words (Spam tab), reCAPTCHA keys, blacklist (+ optional stop words), rate limits, form token. Left nav via event.</description>
 </modification>

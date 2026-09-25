@@ -235,25 +235,18 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 	}
 
 	/**
-	 * Register product checkbox-list scripts (field `3d_scripts`) once in Document header.
-	 * Do not also output these paths as <script> in product twig (avoids THREE double-init warning).
+	 * Collect product `3d_scripts` for deferred load (first 3D gallery tab), not in <head>.
+	 * Paths land in registry → header JSON → product-oc.js. Avoids THREE on first paint / LCP.
+	 * Do not also output these as <script> in product twig (THREE double-init warning).
 	 */
 	public function registerProductScripts($document, array $fields_map, $field_key = '3d_scripts') {
-		if (!is_object($document) || !method_exists($document, 'addScript')) {
-			return;
-		}
-
 		if (empty($fields_map[$field_key]) || !is_array($fields_map[$field_key])) {
+			$this->registry->set('cyberpunks_3d_scripts_deferred', array());
 			return;
-		}
-
-		$script_types = array();
-
-		if ($this->registry->has('cyberpunks_shop_head_includes_script_types')) {
-			$script_types = (array)$this->registry->get('cyberpunks_shop_head_includes_script_types');
 		}
 
 		$seen = array();
+		$deferred = array();
 
 		foreach ($fields_map[$field_key] as $script_path) {
 			$script_path = trim((string)$script_path);
@@ -274,16 +267,13 @@ class ModelExtensionModuleCyberpunksShopProductFields extends Model {
 			}
 
 			$seen[$script_path] = true;
-			$document->addScript($script_path, 'header');
-
-			if ($is_module) {
-				$script_types[$script_path] = 'module';
-			}
+			$deferred[] = array(
+				'src' => $script_path,
+				'type' => $is_module ? 'module' : 'text/javascript'
+			);
 		}
 
-		if ($script_types) {
-			$this->registry->set('cyberpunks_shop_head_includes_script_types', $script_types);
-		}
+		$this->registry->set('cyberpunks_3d_scripts_deferred', $deferred);
 	}
 
 	private function resolveImageFieldValue($path) {

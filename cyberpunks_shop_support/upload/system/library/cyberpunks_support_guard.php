@@ -58,10 +58,74 @@ class CyberpunksSupportGuard {
 
 	/**
 	 * Contact-form message from Support module settings (no hardcoded defaults).
-	 * @param string $code success|token|too_fast|blocked|soft_limit
+	 * @param string $code success|token|too_fast|blocked|soft_limit|recaptcha
 	 */
 	public function getFormMessage($code) {
 		return trim((string)$this->config->get('module_cyberpunks_shop_support_msg_' . (string)$code));
+	}
+
+	public function isRecaptchaEnabled() {
+		$site = trim((string)$this->config->get('module_cyberpunks_shop_support_recaptcha_site_key'));
+		$secret = trim((string)$this->config->get('module_cyberpunks_shop_support_recaptcha_secret_key'));
+		return ($site !== '' && $secret !== '');
+	}
+
+	public function getRecaptchaSiteKey() {
+		return trim((string)$this->config->get('module_cyberpunks_shop_support_recaptcha_site_key'));
+	}
+
+	/**
+	 * Verify Google reCAPTCHA v2 Invisible token.
+	 * @return bool
+	 */
+	public function verifyRecaptcha($response, $remote_ip = '') {
+		if (!$this->isRecaptchaEnabled()) {
+			return true;
+		}
+
+		$response = trim((string)$response);
+		if ($response === '') {
+			return false;
+		}
+
+		$secret = trim((string)$this->config->get('module_cyberpunks_shop_support_recaptcha_secret_key'));
+		$query = http_build_query(array(
+			'secret'   => $secret,
+			'response' => $response,
+			'remoteip' => (string)$remote_ip
+		));
+
+		$result = false;
+
+		if (function_exists('curl_init')) {
+			$ch = curl_init('https://www.google.com/recaptcha/api/siteverify');
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POST, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
+			curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+			$body = curl_exec($ch);
+			curl_close($ch);
+			if ($body !== false) {
+				$decoded = json_decode($body, true);
+				$result = !empty($decoded['success']);
+			}
+		} else {
+			$ctx = stream_context_create(array(
+				'http' => array(
+					'method'  => 'POST',
+					'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
+					'content' => $query,
+					'timeout' => 10
+				)
+			));
+			$body = @file_get_contents('https://www.google.com/recaptcha/api/siteverify', false, $ctx);
+			if ($body !== false) {
+				$decoded = json_decode($body, true);
+				$result = !empty($decoded['success']);
+			}
+		}
+
+		return $result;
 	}
 
 	/**

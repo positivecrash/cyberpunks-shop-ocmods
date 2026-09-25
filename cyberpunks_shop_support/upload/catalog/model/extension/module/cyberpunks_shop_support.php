@@ -4,6 +4,7 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 	const STATUS_IN_PROGRESS = 'in_progress';
 	const STATUS_WAITING = 'waiting';
 	const STATUS_CLOSED = 'closed';
+	const STATUS_SPAM = 'spam';
 
 	/** Minimum gap between two customer messages appended to the same ticket. */
 	const APPEND_THROTTLE_SECONDS = 60;
@@ -195,10 +196,63 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 			FROM `" . DB_PREFIX . "cyberpunks_support_message` m
 			INNER JOIN `" . DB_PREFIX . "cyberpunks_support_ticket` t ON (t.ticket_id = m.ticket_id)
 			WHERE LOWER(t.email) = '" . $this->db->escape($email) . "'
+			AND t.status <> '" . $this->db->escape(self::STATUS_SPAM) . "'
 			AND m.author = 'customer'
 			AND m.date_added >= DATE_SUB(NOW(), INTERVAL " . (int)$hours . " HOUR)");
 
 		return (int)$query->row['total'];
+	}
+
+	/**
+	 * Stop words from Support settings (one per line; # comments ignored).
+	 * @return string[]
+	 */
+	public function getStopWords() {
+		$raw = (string)$this->config->get('module_cyberpunks_shop_support_antispam_stopwords');
+		$words = array();
+
+		foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
+			$line = trim($line);
+
+			if ($line === '' || strpos($line, '#') === 0) {
+				continue;
+			}
+
+			$words[] = $line;
+		}
+
+		return $words;
+	}
+
+	/**
+	 * Case-insensitive substring match against configured stop words.
+	 */
+	public function messageContainsStopWord($message) {
+		$message = (string)$message;
+
+		if ($message === '') {
+			return false;
+		}
+
+		$haystack = function_exists('mb_strtolower') ? mb_strtolower($message, 'UTF-8') : strtolower($message);
+
+		foreach ($this->getStopWords() as $word) {
+			$needle = function_exists('mb_strtolower') ? mb_strtolower($word, 'UTF-8') : strtolower($word);
+
+			if ($needle === '') {
+				continue;
+			}
+
+			if (function_exists('mb_stripos')) {
+				if (mb_stripos($haystack, $needle, 0, 'UTF-8') !== false) {
+					return true;
+				}
+			} elseif (stripos($haystack, $needle) !== false) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	public function generateRequestCode() {
@@ -214,7 +268,7 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 	}
 
 	/**
-	 * Contact-form entry point: blocklist → daily limit → append to open ticket → new ticket.
+	 * Contact-form entry point: blocklist → stop words → daily limit → append → new ticket.
 	 * @return array{action:string,ticket_id:int,request_code:string,first_for_email:bool,wait_seconds:int}
 	 */
 	public function submitFromContact($data) {
@@ -244,6 +298,15 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 			return $result;
 		}
 
+		if ($this->messageContainsStopWord($raw_message)) {
+			$created = $this->createFromContact($data, self::STATUS_SPAM);
+			$result['action'] = $created['ticket_id'] ? 'spam' : 'skipped';
+			$result['ticket_id'] = $created['ticket_id'];
+			$result['request_code'] = $created['request_code'];
+			$result['first_for_email'] = false;
+			return $result;
+		}
+
 		$window_hours = $this->config->get('module_cyberpunks_shop_support_antispam_cooldown_hours');
 		$window_hours = ($window_hours === null || $window_hours === '') ? 24 : max(1, (int)$window_hours);
 
@@ -251,7 +314,6 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 		$daily_max = ($daily_max === null || $daily_max === '') ? 2 : max(0, (int)$daily_max);
 
 		if ($daily_max > 0 && $this->countCustomerMessagesForEmail($email, $window_hours) >= $daily_max) {
-			// Soft refusal: look like success on the storefront, do not store or email.
 			$result['action'] = 'soft_limit';
 			return $result;
 		}
@@ -291,9 +353,10 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 
 	/**
 	 * Create ticket + first customer message from contact form.
+	 * @param string $status open|spam
 	 * @return array{ticket_id:int,request_code:string,first_for_email:bool}
 	 */
-	public function createFromContact($data) {
+	public function createFromContact($data, $status = self::STATUS_OPEN) {
 		$this->ensureSchema();
 
 		if (!(int)$this->config->get('module_cyberpunks_shop_support_status')) {
@@ -321,7 +384,12 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 			return array('ticket_id' => 0, 'request_code' => '', 'first_for_email' => false);
 		}
 
-		$first_for_email = $this->isFirstTicketForEmail($email);
+		$allowed_status = array(self::STATUS_OPEN, self::STATUS_SPAM);
+		if (!in_array($status, $allowed_status, true)) {
+			$status = self::STATUS_OPEN;
+		}
+
+		$first_for_email = ($status !== self::STATUS_SPAM) && $this->isFirstTicketForEmail($email);
 
 		if ($request_code === '') {
 			$request_code = $this->generateRequestCode();
@@ -336,7 +404,7 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 			request_code = '" . $this->db->escape($request_code) . "',
 			email = '" . $this->db->escape($email) . "',
 			reason = '" . $this->db->escape($reason) . "',
-			status = '" . $this->db->escape(self::STATUS_OPEN) . "',
+			status = '" . $this->db->escape($status) . "',
 			customer_id = '" . (int)$customer_id . "',
 			customer_language = '" . $this->db->escape($language) . "',
 			customer_currency = '" . $this->db->escape($currency) . "',

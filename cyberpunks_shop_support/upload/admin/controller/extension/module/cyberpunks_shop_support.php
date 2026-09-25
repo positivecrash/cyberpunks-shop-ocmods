@@ -32,13 +32,17 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 			'module_cyberpunks_shop_support_antispam_cooldown_hours' => 24,
 			'module_cyberpunks_shop_support_antispam_daily_max' => 2,
 			'module_cyberpunks_shop_support_antispam_append_open' => 1,
+			'module_cyberpunks_shop_support_antispam_stopwords' => '',
+			'module_cyberpunks_shop_support_recaptcha_site_key' => '',
+			'module_cyberpunks_shop_support_recaptcha_secret_key' => '',
 			'module_cyberpunks_shop_support_form_token' => 1,
 			'module_cyberpunks_shop_support_form_min_seconds' => 3,
 			'module_cyberpunks_shop_support_msg_success' => '',
 			'module_cyberpunks_shop_support_msg_token' => '',
 			'module_cyberpunks_shop_support_msg_too_fast' => '',
 			'module_cyberpunks_shop_support_msg_blocked' => '',
-			'module_cyberpunks_shop_support_msg_soft_limit' => ''
+			'module_cyberpunks_shop_support_msg_soft_limit' => '',
+			'module_cyberpunks_shop_support_msg_recaptcha' => ''
 		));
 
 		$this->ensureMenuEvent();
@@ -90,7 +94,7 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 			}
 
 			$messages = array();
-			foreach (array('success', 'token', 'too_fast', 'blocked', 'soft_limit') as $code) {
+			foreach (array('success', 'token', 'too_fast', 'blocked', 'soft_limit', 'recaptcha') as $code) {
 				$key = 'module_cyberpunks_shop_support_msg_' . $code;
 				$messages[$key] = isset($this->request->post[$key]) ? trim((string)$this->request->post[$key]) : '';
 			}
@@ -113,6 +117,9 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 				'module_cyberpunks_shop_support_antispam_cooldown_hours' => isset($this->request->post['module_cyberpunks_shop_support_antispam_cooldown_hours']) ? max(1, min(720, (int)$this->request->post['module_cyberpunks_shop_support_antispam_cooldown_hours'])) : 24,
 				'module_cyberpunks_shop_support_antispam_daily_max' => isset($this->request->post['module_cyberpunks_shop_support_antispam_daily_max']) ? max(0, min(50, (int)$this->request->post['module_cyberpunks_shop_support_antispam_daily_max'])) : 2,
 				'module_cyberpunks_shop_support_antispam_append_open' => !empty($this->request->post['module_cyberpunks_shop_support_antispam_append_open']) ? 1 : 0,
+				'module_cyberpunks_shop_support_antispam_stopwords' => isset($this->request->post['module_cyberpunks_shop_support_antispam_stopwords']) ? trim((string)$this->request->post['module_cyberpunks_shop_support_antispam_stopwords']) : '',
+				'module_cyberpunks_shop_support_recaptcha_site_key' => isset($this->request->post['module_cyberpunks_shop_support_recaptcha_site_key']) ? trim((string)$this->request->post['module_cyberpunks_shop_support_recaptcha_site_key']) : '',
+				'module_cyberpunks_shop_support_recaptcha_secret_key' => isset($this->request->post['module_cyberpunks_shop_support_recaptcha_secret_key']) ? trim((string)$this->request->post['module_cyberpunks_shop_support_recaptcha_secret_key']) : '',
 				'module_cyberpunks_shop_support_form_token' => !empty($this->request->post['module_cyberpunks_shop_support_form_token']) ? 1 : 0,
 				'module_cyberpunks_shop_support_form_min_seconds' => isset($this->request->post['module_cyberpunks_shop_support_form_min_seconds']) ? max(0, min(120, (int)$this->request->post['module_cyberpunks_shop_support_form_min_seconds'])) : 3
 			), $messages));
@@ -152,12 +159,18 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 		$data['entry_antispam_cooldown_hours'] = $this->language->get('entry_antispam_cooldown_hours');
 		$data['entry_antispam_daily_max'] = $this->language->get('entry_antispam_daily_max');
 		$data['entry_antispam_append_open'] = $this->language->get('entry_antispam_append_open');
+		$data['entry_antispam_stopwords'] = $this->language->get('entry_antispam_stopwords');
 		$data['entry_form_token'] = $this->language->get('entry_form_token');
 		$data['entry_form_min_seconds'] = $this->language->get('entry_form_min_seconds');
+		$data['text_recaptcha_heading'] = $this->language->get('text_recaptcha_heading');
+		$data['entry_recaptcha_site_key'] = $this->language->get('entry_recaptcha_site_key');
+		$data['entry_recaptcha_secret_key'] = $this->language->get('entry_recaptcha_secret_key');
 		$data['help_antispam'] = $this->language->get('help_antispam');
 		$data['help_antispam_cooldown_hours'] = $this->language->get('help_antispam_cooldown_hours');
 		$data['help_antispam_daily_max'] = $this->language->get('help_antispam_daily_max');
 		$data['help_antispam_append_open'] = $this->language->get('help_antispam_append_open');
+		$data['help_antispam_stopwords'] = $this->language->get('help_antispam_stopwords');
+		$data['help_recaptcha'] = $this->language->get('help_recaptcha');
 		$data['help_form_token'] = $this->language->get('help_form_token');
 		$data['help_form_min_seconds'] = $this->language->get('help_form_min_seconds');
 		$data['text_form_messages_heading'] = $this->language->get('text_form_messages_heading');
@@ -166,6 +179,7 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 		$data['entry_msg_too_fast'] = $this->language->get('entry_msg_too_fast');
 		$data['entry_msg_blocked'] = $this->language->get('entry_msg_blocked');
 		$data['entry_msg_soft_limit'] = $this->language->get('entry_msg_soft_limit');
+		$data['entry_msg_recaptcha'] = $this->language->get('entry_msg_recaptcha');
 		$data['help_form_messages'] = $this->language->get('help_form_messages');
 		$data['help_msg_too_fast'] = $this->language->get('help_msg_too_fast');
 		$data['button_blocklist'] = $this->language->get('button_blocklist');
@@ -244,13 +258,17 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 			'module_cyberpunks_shop_support_antispam_cooldown_hours' => 24,
 			'module_cyberpunks_shop_support_antispam_daily_max' => 2,
 			'module_cyberpunks_shop_support_antispam_append_open' => 1,
+			'module_cyberpunks_shop_support_antispam_stopwords' => '',
+			'module_cyberpunks_shop_support_recaptcha_site_key' => '',
+			'module_cyberpunks_shop_support_recaptcha_secret_key' => '',
 			'module_cyberpunks_shop_support_form_token' => 1,
 			'module_cyberpunks_shop_support_form_min_seconds' => 3,
 			'module_cyberpunks_shop_support_msg_success' => '',
 			'module_cyberpunks_shop_support_msg_token' => '',
 			'module_cyberpunks_shop_support_msg_too_fast' => '',
 			'module_cyberpunks_shop_support_msg_blocked' => '',
-			'module_cyberpunks_shop_support_msg_soft_limit' => ''
+			'module_cyberpunks_shop_support_msg_soft_limit' => '',
+			'module_cyberpunks_shop_support_msg_recaptcha' => ''
 		);
 
 		foreach ($setting_fields as $key => $default) {
@@ -487,6 +505,7 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 		$data['action'] = $this->url->link('extension/module/cyberpunks_shop_support/info', 'user_token=' . $this->session->data['user_token'] . '&ticket_id=' . $ticket_id, true);
 		$data['cancel'] = $this->url->link('extension/module/cyberpunks_shop_support/tickets', 'user_token=' . $this->session->data['user_token'], true);
 		$data['blacklist'] = $this->url->link('extension/module/cyberpunks_shop_support/blacklist', 'user_token=' . $this->session->data['user_token'] . '&ticket_id=' . $ticket_id, true);
+		$data['blacklist_stopwords'] = $this->url->link('extension/module/cyberpunks_shop_support/blacklist', 'user_token=' . $this->session->data['user_token'] . '&ticket_id=' . $ticket_id . '&stopwords=1', true);
 		$data['user_token'] = $this->session->data['user_token'];
 
 		$data['header'] = $this->load->controller('common/header');
@@ -513,6 +532,7 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 	/**
 	 * Blacklist the email addresses of the tickets selected in the list,
 	 * or a single ticket_id from the ticket info page.
+	 * Moves tickets to Spam. Optional ?stopwords=1 also appends customer phrases to stop words.
 	 */
 	public function blacklist() {
 		$this->load->language('extension/module/cyberpunks_shop_support');
@@ -525,14 +545,41 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 			$selected = array((int)$this->request->get['ticket_id']);
 		}
 
+		$add_stopwords = !empty($this->request->get['stopwords']);
+
 		$redirect = $this->url->link('extension/module/cyberpunks_shop_support/tickets', 'user_token=' . $this->session->data['user_token'], true);
 		if (isset($this->request->get['ticket_id'])) {
 			$redirect = $this->url->link('extension/module/cyberpunks_shop_support/info', 'user_token=' . $this->session->data['user_token'] . '&ticket_id=' . (int)$this->request->get['ticket_id'], true);
 		}
 
 		if ($selected && $this->validateModify()) {
-			$result = $this->model_extension_module_cyberpunks_shop_support->blockEmailsFromTickets($selected, (int)$this->user->getId());
-			$this->session->data['success'] = sprintf($this->language->get('text_success_blacklist'), (int)$result['added'], (int)$result['skipped']);
+			$result = $this->model_extension_module_cyberpunks_shop_support->blockEmailsFromTickets(
+				$selected,
+				(int)$this->user->getId(),
+				$add_stopwords
+			);
+
+			if ($add_stopwords) {
+				$this->session->data['success'] = sprintf(
+					$this->language->get('text_success_blacklist_stopwords'),
+					(int)$result['added'],
+					(int)$result['skipped'],
+					(int)$result['spam'],
+					(int)$result['stopwords']
+				);
+			} else {
+				$this->session->data['success'] = sprintf(
+					$this->language->get('text_success_blacklist'),
+					(int)$result['added'],
+					(int)$result['skipped'],
+					(int)$result['spam']
+				);
+			}
+
+			// After list blacklist, tickets left the main tab — stay on tickets list.
+			if (!isset($this->request->get['ticket_id'])) {
+				$redirect = $this->url->link('extension/module/cyberpunks_shop_support/tickets', 'user_token=' . $this->session->data['user_token'], true);
+			}
 		} elseif (!empty($this->error['warning'])) {
 			$this->session->data['error_warning'] = $this->error['warning'];
 		}
@@ -678,6 +725,10 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 		$filter_request_code = isset($this->request->get['filter_request_code']) ? $this->request->get['filter_request_code'] : '';
 		$filter_email = isset($this->request->get['filter_email']) ? $this->request->get['filter_email'] : '';
 		$filter_status = isset($this->request->get['filter_status']) ? $this->request->get['filter_status'] : '';
+		$filter_tab = isset($this->request->get['filter_tab']) ? (string)$this->request->get['filter_tab'] : 'tickets';
+		if ($filter_tab !== 'spam') {
+			$filter_tab = 'tickets';
+		}
 		$sort = isset($this->request->get['sort']) ? $this->request->get['sort'] : 't.date_modified';
 		$order = isset($this->request->get['order']) ? $this->request->get['order'] : 'DESC';
 		$page = isset($this->request->get['page']) ? (int)$this->request->get['page'] : 1;
@@ -689,8 +740,13 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 		if ($filter_email !== '') {
 			$url .= '&filter_email=' . urlencode(html_entity_decode($filter_email, ENT_QUOTES, 'UTF-8'));
 		}
-		if ($filter_status !== '') {
+		if ($filter_tab === 'spam') {
+			$url .= '&filter_tab=spam';
+			$filter_status = 'spam';
+		} elseif ($filter_status !== '' && $filter_status !== 'spam') {
 			$url .= '&filter_status=' . urlencode($filter_status);
+		} else {
+			$filter_status = '';
 		}
 		$url .= '&sort=' . $sort . '&order=' . $order;
 		if ($page > 1) {
@@ -709,6 +765,7 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 
 		$data['delete'] = $this->url->link('extension/module/cyberpunks_shop_support/delete', 'user_token=' . $this->session->data['user_token'] . $url, true);
 		$data['blacklist'] = $this->url->link('extension/module/cyberpunks_shop_support/blacklist', 'user_token=' . $this->session->data['user_token'] . $url, true);
+		$data['blacklist_stopwords'] = $this->url->link('extension/module/cyberpunks_shop_support/blacklist', 'user_token=' . $this->session->data['user_token'] . $url . '&stopwords=1', true);
 		$data['blocklist'] = $this->url->link('extension/module/cyberpunks_shop_support/blocklist', 'user_token=' . $this->session->data['user_token'], true);
 		$data['settings'] = $this->url->link('extension/module/cyberpunks_shop_support', 'user_token=' . $this->session->data['user_token'], true);
 
@@ -716,6 +773,7 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 			'filter_request_code' => $filter_request_code,
 			'filter_email' => $filter_email,
 			'filter_status' => $filter_status,
+			'exclude_spam' => ($filter_tab !== 'spam' && $filter_status === ''),
 			'sort' => $sort,
 			'order' => $order,
 			'start' => ($page - 1) * $this->config->get('config_limit_admin'),
@@ -754,9 +812,22 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 
 		$data['heading_title'] = $this->language->get('heading_title');
 		$data['user_token'] = $this->session->data['user_token'];
-		$data['statuses'] = $this->model_extension_module_cyberpunks_shop_support->getStatuses();
+		$data['filter_tab'] = $filter_tab;
+		$data['tab_tickets'] = $this->language->get('tab_tickets');
+		$data['tab_spam'] = $this->language->get('tab_spam');
+		$data['spam_total'] = $this->model_extension_module_cyberpunks_shop_support->getTotalTicketsByStatus('spam');
+		$tab_base = 'user_token=' . $this->session->data['user_token'];
+		if ($filter_request_code !== '') {
+			$tab_base .= '&filter_request_code=' . urlencode(html_entity_decode($filter_request_code, ENT_QUOTES, 'UTF-8'));
+		}
+		if ($filter_email !== '') {
+			$tab_base .= '&filter_email=' . urlencode(html_entity_decode($filter_email, ENT_QUOTES, 'UTF-8'));
+		}
+		$data['href_tab_tickets'] = $this->url->link('extension/module/cyberpunks_shop_support/tickets', $tab_base, true);
+		$data['href_tab_spam'] = $this->url->link('extension/module/cyberpunks_shop_support/tickets', $tab_base . '&filter_tab=spam', true);
+		$data['statuses'] = $this->model_extension_module_cyberpunks_shop_support->getActiveStatuses();
 		$data['status_labels'] = array();
-		foreach ($data['statuses'] as $status) {
+		foreach ($this->model_extension_module_cyberpunks_shop_support->getStatuses() as $status) {
 			$data['status_labels'][$status] = $this->language->get('text_status_' . $status);
 		}
 
@@ -778,7 +849,7 @@ class ControllerExtensionModuleCyberpunksShopSupport extends Controller {
 
 		$data['filter_request_code'] = $filter_request_code;
 		$data['filter_email'] = $filter_email;
-		$data['filter_status'] = $filter_status;
+		$data['filter_status'] = ($filter_tab === 'spam') ? '' : $filter_status;
 		$data['sort'] = $sort;
 		$data['order'] = $order;
 

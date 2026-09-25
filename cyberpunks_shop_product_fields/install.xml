@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Product Fields</name>
 	<code>cyberpunks_shop_product_fields</code>
-	<version>1.7.3</version>
+	<version>1.7.4</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
 
@@ -152,6 +152,7 @@
 			<search trim="false"><![CDATA[		$data['keywords'] = $this->document->getKeywords();]]></search>
 			<add position="after"><![CDATA[
 		$data['cyberpunks_product_fields'] = $this->registry->has('cyberpunks_product_fields') ? (array)$this->registry->get('cyberpunks_product_fields') : array();
+		$data['cyberpunks_3d_scripts_deferred'] = $this->registry->has('cyberpunks_3d_scripts_deferred') ? (array)$this->registry->get('cyberpunks_3d_scripts_deferred') : array();
 ]]></add>
 		</operation>
 	</file>

@@ -58,9 +58,16 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 	}
 
 	public function getStatuses() {
+		return array('open', 'in_progress', 'waiting', 'closed', 'spam');
+	}
+
+	public function getActiveStatuses() {
 		return array('open', 'in_progress', 'waiting', 'closed');
 	}
 
+	/**
+	 * @param array $data filter_* plus optional exclude_spam (bool) when filter_status empty
+	 */
 	public function getTickets($data = array()) {
 		$this->ensureSchema();
 
@@ -74,15 +81,7 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 			) AS message_count
 			FROM `" . DB_PREFIX . "cyberpunks_support_ticket` t WHERE 1";
 
-		if (!empty($data['filter_request_code'])) {
-			$sql .= " AND t.request_code LIKE '" . $this->db->escape($data['filter_request_code']) . "%'";
-		}
-		if (!empty($data['filter_email'])) {
-			$sql .= " AND t.email LIKE '%" . $this->db->escape($data['filter_email']) . "%'";
-		}
-		if (!empty($data['filter_status'])) {
-			$sql .= " AND t.status = '" . $this->db->escape($data['filter_status']) . "'";
-		}
+		$sql .= $this->buildTicketFilterSql($data);
 
 		$sort_data = array(
 			't.request_code',
@@ -118,6 +117,21 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 		$this->ensureSchema();
 
 		$sql = "SELECT COUNT(*) AS total FROM `" . DB_PREFIX . "cyberpunks_support_ticket` t WHERE 1";
+		$sql .= $this->buildTicketFilterSql($data);
+
+		$query = $this->db->query($sql);
+		return (int)$query->row['total'];
+	}
+
+	public function getTotalTicketsByStatus($status) {
+		$this->ensureSchema();
+		$query = $this->db->query("SELECT COUNT(*) AS total FROM `" . DB_PREFIX . "cyberpunks_support_ticket`
+			WHERE status = '" . $this->db->escape($status) . "'");
+		return (int)$query->row['total'];
+	}
+
+	private function buildTicketFilterSql($data) {
+		$sql = '';
 
 		if (!empty($data['filter_request_code'])) {
 			$sql .= " AND t.request_code LIKE '" . $this->db->escape($data['filter_request_code']) . "%'";
@@ -127,10 +141,11 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 		}
 		if (!empty($data['filter_status'])) {
 			$sql .= " AND t.status = '" . $this->db->escape($data['filter_status']) . "'";
+		} elseif (!empty($data['exclude_spam'])) {
+			$sql .= " AND t.status <> 'spam'";
 		}
 
-		$query = $this->db->query($sql);
-		return (int)$query->row['total'];
+		return $sql;
 	}
 
 	public function getTicket($ticket_id) {
@@ -330,11 +345,173 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 	}
 
 	/**
-	 * Block the email addresses of the given tickets.
-	 * @return array{added:int,skipped:int}
+	 * Normalize a customer phrase for the stop-words list (trim + strip trailing dots).
 	 */
-	public function blockEmailsFromTickets($ticket_ids, $user_id = 0) {
-		$result = array('added' => 0, 'skipped' => 0);
+	public function normalizeStopPhrase($message) {
+		$message = trim((string)$message);
+		$message = preg_replace('/^Reason:\s*.+?(?:\r?\n)+/i', '', $message, 1);
+		$message = trim((string)$message);
+		$message = rtrim($message, ". \t");
+		$message = trim($message);
+
+		return $message;
+	}
+
+	/**
+	 * All customer message bodies from the given tickets (oldest first).
+	 * @return string[]
+	 */
+	public function getCustomerPhrasesFromTickets($ticket_ids) {
+		$ids = array();
+		foreach ((array)$ticket_ids as $ticket_id) {
+			$ticket_id = (int)$ticket_id;
+			if ($ticket_id > 0) {
+				$ids[$ticket_id] = $ticket_id;
+			}
+		}
+
+		if (!$ids) {
+			return array();
+		}
+
+		$this->ensureSchema();
+
+		$rows = $this->db->query("SELECT message FROM `" . DB_PREFIX . "cyberpunks_support_message`
+			WHERE ticket_id IN (" . implode(',', $ids) . ")
+			AND author = 'customer'
+			ORDER BY message_id ASC")->rows;
+
+		$phrases = array();
+		$seen = array();
+
+		foreach ($rows as $row) {
+			$phrase = $this->normalizeStopPhrase(isset($row['message']) ? $row['message'] : '');
+
+			if ($phrase === '') {
+				continue;
+			}
+
+			$key = function_exists('mb_strtolower') ? mb_strtolower($phrase, 'UTF-8') : utf8_strtolower($phrase);
+
+			if (isset($seen[$key])) {
+				continue;
+			}
+
+			$seen[$key] = true;
+			$phrases[] = $phrase;
+		}
+
+		return $phrases;
+	}
+
+	/**
+	 * Append unique phrases to module stop-words setting.
+	 * @return int number of newly added lines
+	 */
+	public function appendStopWords($phrases) {
+		$phrases = (array)$phrases;
+		$added = 0;
+
+		if (!$phrases) {
+			return 0;
+		}
+
+		$key = 'module_cyberpunks_shop_support_antispam_stopwords';
+		$current = (string)$this->config->get($key);
+		$lines = preg_split('/\r\n|\r|\n/', $current);
+		if (!is_array($lines)) {
+			$lines = array();
+		}
+
+		$existing = array();
+		foreach ($lines as $line) {
+			$line = trim((string)$line);
+			if ($line === '' || strpos($line, '#') === 0) {
+				continue;
+			}
+			$norm = $this->normalizeStopPhrase($line);
+			if ($norm === '') {
+				continue;
+			}
+			$lk = function_exists('mb_strtolower') ? mb_strtolower($norm, 'UTF-8') : utf8_strtolower($norm);
+			$existing[$lk] = true;
+		}
+
+		foreach ($phrases as $phrase) {
+			$phrase = $this->normalizeStopPhrase($phrase);
+			if ($phrase === '') {
+				continue;
+			}
+			$lk = function_exists('mb_strtolower') ? mb_strtolower($phrase, 'UTF-8') : utf8_strtolower($phrase);
+			if (isset($existing[$lk])) {
+				continue;
+			}
+			$existing[$lk] = true;
+			$lines[] = $phrase;
+			$added++;
+		}
+
+		if ($added < 1) {
+			return 0;
+		}
+
+		// Preserve blank/comment lines; rewrite as joined list ending without extra blanks.
+		$out = array();
+		foreach ($lines as $line) {
+			$line = rtrim((string)$line, "\r\n");
+			$out[] = $line;
+		}
+		while ($out && trim(end($out)) === '') {
+			array_pop($out);
+		}
+		$value = implode("\n", $out);
+
+		$this->load->model('setting/setting');
+		$settings = $this->model_setting_setting->getSetting('module_cyberpunks_shop_support');
+		if (!is_array($settings)) {
+			$settings = array();
+		}
+		$settings[$key] = $value;
+		$this->model_setting_setting->editSetting('module_cyberpunks_shop_support', $settings);
+		$this->config->set($key, $value);
+
+		return $added;
+	}
+
+	/**
+	 * Mark tickets as Spam.
+	 * @return int number of tickets updated
+	 */
+	public function markTicketsAsSpam($ticket_ids) {
+		$ids = array();
+		foreach ((array)$ticket_ids as $ticket_id) {
+			$ticket_id = (int)$ticket_id;
+			if ($ticket_id > 0) {
+				$ids[$ticket_id] = $ticket_id;
+			}
+		}
+
+		if (!$ids) {
+			return 0;
+		}
+
+		$this->ensureSchema();
+
+		$this->db->query("UPDATE `" . DB_PREFIX . "cyberpunks_support_ticket` SET
+			status = 'spam',
+			date_modified = NOW()
+			WHERE ticket_id IN (" . implode(',', $ids) . ")");
+
+		return count($ids);
+	}
+
+	/**
+	 * Block emails of the given tickets, move them to Spam, optionally append customer phrases to stop words.
+	 * @param bool $add_stopwords
+	 * @return array{added:int,skipped:int,spam:int,stopwords:int}
+	 */
+	public function blockEmailsFromTickets($ticket_ids, $user_id = 0, $add_stopwords = false) {
+		$result = array('added' => 0, 'skipped' => 0, 'spam' => 0, 'stopwords' => 0);
 
 		$ids = array();
 		foreach ((array)$ticket_ids as $ticket_id) {
@@ -359,6 +536,12 @@ class ModelExtensionModuleCyberpunksShopSupport extends Model {
 			} else {
 				$result['skipped']++;
 			}
+		}
+
+		$result['spam'] = $this->markTicketsAsSpam($ids);
+
+		if ($add_stopwords) {
+			$result['stopwords'] = $this->appendStopWords($this->getCustomerPhrasesFromTickets($ids));
 		}
 
 		return $result;

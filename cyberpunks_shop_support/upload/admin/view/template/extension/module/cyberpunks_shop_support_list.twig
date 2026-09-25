@@ -6,6 +6,7 @@
         <a href="{{ blocklist }}" data-toggle="tooltip" title="{{ button_blocklist }}" class="btn btn-default"><i class="fa fa-ban"></i></a>
         <a href="{{ settings }}" data-toggle="tooltip" title="{{ button_settings }}" class="btn btn-default"><i class="fa fa-cog"></i></a>
         <button type="button" data-toggle="tooltip" title="{{ button_blacklist }}" class="btn btn-warning" onclick="confirm('{{ text_confirm_blacklist }}') ? $('#form-support').attr('action', '{{ blacklist }}').submit() : false;"><i class="fa fa-ban"></i></button>
+        <button type="button" data-toggle="tooltip" title="{{ button_blacklist_stopwords }}" class="btn btn-warning" onclick="confirm('{{ text_confirm_blacklist_stopwords }}') ? $('#form-support').attr('action', '{{ blacklist_stopwords }}').submit() : false;"><i class="fa fa-ban"></i> <i class="fa fa-font"></i></button>
         <button type="button" data-toggle="tooltip" title="{{ button_delete }}" class="btn btn-danger" onclick="confirm('{{ text_confirm }}') ? $('#form-support').attr('action', '{{ delete }}').submit() : false;"><i class="fa fa-trash-o"></i></button>
       </div>
       <h1>{{ heading_title }}</h1>
@@ -30,7 +31,11 @@
     <div class="panel panel-default">
       <div class="panel-heading"><h3 class="panel-title"><i class="fa fa-list"></i> {{ text_list }}</h3></div>
       <div class="panel-body">
-        <div class="well">
+        <ul class="nav nav-tabs">
+          <li{% if filter_tab != 'spam' %} class="active"{% endif %}><a href="{{ href_tab_tickets }}">{{ tab_tickets }}</a></li>
+          <li{% if filter_tab == 'spam' %} class="active"{% endif %}><a href="{{ href_tab_spam }}">{{ tab_spam }}{% if spam_total %} <span class="badge">{{ spam_total }}</span>{% endif %}</a></li>
+        </ul>
+        <div class="well" style="margin-top:15px;">
           <div class="row">
             <div class="col-sm-4">
               <div class="form-group">
@@ -109,12 +114,17 @@
 <script type="text/javascript"><!--
 $('#button-filter').on('click', function() {
   var url = 'index.php?route=extension/module/cyberpunks_shop_support/tickets&user_token={{ user_token }}';
+  {% if filter_tab == 'spam' %}
+  url += '&filter_tab=spam';
+  {% endif %}
   var request = $('input[name=\'filter_request_code\']').val();
   if (request) url += '&filter_request_code=' + encodeURIComponent(request);
   var email = $('input[name=\'filter_email\']').val();
   if (email) url += '&filter_email=' + encodeURIComponent(email);
+  {% if filter_tab != 'spam' %}
   var status = $('select[name=\'filter_status\']').val();
   if (status) url += '&filter_status=' + encodeURIComponent(status);
+  {% endif %}
   location = url;
 });
 //--></script>
