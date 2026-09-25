@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Cyberpunks Shop Offer Notes</name>
+	<code>cyberpunks_shop_offer_notes</code>
+	<version>1.1.1</version>
+	<author>positivecrash</author>
+	<description>Multilingual Note on product Special and Discount rows; shown on the product page for the current language.</description>
+
+	<file path="admin/language/*/catalog/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[$_['entry_priority']         = 'Priority';]]></search>
+			<add position="after"><![CDATA[
+$_['entry_offer_note']       = 'Note';
+]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/model/catalog/product.php">
+		<!-- Ensure note column + load model before any special/discount INSERT -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function addProduct($data) {]]></search>
+			<add position="after"><![CDATA[
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_offer_notes.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_offer_notes');
+			$this->model_extension_module_cyberpunks_shop_offer_notes->ensureSchema();
+		}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function editProduct($product_id, $data) {]]></search>
+			<add position="after"><![CDATA[
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_offer_notes.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_offer_notes');
+			$this->model_extension_module_cyberpunks_shop_offer_notes->ensureSchema();
+		}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$query = $this->db->query("SELECT * FROM " . DB_PREFIX . "product_discount WHERE product_id = '" . (int)$product_id . "' ORDER BY quantity, priority, price");]]></search>
+			<add position="replace"><![CDATA[		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_offer_notes.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_offer_notes');
+			$this->model_extension_module_cyberpunks_shop_offer_notes->ensureSchema();
+		}
+
+		$query = $this->db->query("SELECT * FROM " . DB_PREFIX . "product_discount WHERE product_id = '" . (int)$product_id . "' ORDER BY quantity, priority, price");
+
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_offer_notes.php')) {
+			return $this->model_extension_module_cyberpunks_shop_offer_notes->decodeNoteRows($query->rows);
+		}]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[		$query = $this->db->query("SELECT * FROM " . DB_PREFIX . "product_special WHERE product_id = '" . (int)$product_id . "' ORDER BY priority, price");]]></search>
+			<add position="replace"><![CDATA[		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_offer_notes.php')) {
+			$this->load->model('extension/module/cyberpunks_shop_offer_notes');
+			$this->model_extension_module_cyberpunks_shop_offer_notes->ensureSchema();
+		}
+
+		$query = $this->db->query("SELECT * FROM " . DB_PREFIX . "product_special WHERE product_id = '" . (int)$product_id . "' ORDER BY priority, price");
+
+		if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_offer_notes.php')) {
+			return $this->model_extension_module_cyberpunks_shop_offer_notes->decodeNoteRows($query->rows);
+		}]]></add>
+		</operation>
+		<!-- Encode multilingual note map as JSON on INSERT (add + edit share these lines) -->
+		<!-- Do not use isset($this->model_...) — Model has no __isset, so it is always false. -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[date_end = '" . $this->db->escape($product_discount['date_end']) . "'");]]></search>
+			<add position="replace"><![CDATA[date_end = '" . $this->db->escape($product_discount['date_end']) . "', note = '" . $this->db->escape($this->model_extension_module_cyberpunks_shop_offer_notes->encodeNote(isset($product_discount['note']) ? $product_discount['note'] : array())) . "'");]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[date_end = '" . $this->db->escape($product_special['date_end']) . "'");]]></search>
+			<add position="replace"><![CDATA[date_end = '" . $this->db->escape($product_special['date_end']) . "', note = '" . $this->db->escape($this->model_extension_module_cyberpunks_shop_offer_notes->encodeNote(isset($product_special['note']) ? $product_special['note'] : array())) . "'");]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/controller/catalog/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[				'date_end'          => ($product_discount['date_end'] != '0000-00-00') ? $product_discount['date_end'] : '']]></search>
+			<add position="replace"><![CDATA[				'date_end'          => ($product_discount['date_end'] != '0000-00-00') ? $product_discount['date_end'] : '',
+				'note'              => isset($product_discount['note']) ? $product_discount['note'] : array()]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[				'date_end'          => ($product_special['date_end'] != '0000-00-00') ? $product_special['date_end'] :  '']]></search>
+			<add position="replace"><![CDATA[				'date_end'          => ($product_special['date_end'] != '0000-00-00') ? $product_special['date_end'] :  '',
+				'note'              => isset($product_special['note']) ? $product_special['note'] : array()]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/view/template/catalog/product_form.twig">
+		<!-- Both Discount + Special table headers: after Date End add Note -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[                      <td class="text-left">{{ entry_date_end }}</td>]]></search>
+			<add position="after"><![CDATA[
+                      <td class="text-left">{{ entry_offer_note }}</td>]]></add>
+		</operation>
+
+		<!-- Discount existing rows -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[                        <td class="text-left"><button type="button" onclick="$('#discount-row{{ discount_row }}').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>]]></search>
+			<add position="before"><![CDATA[                        <td class="text-left">{% for language in languages %}<div class="input-group"><span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}"/></span> <input type="text" name="product_discount[{{ discount_row }}][note][{{ language.language_id }}]" value="{{ product_discount.note[language.language_id]|default('') }}" placeholder="{{ entry_offer_note }}" class="form-control"/></div>{% endfor %}</td>
+]]></add>
+		</operation>
+
+		<!-- Discount footer colspan 6 → 7 -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[                      <td colspan="6"></td>]]></search>
+			<add position="replace"><![CDATA[                      <td colspan="7"></td>]]></add>
+		</operation>
+
+		<!-- Discount addDiscount() JS -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[	  html += '  <td class="text-left"><button type="button" onclick="$(\'#discount-row' + discount_row + '\').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>';]]></search>
+			<add position="before"><![CDATA[	  html += '  <td class="text-left">{% for language in languages %}<div class="input-group"><span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name|escape('js') }}" /></span><input type="text" name="product_discount[' + discount_row + '][note][{{ language.language_id }}]" value="" placeholder="{{ entry_offer_note|escape('js') }}" class="form-control" /></div>{% endfor %}</td>';
+]]></add>
+		</operation>
+
+		<!-- Special existing rows -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[                        <td class="text-left"><button type="button" onclick="$('#special-row{{ special_row }}').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>]]></search>
+			<add position="before"><![CDATA[                        <td class="text-left">{% for language in languages %}<div class="input-group"><span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}"/></span> <input type="text" name="product_special[{{ special_row }}][note][{{ language.language_id }}]" value="{{ product_special.note[language.language_id]|default('') }}" placeholder="{{ entry_offer_note }}" class="form-control"/></div>{% endfor %}</td>
+]]></add>
+		</operation>
+
+		<!-- Special footer colspan 5 → 6 -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[                      <td colspan="5"></td>]]></search>
+			<add position="replace"><![CDATA[                      <td colspan="6"></td>]]></add>
+		</operation>
+
+		<!-- Special addSpecial() JS -->
+		<operation error="skip">
+			<search trim="false"><![CDATA[	  html += '  <td class="text-left"><button type="button" onclick="$(\'#special-row' + special_row + '\').remove();" data-toggle="tooltip" title="{{ button_remove }}" class="btn btn-danger"><i class="fa fa-minus-circle"></i></button></td>';]]></search>
+			<add position="before"><![CDATA[	  html += '  <td class="text-left">{% for language in languages %}<div class="input-group"><span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name|escape('js') }}" /></span><input type="text" name="product_special[' + special_row + '][note][{{ language.language_id }}]" value="" placeholder="{{ entry_offer_note|escape('js') }}" class="form-control" /></div>{% endfor %}</td>';
+]]></add>
+		</operation>
+	</file>
+
+	<file path="catalog/controller/product/product.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[			foreach ($discounts as $discount) {]]></search>
+			<add position="before"><![CDATA[			if (is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_offer_notes.php')) {
+				$this->load->model('extension/module/cyberpunks_shop_offer_notes');
+			}
+
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[					'price'    => $this->currency->format($this->tax->calculate($discount['price'], $product_info['tax_class_id'], $this->config->get('config_tax')), $this->session->data['currency'])]]></search>
+			<add position="replace"><![CDATA[					'price'    => $this->currency->format($this->tax->calculate($discount['price'], $product_info['tax_class_id'], $this->config->get('config_tax')), $this->session->data['currency']),
+					'note'     => is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_offer_notes.php') ? $this->model_extension_module_cyberpunks_shop_offer_notes->resolveNote(isset($discount['note']) ? $discount['note'] : '', (int)$this->config->get('config_language_id')) : '']]></add>
+		</operation>
+		<operation error="skip">
+			<search trim="false"><![CDATA[			$data['options'] = array();]]></search>
+			<add position="before"><![CDATA[			$data['special_note'] = '';
+			if (!empty($data['special']) && is_file(DIR_APPLICATION . 'model/extension/module/cyberpunks_shop_offer_notes.php')) {
+				$data['special_note'] = $this->model_extension_module_cyberpunks_shop_offer_notes->getActiveSpecialNote((int)$this->request->get['product_id'], (int)$this->config->get('config_language_id'));
+			}
+
+]]></add>
+		</operation>
+	</file>
+</modification>
