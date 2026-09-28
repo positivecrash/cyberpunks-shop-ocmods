@@ -21,8 +21,13 @@ Dev override: `?visitor_country=CY`
 
 ```js
 CyberpunksVisitorCountry.get()
+CyberpunksVisitorCountry.set(iso, { manual: true })  // sticky header choice
 CyberpunksVisitorCountry.ready()
+CyberpunksVisitorCountry.isManual()
+CyberpunksVisitorCountry.clearManual()
 ```
+
+Manual country (header select) is stored with `cyberpunks_visitor_country_manual=1` and is **not** overwritten by geo/IP on later page loads.
 
 ## Install
 

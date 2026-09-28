@@ -2,7 +2,7 @@
 <modification>
 	<name>Cyberpunks Shop Visitor Country</name>
 	<code>cyberpunks_shop_visitor_country</code>
-	<version>1.2.1</version>
+	<version>1.2.2</version>
 	<author>positivecrash</author>
 	<description>Visitor country via own endpoint (IP in server session) + localStorage ISO cache. geojs only when IP changes. Deploy files from upload/.</description>
 
