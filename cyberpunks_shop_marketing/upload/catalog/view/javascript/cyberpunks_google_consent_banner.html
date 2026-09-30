@@ -1,9 +1,50 @@
-<div id="cyberpunks-google-consent" class="google-consent" hidden role="dialog" aria-modal="true" aria-labelledby="cyberpunks-google-consent-text">
-	<div class="google-consent__panel content-medium">
-		<p id="cyberpunks-google-consent-text" class="google-consent__text">{{message_html}}{{privacy_html}}</p>
-		<div class="google-consent__actions">
-			{{deny_button_html}}
-			{{grant_button_html}}
+<div id="cyberpunks-google-consent" class="google-consent" hidden role="dialog" aria-modal="true" aria-labelledby="cyberpunks-google-consent-title">
+	<div class="google-consent__card">
+		<div class="google-consent__view" data-consent-view="main">
+			<p id="cyberpunks-google-consent-title" class="google-consent__title">{{title_html}}</p>
+			<p class="google-consent__text">{{message_html}}{{privacy_html}}</p>
+			<div class="google-consent__actions">
+				{{grant_button_html}}
+				{{configure_button_html}}
+			</div>
+		</div>
+
+		<div class="google-consent__view" data-consent-view="configure" hidden>
+			<p class="google-consent__title">{{configure_title_html}}</p>
+			<p class="google-consent__text">{{configure_intro_html}}</p>
+			<ul class="google-consent__options">
+				<li>
+					<label for="cyberpunks-consent-necessary" class="custom-checkbox-form util-flexline custom-checkbox">
+						<span class="input-checkbox-wrap" aria-hidden="true">
+							<input type="checkbox" id="cyberpunks-consent-necessary" checked disabled />
+							<svg class="icon icon-tick" aria-hidden="true" focusable="false"><use href="catalog/view/theme/cybershops/media/icons-sprite.svg#icon-tick"></use></svg>
+						</span>
+						<span>{{necessary_label_html}}</span>
+					</label>
+				</li>
+				<li>
+					<label for="cyberpunks-consent-analytics" class="custom-checkbox-form util-flexline custom-checkbox">
+						<span class="input-checkbox-wrap" aria-hidden="true">
+							<input type="checkbox" id="cyberpunks-consent-analytics" data-consent-option="analytics" checked />
+							<svg class="icon icon-tick" aria-hidden="true" focusable="false"><use href="catalog/view/theme/cybershops/media/icons-sprite.svg#icon-tick"></use></svg>
+						</span>
+						<span>{{analytics_label_html}}</span>
+					</label>
+				</li>
+				<li>
+					<label for="cyberpunks-consent-ads" class="custom-checkbox-form util-flexline custom-checkbox">
+						<span class="input-checkbox-wrap" aria-hidden="true">
+							<input type="checkbox" id="cyberpunks-consent-ads" data-consent-option="ads" checked />
+							<svg class="icon icon-tick" aria-hidden="true" focusable="false"><use href="catalog/view/theme/cybershops/media/icons-sprite.svg#icon-tick"></use></svg>
+						</span>
+						<span>{{ads_label_html}}</span>
+					</label>
+				</li>
+			</ul>
+			<div class="google-consent__actions">
+				{{save_button_html}}
+				{{back_button_html}}
+			</div>
 		</div>
 	</div>
 </div>

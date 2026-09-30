@@ -24,6 +24,19 @@ Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag i
 
 ## Changelog
 
+### 1.6.3
+- Consent: always center the modal (including mobile); hide banner on Privacy Policy URL; use site `:disabled` checkbox styles (no custom override)
+
+### 1.6.2
+- Consent Configure: add locked **Necessary** row; Analytics / Ads checked by default; site-standard `custom-checkbox` markup
+
+### 1.6.1
+- Consent UI: remove Reject/No from the modal (decline = Configure → leave toggles off → Save)
+
+### 1.6.0
+- Consent UI: centered modal with **Accept all**, **Configure** (Analytics / Ads toggles, off by default), and **Reject all**
+- Granular Consent Mode updates + storage of custom choices; Meta CAPI cookie still mirrors `ad_storage`
+
 ### 1.5.1
 - Align GA4 `item_id` with Variant Identifiers SKU (`g:id` / `add_to_cart`): resolve mapping from cart/order options for **begin_checkout**, **purchase**, and Matomo ecommerce
 - **view_item** uses `?variant=SKU` when it matches a product mapping; otherwise falls back to admin model/sku field

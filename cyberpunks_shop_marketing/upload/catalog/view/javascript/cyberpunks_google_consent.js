@@ -3,8 +3,13 @@
 	var BANNER_ID = 'cyberpunks-google-consent';
 	var BUTTON_DATA_ATTR = 'data-google-consent';
 	var GRANT_ACTION = 'grant';
+	var DENY_ACTION = 'deny';
+	var CONFIGURE_ACTION = 'configure';
+	var SAVE_ACTION = 'save';
+	var BACK_ACTION = 'back';
 	var CHOICE_GRANTED = 'granted';
 	var CHOICE_DENIED = 'denied';
+	var CHOICE_CUSTOM = 'custom';
 
 	var el = document.getElementById(CONFIG_ID);
 	if (!el) return;
@@ -30,79 +35,104 @@
 	function gtag() { w.dataLayer.push(arguments); }
 	if (!w.gtag) w.gtag = gtag;
 
-	function consentValue(granted) {
-		var v = granted ? CHOICE_GRANTED : CHOICE_DENIED;
+	function deniedMap() {
 		return {
-			ad_storage: v,
-			ad_user_data: v,
-			ad_personalization: v,
-			analytics_storage: v,
-			functionality_storage: v,
-			personalization_storage: v
+			ad_storage: CHOICE_DENIED,
+			ad_user_data: CHOICE_DENIED,
+			ad_personalization: CHOICE_DENIED,
+			analytics_storage: CHOICE_DENIED,
+			functionality_storage: CHOICE_DENIED,
+			personalization_storage: CHOICE_DENIED
 		};
 	}
 
-	/** Mirror choice to a first-party cookie so server-side Meta CAPI can gate on ad_storage. */
-	function syncConsentCookie(choice) {
+	function grantedMap() {
+		return {
+			ad_storage: CHOICE_GRANTED,
+			ad_user_data: CHOICE_GRANTED,
+			ad_personalization: CHOICE_GRANTED,
+			analytics_storage: CHOICE_GRANTED,
+			functionality_storage: CHOICE_GRANTED,
+			personalization_storage: CHOICE_GRANTED
+		};
+	}
+
+	function customMap(analyticsOn, adsOn) {
+		var analytics = analyticsOn ? CHOICE_GRANTED : CHOICE_DENIED;
+		var ads = adsOn ? CHOICE_GRANTED : CHOICE_DENIED;
+		return {
+			ad_storage: ads,
+			ad_user_data: ads,
+			ad_personalization: ads,
+			analytics_storage: analytics,
+			functionality_storage: analytics,
+			personalization_storage: analytics
+		};
+	}
+
+	function adsGrantedFromMap(map) {
+		return map && map.ad_storage === CHOICE_GRANTED;
+	}
+
+	/** Mirror ad_storage to a first-party cookie so server-side Meta CAPI can gate on it. */
+	function syncConsentCookie(adsGranted) {
 		if (!cfg.cookieName) return;
 		try {
 			var maxAge = cfg.expiryDays * 86400;
 			var secure = (w.location && w.location.protocol === 'https:') ? '; Secure' : '';
-			document.cookie = cfg.cookieName + '=' + encodeURIComponent(choice)
+			var value = adsGranted ? CHOICE_GRANTED : CHOICE_DENIED;
+			document.cookie = cfg.cookieName + '=' + encodeURIComponent(value)
 				+ '; Path=/; Max-Age=' + maxAge + '; SameSite=Lax' + secure;
 		} catch (err) { /* ignore */ }
 	}
 
-	function readStoredChoice() {
-		if (!cfg.storageKey) return '';
+	function readStoredRecord() {
+		if (!cfg.storageKey) return null;
 
 		try {
 			var raw = localStorage.getItem(cfg.storageKey);
-			if (!raw) return '';
+			if (!raw) return null;
 
 			try {
 				var item = JSON.parse(raw);
-				if (item && (item.choice === CHOICE_GRANTED || item.choice === CHOICE_DENIED) && item.expires && Date.now() < item.expires) {
-					return item.choice;
+				if (!item || !item.expires || Date.now() >= item.expires) return null;
+				if (item.choice === CHOICE_GRANTED || item.choice === CHOICE_DENIED || item.choice === CHOICE_CUSTOM) {
+					return item;
 				}
-				return '';
+				return null;
 			} catch (err) {
-				if (raw !== CHOICE_GRANTED && raw !== CHOICE_DENIED) return '';
-				persistChoice(raw);
-				return raw;
+				if (raw !== CHOICE_GRANTED && raw !== CHOICE_DENIED) return null;
+				var legacy = { choice: raw, map: raw === CHOICE_GRANTED ? grantedMap() : deniedMap() };
+				persistRecord(legacy.choice, legacy.map);
+				return legacy;
 			}
 		} catch (err) {
-			return '';
+			return null;
 		}
 	}
 
-	function readChoice() {
-		if (w.__cyberpunksConsentChoice === CHOICE_GRANTED || w.__cyberpunksConsentChoice === CHOICE_DENIED) {
-			return w.__cyberpunksConsentChoice;
-		}
-		return readStoredChoice();
-	}
-
-	function persistChoice(choice) {
+	function persistRecord(choice, map) {
 		w.__cyberpunksConsentChoice = choice;
-		syncConsentCookie(choice);
+		w.__cyberpunksConsentMap = map;
+		syncConsentCookie(adsGrantedFromMap(map));
 		if (!cfg.storageKey) return;
 
 		try {
 			localStorage.setItem(cfg.storageKey, JSON.stringify({
 				choice: choice,
+				map: map,
 				expires: Date.now() + cfg.expiryDays * MS
 			}));
 		} catch (err) { /* localStorage blocked or full */ }
 	}
 
-	function consentUpdate(granted) {
-		gtag('consent', 'update', consentValue(granted));
+	function consentUpdate(map) {
+		gtag('consent', 'update', map);
 	}
 
-	function applyChoice(grant) {
-		consentUpdate(grant);
-		persistChoice(grant ? CHOICE_GRANTED : CHOICE_DENIED);
+	function applyMap(choice, map) {
+		consentUpdate(map);
+		persistRecord(choice, map);
 	}
 
 	gtag('consent', 'default', {
@@ -116,33 +146,89 @@
 		wait_for_update: cfg.waitForUpdate
 	});
 
-	var stored = readChoice();
+	var stored = readStoredRecord();
 	if (stored) {
-		consentUpdate(stored === CHOICE_GRANTED);
-		syncConsentCookie(stored);
+		var replayMap = stored.map;
+		if (!replayMap) {
+			replayMap = stored.choice === CHOICE_GRANTED ? grantedMap() : deniedMap();
+		}
+		consentUpdate(replayMap);
+		syncConsentCookie(adsGrantedFromMap(replayMap));
 		w.__cyberpunksConsentReplayed = true;
+		w.__cyberpunksConsentChoice = stored.choice;
+		w.__cyberpunksConsentMap = replayMap;
+	}
+
+	function showView(banner, name) {
+		var views = banner.querySelectorAll('[data-consent-view]');
+		for (var i = 0; i < views.length; i++) {
+			views[i].hidden = views[i].getAttribute('data-consent-view') !== name;
+		}
+	}
+
+	function readConfigureOptions(banner) {
+		var analytics = banner.querySelector('[data-consent-option="analytics"]');
+		var ads = banner.querySelector('[data-consent-option="ads"]');
+		return {
+			analytics: !!(analytics && analytics.checked),
+			ads: !!(ads && ads.checked)
+		};
+	}
+
+	function hideBanner(banner) {
+		banner.hidden = true;
 	}
 
 	function initBanner() {
 		var banner = document.getElementById(BANNER_ID);
 		if (!banner) return;
 
-		var choice = readChoice();
-		if (choice) {
-			if (!w.__cyberpunksConsentReplayed) {
-				consentUpdate(choice === CHOICE_GRANTED);
-				syncConsentCookie(choice);
+		if (readStoredRecord() || w.__cyberpunksConsentChoice) {
+			if (!w.__cyberpunksConsentReplayed && w.__cyberpunksConsentMap) {
+				consentUpdate(w.__cyberpunksConsentMap);
+				syncConsentCookie(adsGrantedFromMap(w.__cyberpunksConsentMap));
 			}
-			banner.hidden = true;
+			hideBanner(banner);
 			return;
 		}
 
 		banner.hidden = false;
+		showView(banner, 'main');
+
 		banner.addEventListener('click', function (event) {
 			var button = event.target.closest(buttonSelector);
 			if (!button) return;
-			applyChoice(button.getAttribute(BUTTON_DATA_ATTR) === GRANT_ACTION);
-			banner.hidden = true;
+
+			var action = button.getAttribute(BUTTON_DATA_ATTR);
+			if (action === CONFIGURE_ACTION) {
+				showView(banner, 'configure');
+				return;
+			}
+			if (action === BACK_ACTION) {
+				showView(banner, 'main');
+				return;
+			}
+			if (action === GRANT_ACTION) {
+				applyMap(CHOICE_GRANTED, grantedMap());
+				hideBanner(banner);
+				return;
+			}
+			if (action === DENY_ACTION) {
+				applyMap(CHOICE_DENIED, deniedMap());
+				hideBanner(banner);
+				return;
+			}
+			if (action === SAVE_ACTION) {
+				var opts = readConfigureOptions(banner);
+				if (!opts.analytics && !opts.ads) {
+					applyMap(CHOICE_DENIED, deniedMap());
+				} else if (opts.analytics && opts.ads) {
+					applyMap(CHOICE_GRANTED, grantedMap());
+				} else {
+					applyMap(CHOICE_CUSTOM, customMap(opts.analytics, opts.ads));
+				}
+				hideBanner(banner);
+			}
 		});
 	}
 

@@ -233,17 +233,84 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 			return '';
 		}
 
+		if ($this->isConsentPrivacyPage()) {
+			return '';
+		}
+
 		try {
 			$message = $this->resolveLocalizedText($this->config->get('advertise_cyberpunks_shop_marketing_consent_message'));
 			$privacy_label = $this->resolveLocalizedText($this->config->get('advertise_cyberpunks_shop_marketing_consent_privacy_label'));
 			$privacy_url = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_consent_privacy_url'));
-			$deny_label = $this->resolveLocalizedText($this->config->get('advertise_cyberpunks_shop_marketing_consent_deny_label'));
 			$grant_label = $this->resolveLocalizedText($this->config->get('advertise_cyberpunks_shop_marketing_consent_grant_label'));
 
 			// Incomplete admin config: do not break the page with an empty/broken banner.
-			if ($message === '' || ($deny_label === '' && $grant_label === '')) {
+			if ($message === '' || $grant_label === '') {
 				return '';
 			}
+
+			$title = $this->resolveConsentUiText('We use cookies', array(
+				'en' => 'We use cookies',
+				'de' => 'Wir verwenden Cookies',
+				'nl' => 'We gebruiken cookies',
+				'es' => 'Usamos cookies',
+				'el' => 'Χρησιμοποιούμε cookies',
+			));
+			$configure_label = $this->resolveConsentUiText('Configure', array(
+				'en' => 'Configure',
+				'de' => 'Einstellungen',
+				'nl' => 'Instellingen',
+				'es' => 'Configurar',
+				'el' => 'Ρυθμίσεις',
+			));
+			$configure_title = $this->resolveConsentUiText('Cookie settings', array(
+				'en' => 'Cookie settings',
+				'de' => 'Cookie-Einstellungen',
+				'nl' => 'Cookie-instellingen',
+				'es' => 'Ajustes de cookies',
+				'el' => 'Ρυθμίσεις cookies',
+			));
+			$configure_intro = $this->resolveConsentUiText('Necessary cookies stay on. Analytics and ads are on by default — turn them off if you prefer.', array(
+				'en' => 'Necessary cookies stay on. Analytics and ads are on by default — turn them off if you prefer.',
+				'de' => 'Notwendige Cookies bleiben aktiv. Analyse und Werbung sind standardmäßig an — Sie können sie abschalten.',
+				'nl' => 'Noodzakelijke cookies blijven aan. Analytics en ads staan standaard aan — zet ze uit als je dat wilt.',
+				'es' => 'Las cookies necesarias permanecen activas. Analítica y anuncios están activados por defecto — desactívalos si lo prefieres.',
+				'el' => 'Τα απαραίτητα cookies παραμένουν ενεργά. Analytics και διαφημίσεις είναι ενεργά από προεπιλογή — απενεργοποιήστε τα αν προτιμάτε.',
+			));
+			$necessary_label = $this->resolveConsentUiText('Necessary', array(
+				'en' => 'Necessary',
+				'de' => 'Notwendig',
+				'nl' => 'Noodzakelijk',
+				'es' => 'Necesarias',
+				'el' => 'Απαραίτητα',
+			));
+			$analytics_label = $this->resolveConsentUiText('Analytics', array(
+				'en' => 'Analytics',
+				'de' => 'Analyse',
+				'nl' => 'Analytics',
+				'es' => 'Analítica',
+				'el' => 'Analytics',
+			));
+			$ads_label = $this->resolveConsentUiText('Ads & marketing', array(
+				'en' => 'Ads & marketing',
+				'de' => 'Ads & Marketing',
+				'nl' => 'Ads & marketing',
+				'es' => 'Anuncios y marketing',
+				'el' => 'Διαφημίσεις & marketing',
+			));
+			$save_label = $this->resolveConsentUiText('Save preferences', array(
+				'en' => 'Save preferences',
+				'de' => 'Einstellungen speichern',
+				'nl' => 'Voorkeuren opslaan',
+				'es' => 'Guardar preferencias',
+				'el' => 'Αποθήκευση προτιμήσεων',
+			));
+			$back_label = $this->resolveConsentUiText('Back', array(
+				'en' => 'Back',
+				'de' => 'Zurück',
+				'nl' => 'Terug',
+				'es' => 'Atrás',
+				'el' => 'Πίσω',
+			));
 
 			$message_html = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
 			$privacy_html = '';
@@ -252,27 +319,104 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 				$privacy_html = ' <a href="' . htmlspecialchars($privacy_url, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($privacy_label, ENT_QUOTES, 'UTF-8') . '</a>';
 			}
 
-			$deny_button_html = '';
-			if ($deny_label !== '') {
-				$deny_button_html = '<button type="button" class="button button-bordered button-inline" data-google-consent="deny">' . htmlspecialchars($deny_label, ENT_QUOTES, 'UTF-8') . '</button>';
-			}
-
-			$grant_button_html = '';
-			if ($grant_label !== '') {
-				$grant_button_html = '<button type="button" class="button button-green button-inline" data-google-consent="grant">' . htmlspecialchars($grant_label, ENT_QUOTES, 'UTF-8') . '</button>';
-			}
+			$grant_button_html = '<button type="button" class="button button-green button-inline" data-google-consent="grant">' . htmlspecialchars($grant_label, ENT_QUOTES, 'UTF-8') . '</button>';
+			$configure_button_html = '<button type="button" class="button button-bordered button-inline" data-google-consent="configure">' . htmlspecialchars($configure_label, ENT_QUOTES, 'UTF-8') . '</button>';
+			$save_button_html = '<button type="button" class="button button-green button-inline" data-google-consent="save">' . htmlspecialchars($save_label, ENT_QUOTES, 'UTF-8') . '</button>';
+			$back_button_html = '<button type="button" class="button button-bordered button-inline" data-google-consent="back">' . htmlspecialchars($back_label, ENT_QUOTES, 'UTF-8') . '</button>';
 
 			return $this->renderCatalogTemplate('view/javascript/cyberpunks_google_consent_banner.html', array(
+				'title_html' => htmlspecialchars($title, ENT_QUOTES, 'UTF-8'),
 				'message_html' => $message_html,
 				'privacy_html' => $privacy_html,
-				'deny_button_html' => $deny_button_html,
 				'grant_button_html' => $grant_button_html,
+				'configure_button_html' => $configure_button_html,
+				'configure_title_html' => htmlspecialchars($configure_title, ENT_QUOTES, 'UTF-8'),
+				'configure_intro_html' => htmlspecialchars($configure_intro, ENT_QUOTES, 'UTF-8'),
+				'necessary_label_html' => htmlspecialchars($necessary_label, ENT_QUOTES, 'UTF-8'),
+				'analytics_label_html' => htmlspecialchars($analytics_label, ENT_QUOTES, 'UTF-8'),
+				'ads_label_html' => htmlspecialchars($ads_label, ENT_QUOTES, 'UTF-8'),
+				'save_button_html' => $save_button_html,
+				'back_button_html' => $back_button_html,
 			));
 		} catch (Exception $e) {
 			return '';
 		} catch (Throwable $e) {
 			return '';
 		}
+	}
+
+	/**
+	 * Built-in UI strings for the consent modal (not admin-editable yet).
+	 * Uses storefront language code prefix (en, de, nl, …).
+	 */
+	private function resolveConsentUiText($fallback, array $by_lang_prefix) {
+		$code = strtolower((string)$this->config->get('config_language'));
+		$prefix = $code !== '' ? substr($code, 0, 2) : 'en';
+
+		if (!empty($by_lang_prefix[$prefix])) {
+			return (string)$by_lang_prefix[$prefix];
+		}
+
+		if (!empty($by_lang_prefix['en'])) {
+			return (string)$by_lang_prefix['en'];
+		}
+
+		return (string)$fallback;
+	}
+
+	/**
+	 * Hide the banner on the Privacy Policy page so visitors can read it first.
+	 * Matches the admin “Privacy link URL” against the current request path
+	 * (with or without a language prefix, e.g. /en/privacy-policy).
+	 */
+	private function isConsentPrivacyPage() {
+		$privacy_url = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_consent_privacy_url'));
+
+		if ($privacy_url === '') {
+			return false;
+		}
+
+		$privacy_path = parse_url($privacy_url, PHP_URL_PATH);
+
+		if ($privacy_path === null || $privacy_path === false || $privacy_path === '') {
+			$privacy_path = $privacy_url;
+		}
+
+		$privacy_path = '/' . strtolower(trim($privacy_path, '/'));
+
+		if ($privacy_path === '/') {
+			return false;
+		}
+
+		$request_uri = '';
+
+		if (isset($this->request->server['REQUEST_URI'])) {
+			$request_uri = (string)$this->request->server['REQUEST_URI'];
+		}
+
+		$current_path = parse_url($request_uri, PHP_URL_PATH);
+
+		if ($current_path === null || $current_path === false || $current_path === '') {
+			return false;
+		}
+
+		$current_path = '/' . strtolower(trim($current_path, '/'));
+
+		if ($current_path === $privacy_path) {
+			return true;
+		}
+
+		// Language-prefixed SEO URLs: /en/privacy-policy
+		if (strlen($current_path) > strlen($privacy_path) && substr($current_path, -strlen($privacy_path)) === $privacy_path) {
+			$before = substr($current_path, 0, -strlen($privacy_path));
+
+			// Expect "/xx" or "/xx/" language segment only
+			if (preg_match('#^/[a-z]{2}(-[a-z]{2})?/?$#', $before)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
