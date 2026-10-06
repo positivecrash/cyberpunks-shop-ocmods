@@ -45,6 +45,8 @@
             </div>
           </div>
 
+          <input type="hidden" name="module_cyberpunks_mail_templates_trustpilot_address" id="input-trustpilot-address" value="{{ module_cyberpunks_mail_templates_trustpilot_address }}" />
+
           <ul class="nav nav-tabs">
             <li class="active"><a href="#tab-mail-main" data-toggle="tab">{{ text_main_tab }}</a></li>
             {% for type in mail_types %}
@@ -135,6 +137,20 @@
               </div>
 
               <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_trustpilot_bcc }}</label>
+                <div class="col-sm-10">
+                  <div class="checkbox" style="margin-top:0;">
+                    <label>
+                      <input type="checkbox" name="module_cyberpunks_mail_templates_trustpilot_bcc[{{ type.code }}]" value="1" id="input-trustpilot-{{ type.code }}"{% if type.trustpilot_bcc %} checked="checked"{% endif %} />
+                      BCC Trustpilot on this status email
+                    </label>
+                  </div>
+                  <input type="text" value="{{ module_cyberpunks_mail_templates_trustpilot_address }}" id="input-trustpilot-address-{{ type.code }}" class="form-control trustpilot-address-input" placeholder="{{ entry_trustpilot_address }}" style="max-width:480px;margin-top:8px;" autocomplete="off" />
+                  <p class="help-block">{{ help_trustpilot_bcc }} {{ help_trustpilot_address }}</p>
+                </div>
+              </div>
+
+              <div class="form-group">
                 <label class="col-sm-2 control-label">{{ text_variables }}</label>
                 <div class="col-sm-10">
                   <div class="well well-sm" style="max-height:220px;overflow:auto;">
@@ -215,6 +231,12 @@ $('#button-add-layout').on('click', function() {
 
 $('#mail-layouts').on('click', '.button-remove-layout', function() {
   $(this).closest('.mail-layout-row').remove();
+});
+
+$('.trustpilot-address-input').on('input', function() {
+  var value = $(this).val();
+  $('#input-trustpilot-address').val(value);
+  $('.trustpilot-address-input').not(this).val(value);
 });
 //--></script>
 {{ footer }}

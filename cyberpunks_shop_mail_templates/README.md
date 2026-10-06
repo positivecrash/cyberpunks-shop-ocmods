@@ -5,7 +5,7 @@ OpenCart 3.x **Module + OCMOD**: customer email **subjects** + **HTML** per **or
 ## Tabs
 
 1. **Templates** — create several layouts (name + HTML). Use `{content}` for the status body.
-2. **Paid / Pending / Processing / Shipped / Canceled / Complete** — subject, pick a layout, status HTML body.
+2. **Paid / Pending / Processing / Shipped / Canceled / Complete / Refunded** — subject, pick a layout, status HTML body, optional Trustpilot BCC.
 
 ## How it works
 

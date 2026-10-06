@@ -2,10 +2,10 @@
 <modification>
 	<name>Cyberpunks Shop Mail Templates</name>
 	<code>cyberpunks_shop_mail_templates</code>
-	<version>1.1.6</version>
+	<version>1.1.8</version>
 	<author>positivecrash</author>
 	<link>https://github.com/positivecrash</link>
-	<description>Per order-status emails with reusable named layouts ({content}) for Paid, Pending, Processing, Shipped, Canceled, Complete.</description>
+	<description>Per order-status emails with reusable named layouts ({content}) for Paid, Pending, Processing, Shipped, Canceled, Complete, Refunded; optional Trustpilot BCC.</description>
 
 	<!-- OpenCart OCMOD matches non-regex &lt;search&gt; against a SINGLE line only. -->
 	<file path="catalog/controller/mail/order.php">
@@ -43,6 +43,65 @@
 			$mail->setSubject($cp_mail_subject);
 			$mail->setText($this->load->view('mail/order_edit', $data));
 		}]]></add>
+		</operation>
+	</file>
+
+	<!-- Stock OpenCart mail has no BCC. Trustpilot needs Bcc header + SMTP RCPT TO. -->
+	<file path="system/library/mail/smtp.php">
+		<operation error="skip">
+			<search><![CDATA[		$header .= 'X-Mailer: PHP/' . phpversion() . PHP_EOL;]]></search>
+			<add position="before"><![CDATA[		if (!empty($this->bcc)) {
+			$cp_bcc_list = is_array($this->bcc) ? $this->bcc : array($this->bcc);
+			$cp_bcc_hdr = array();
+			foreach ($cp_bcc_list as $cp_bcc_addr) {
+				$cp_bcc_addr = trim((string)$cp_bcc_addr);
+				if ($cp_bcc_addr !== '') {
+					$cp_bcc_hdr[] = '<' . $cp_bcc_addr . '>';
+				}
+			}
+			if ($cp_bcc_hdr) {
+				$header .= 'Bcc: ' . implode(', ', $cp_bcc_hdr) . PHP_EOL;
+			}
+		}
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[			fputs($handle, 'DATA' . "\r\n");]]></search>
+			<add position="before"><![CDATA[			if (!empty($this->bcc)) {
+				$cp_bcc_rcpt = is_array($this->bcc) ? $this->bcc : array($this->bcc);
+				foreach ($cp_bcc_rcpt as $cp_bcc_addr) {
+					$cp_bcc_addr = trim((string)$cp_bcc_addr);
+					if ($cp_bcc_addr === '') {
+						continue;
+					}
+					fputs($handle, 'RCPT TO: <' . $cp_bcc_addr . '>' . "\r\n");
+					$reply = $this->handleReply($handle, false, 'RCPT TO [bcc]');
+					if ((substr($reply, 0, 3) != 250) && (substr($reply, 0, 3) != 251)) {
+						throw new \Exception('Error: RCPT TO (Bcc) not accepted from server!');
+					}
+				}
+			}
+]]></add>
+		</operation>
+	</file>
+
+	<file path="system/library/mail/mail.php">
+		<operation error="skip">
+			<search><![CDATA[		$header .= 'X-Mailer: PHP/' . phpversion() . $eol;]]></search>
+			<add position="before"><![CDATA[		if (!empty($this->bcc)) {
+			$cp_bcc_list = is_array($this->bcc) ? $this->bcc : array($this->bcc);
+			$cp_bcc_hdr = array();
+			foreach ($cp_bcc_list as $cp_bcc_addr) {
+				$cp_bcc_addr = trim((string)$cp_bcc_addr);
+				if ($cp_bcc_addr !== '') {
+					$cp_bcc_hdr[] = '<' . $cp_bcc_addr . '>';
+				}
+			}
+			if ($cp_bcc_hdr) {
+				$header .= 'Bcc: ' . implode(', ', $cp_bcc_hdr) . $eol;
+			}
+		}
+]]></add>
 		</operation>
 	</file>
 </modification>

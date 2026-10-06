@@ -5,7 +5,56 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 	}
 
 	public function getStatusCodes() {
-		return array('paid', 'pending', 'processing', 'shipped', 'canceled', 'complete');
+		return array('paid', 'pending', 'processing', 'shipped', 'canceled', 'complete', 'refunded');
+	}
+
+	/** Trustpilot automatic review invite (BCC). Set in module settings; empty = no BCC. */
+	public function getTrustpilotBccAddress() {
+		$configured = trim((string)$this->config->get('module_cyberpunks_mail_templates_trustpilot_address'));
+
+		if ($configured !== '' && filter_var($configured, FILTER_VALIDATE_EMAIL)) {
+			return $configured;
+		}
+
+		return '';
+	}
+
+	/**
+	 * Per-status Trustpilot BCC. Default: on for Complete only (when never saved).
+	 */
+	public function isTrustpilotBccEnabled($code) {
+		$code = (string)$code;
+
+		if ($code === '' || !$this->isEnabled()) {
+			return false;
+		}
+
+		$map = $this->config->get('module_cyberpunks_mail_templates_trustpilot_bcc');
+
+		if (!is_array($map)) {
+			return ($code === 'complete');
+		}
+
+		if (!array_key_exists($code, $map)) {
+			return ($code === 'complete');
+		}
+
+		return !empty($map[$code]);
+	}
+
+	private function applyTrustpilotBcc($mail, $code) {
+		if (!$this->isTrustpilotBccEnabled($code)) {
+			return;
+		}
+
+		$address = $this->getTrustpilotBccAddress();
+
+		if ($address === '') {
+			return;
+		}
+
+		// OpenCart Mail is stdClass; adaptors read $bcc after our OCMOD patch.
+		$mail->bcc = $address;
 	}
 
 	public function getTemplateHtml($code) {
@@ -90,7 +139,8 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 			'shipped'    => 'shipped',
 			'canceled'   => 'canceled',
 			'cancelled'  => 'canceled',
-			'complete'   => 'complete'
+			'complete'   => 'complete',
+			'refunded'   => 'refunded'
 		);
 
 		return isset($map[$key]) ? $map[$key] : '';
@@ -124,6 +174,7 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 				$mail->setText($this->load->view('mail/order_edit', $data));
 			}
 
+			$this->applyTrustpilotBcc($mail, $code);
 			return;
 		}
 
@@ -142,6 +193,7 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 		if ($use_html) {
 			$body = $this->replaceShortcodes($this->getTemplateHtml($code), $vars);
 			$this->assignHtmlMail($mail, $this->finalizeHtmlEmail($this->applyLayout($body, $vars, $code), $order_info));
+			$this->applyTrustpilotBcc($mail, $code);
 			return;
 		}
 
@@ -151,6 +203,8 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 		} else {
 			$mail->setText($this->load->view('mail/order_edit', $data));
 		}
+
+		$this->applyTrustpilotBcc($mail, $code);
 	}
 
 	/**

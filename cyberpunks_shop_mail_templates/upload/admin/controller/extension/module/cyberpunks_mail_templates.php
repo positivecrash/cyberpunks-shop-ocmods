@@ -12,11 +12,13 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 
 		$this->load->model('setting/setting');
 		$this->model_setting_setting->editSetting('module_cyberpunks_mail_templates', array(
-			'module_cyberpunks_mail_templates_status'  => 0,
-			'module_cyberpunks_mail_templates_layouts' => array(),
-			'module_cyberpunks_mail_templates_layout'  => array(),
-			'module_cyberpunks_mail_templates_subject' => array(),
-			'module_cyberpunks_mail_templates_html'    => array()
+			'module_cyberpunks_mail_templates_status'             => 0,
+			'module_cyberpunks_mail_templates_layouts'            => array(),
+			'module_cyberpunks_mail_templates_layout'             => array(),
+			'module_cyberpunks_mail_templates_subject'            => array(),
+			'module_cyberpunks_mail_templates_html'               => array(),
+			'module_cyberpunks_mail_templates_trustpilot_address' => '',
+			'module_cyberpunks_mail_templates_trustpilot_bcc'     => array('complete' => 1)
 		));
 	}
 
@@ -43,6 +45,12 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 			$layouts_post = isset($this->request->post['module_cyberpunks_mail_templates_layouts']) && is_array($this->request->post['module_cyberpunks_mail_templates_layouts'])
 				? $this->request->post['module_cyberpunks_mail_templates_layouts']
 				: array();
+			$trustpilot_bcc_post = isset($this->request->post['module_cyberpunks_mail_templates_trustpilot_bcc']) && is_array($this->request->post['module_cyberpunks_mail_templates_trustpilot_bcc'])
+				? $this->request->post['module_cyberpunks_mail_templates_trustpilot_bcc']
+				: array();
+			$trustpilot_address = isset($this->request->post['module_cyberpunks_mail_templates_trustpilot_address'])
+				? trim((string)$this->request->post['module_cyberpunks_mail_templates_trustpilot_address'])
+				: '';
 
 			$clean_layouts = $this->normalizeLayouts($layouts_post);
 			$valid_ids = array();
@@ -53,20 +61,28 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 			$clean_subjects = array();
 			$clean_html = array();
 			$clean_layout_map = array();
+			$clean_trustpilot_bcc = array();
 
 			foreach ($this->getMailTypes() as $code => $meta) {
 				$clean_subjects[$code] = isset($subjects[$code]) ? trim((string)$subjects[$code]) : '';
 				$clean_html[$code] = isset($html[$code]) ? $this->decodeStoredHtml((string)$html[$code]) : '';
 				$layout_id = isset($layout_map[$code]) ? trim((string)$layout_map[$code]) : '';
 				$clean_layout_map[$code] = ($layout_id !== '' && isset($valid_ids[$layout_id])) ? $layout_id : '';
+				$clean_trustpilot_bcc[$code] = !empty($trustpilot_bcc_post[$code]) ? 1 : 0;
+			}
+
+			if ($trustpilot_address !== '' && !filter_var($trustpilot_address, FILTER_VALIDATE_EMAIL)) {
+				$trustpilot_address = '';
 			}
 
 			$this->model_setting_setting->editSetting('module_cyberpunks_mail_templates', array(
-				'module_cyberpunks_mail_templates_status'  => !empty($this->request->post['module_cyberpunks_mail_templates_status']) ? 1 : 0,
-				'module_cyberpunks_mail_templates_layouts' => $clean_layouts,
-				'module_cyberpunks_mail_templates_layout'  => $clean_layout_map,
-				'module_cyberpunks_mail_templates_subject' => $clean_subjects,
-				'module_cyberpunks_mail_templates_html'    => $clean_html
+				'module_cyberpunks_mail_templates_status'             => !empty($this->request->post['module_cyberpunks_mail_templates_status']) ? 1 : 0,
+				'module_cyberpunks_mail_templates_layouts'            => $clean_layouts,
+				'module_cyberpunks_mail_templates_layout'             => $clean_layout_map,
+				'module_cyberpunks_mail_templates_subject'            => $clean_subjects,
+				'module_cyberpunks_mail_templates_html'               => $clean_html,
+				'module_cyberpunks_mail_templates_trustpilot_address' => $trustpilot_address,
+				'module_cyberpunks_mail_templates_trustpilot_bcc'     => $clean_trustpilot_bcc
 			));
 
 			$this->session->data['success'] = $this->language->get('text_success');
@@ -123,6 +139,11 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 			$saved_layout_map = array();
 		}
 
+		$saved_trustpilot_bcc = $this->config->get('module_cyberpunks_mail_templates_trustpilot_bcc');
+		if (!is_array($saved_trustpilot_bcc)) {
+			$saved_trustpilot_bcc = array();
+		}
+
 		if (isset($this->request->post['module_cyberpunks_mail_templates_html'])) {
 			$saved_html = $this->request->post['module_cyberpunks_mail_templates_html'];
 		}
@@ -132,6 +153,16 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 		if (isset($this->request->post['module_cyberpunks_mail_templates_layout'])) {
 			$saved_layout_map = $this->request->post['module_cyberpunks_mail_templates_layout'];
 		}
+		if (isset($this->request->post['module_cyberpunks_mail_templates_trustpilot_bcc'])) {
+			$saved_trustpilot_bcc = $this->request->post['module_cyberpunks_mail_templates_trustpilot_bcc'];
+		}
+
+		if (isset($this->request->post['module_cyberpunks_mail_templates_trustpilot_address'])) {
+			$data['module_cyberpunks_mail_templates_trustpilot_address'] = trim((string)$this->request->post['module_cyberpunks_mail_templates_trustpilot_address']);
+		} else {
+			$addr = $this->config->get('module_cyberpunks_mail_templates_trustpilot_address');
+			$data['module_cyberpunks_mail_templates_trustpilot_address'] = ($addr !== null) ? trim((string)$addr) : '';
+		}
 
 		$status_map = $this->getStoreStatusMap();
 		$shortcodes = $this->getShortcodeHelp();
@@ -140,6 +171,9 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 		$data['mail_types'] = array();
 		foreach ($this->getMailTypes() as $code => $meta) {
 			$mapped = isset($status_map[$code]) ? $status_map[$code] : null;
+			$trustpilot_on = array_key_exists($code, $saved_trustpilot_bcc)
+				? !empty($saved_trustpilot_bcc[$code])
+				: ($code === 'complete');
 
 			$data['mail_types'][] = array(
 				'code'            => $code,
@@ -152,7 +186,8 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 				'shortcodes'      => $shortcodes,
 				'status_id'       => $mapped ? (int)$mapped['order_status_id'] : 0,
 				'status_name'     => $mapped ? $mapped['name'] : '',
-				'status_found'    => $mapped ? true : false
+				'status_found'    => $mapped ? true : false,
+				'trustpilot_bcc'  => $trustpilot_on
 			);
 		}
 
@@ -180,6 +215,10 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 		$data['help_layout'] = $this->language->get('help_layout');
 		$data['help_layout_html'] = $this->language->get('help_layout_html');
 		$data['help_status_html'] = $this->language->get('help_status_html');
+		$data['entry_trustpilot_bcc'] = $this->language->get('entry_trustpilot_bcc');
+		$data['entry_trustpilot_address'] = $this->language->get('entry_trustpilot_address');
+		$data['help_trustpilot_bcc'] = $this->language->get('help_trustpilot_bcc');
+		$data['help_trustpilot_address'] = $this->language->get('help_trustpilot_address');
 		$data['button_save'] = $this->language->get('button_save');
 		$data['button_cancel'] = $this->language->get('button_cancel');
 		$data['button_add_layout'] = $this->language->get('button_add_layout');
@@ -320,6 +359,11 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 				'title'           => 'Complete',
 				'help'            => $this->language->get('help_status_complete'),
 				'default_subject' => '{store_name} - Order {order_id} — Complete'
+			),
+			'refunded' => array(
+				'title'           => 'Refunded',
+				'help'            => $this->language->get('help_status_refunded'),
+				'default_subject' => '{store_name} - Order {order_id} — Refunded'
 			)
 		);
 	}
@@ -359,7 +403,8 @@ class ControllerExtensionModuleCyberpunksMailTemplates extends Controller {
 			'shipped'    => 'shipped',
 			'canceled'   => 'canceled',
 			'cancelled'  => 'canceled',
-			'complete'   => 'complete'
+			'complete'   => 'complete',
+			'refunded'   => 'refunded'
 		);
 
 		return isset($map[$key]) ? $map[$key] : '';

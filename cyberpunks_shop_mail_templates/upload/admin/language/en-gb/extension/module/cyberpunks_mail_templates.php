@@ -35,6 +35,12 @@ $_['help_status_processing'] = 'Sent when the order status becomes Processing.';
 $_['help_status_shipped'] = 'Sent when the order status becomes Shipped.';
 $_['help_status_canceled'] = 'Sent when the order status becomes Canceled (or Cancelled).';
 $_['help_status_complete'] = 'Sent when the order status becomes Complete.';
+$_['help_status_refunded'] = 'Sent when the order status becomes Refunded.';
+
+$_['entry_trustpilot_bcc'] = 'Trustpilot review invite (BCC)';
+$_['entry_trustpilot_address'] = 'Trustpilot invite address';
+$_['help_trustpilot_bcc'] = 'When enabled and an address is set, this status email is also BCC’d to Trustpilot. Default: on for Complete only.';
+$_['help_trustpilot_address'] = 'Paste the address from Trustpilot → Invite customers to review (e.g. shop+….@invite.trustpilot.com). Leave empty to disable BCC.';
 
 $_['error_permission'] = 'Warning: You do not have permission to modify this module!';
 
