@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<name>Order Admin Features</name>
+	<code>order_admin_features</code>
+	<version>1.0.7</version>
+	<author>positivecrash</author>
+	<link>https://github.com/positivecrash</link>
+	<description>Admin-only shipment photos on Sales → Orders → order info. Uploads convert to WebP (max side 2000px). Not sent to customers.</description>
+
+	<!-- Treat module routes as allowed when the user can access Sales → Orders -->
+	<file path="system/library/cart/user.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[	public function hasPermission($key, $value) {
+		if (isset($this->permission[$key])) {
+			return in_array($value, $this->permission[$key]);
+		} else {
+			return false;
+		}
+	}]]></search>
+			<add position="replace"><![CDATA[	public function hasPermission($key, $value) {
+		if ($value === 'extension/module/order_admin_features' && isset($this->permission[$key]) && in_array('sale/order', $this->permission[$key])) {
+			return true;
+		}
+
+		if (isset($this->permission[$key])) {
+			return in_array($value, $this->permission[$key]);
+		} else {
+			return false;
+		}
+	}]]></add>
+		</operation>
+	</file>
+
+	<file path="admin/controller/sale/order.php">
+		<operation error="skip">
+			<search trim="false"><![CDATA[			// The URL we send API requests to]]></search>
+			<add position="before"><![CDATA[
+			if (is_file(DIR_APPLICATION . 'controller/extension/module/order_admin_features.php')) {
+				$oaf_content = $this->load->controller('extension/module/order_admin_features/order');
+
+				if ($oaf_content) {
+					$this->load->language('extension/module/order_admin_features', 'oaf');
+
+					$data['tabs'][] = array(
+						'code'    => 'order_admin_features',
+						'title'   => $this->language->get('oaf')->get('tab_shipment_photos'),
+						'content' => $oaf_content
+					);
+				}
+			}
+
+]]></add>
+		</operation>
+	</file>
+</modification>

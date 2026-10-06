@@ -1,0 +1,25 @@
+<?php
+$_['heading_title']          = 'Order Admin Features';
+$_['tab_shipment_photos']    = 'Shipment photos';
+$_['text_shipment_photos']   = 'Shipment photos';
+$_['text_admin_only']        = 'Admin only — not sent to the customer.';
+$_['text_no_photos']         = 'No photos yet.';
+$_['text_drop']              = 'Drop images here or click to upload';
+$_['text_formats']           = 'PNG, JPG, HEIC, WebP. Processed in the browser (max side 2000px), then saved as WebP on the server. Originals are not uploaded.';
+$_['text_uploading']         = 'Uploading…';
+$_['text_converting']        = 'Preparing photo…';
+$_['text_confirm_delete']    = 'Delete this photo?';
+$_['button_upload']          = 'Upload photos';
+$_['button_delete']          = 'Delete';
+$_['button_open']            = 'Open';
+$_['error_permission']       = 'Warning: You do not have permission to modify orders!';
+$_['error_order']            = 'Order not found!';
+$_['error_upload']           = 'Upload failed!';
+$_['error_file_type']        = 'Allowed types: PNG, JPG, HEIC, WebP.';
+$_['error_limit']            = 'Photo limit reached for this order.';
+$_['error_heic']             = 'HEIC could not be prepared in the browser. Try exporting as JPG/PNG.';
+$_['error_heic_client']      = 'Could not prepare this photo in the browser. Try JPG/PNG.';
+$_['error_convert']          = 'Could not convert image.';
+$_['error_photo']            = 'Photo not found!';
+$_['success_upload']         = 'Photo uploaded.';
+$_['success_delete']         = 'Photo deleted.';

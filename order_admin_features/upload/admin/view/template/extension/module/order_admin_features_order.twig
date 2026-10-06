@@ -1,0 +1,351 @@
+<div id="order-admin-features-shipment" class="oaf-shipment">
+  <p class="help-block" style="margin-top:0;">{{ text_admin_only }} {{ text_formats }}</p>
+
+  {% if can_modify %}
+  <div class="oaf-dropzone" id="oaf-dropzone">
+    <input type="file" id="oaf-file-input" accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif" multiple style="display:none;" />
+    <p style="margin:0 0 8px;"><i class="fa fa-cloud-upload"></i> {{ text_drop }}</p>
+    <button type="button" class="btn btn-primary btn-sm" id="oaf-button-upload"><i class="fa fa-plus"></i> {{ button_upload }}</button>
+    <span id="oaf-upload-status" class="text-muted" style="margin-left:10px;display:none;">{{ text_uploading }}</span>
+  </div>
+  {% endif %}
+
+  <div id="oaf-alert" style="margin-top:12px;"></div>
+
+  <div id="oaf-photos" class="oaf-photos" style="margin-top:16px;">
+    {% if photos %}
+      {% for photo in photos %}
+      <div class="oaf-photo" data-photo-id="{{ photo.photo_id }}">
+        <a href="{{ photo.image_url }}" target="_blank" rel="noopener" title="{{ photo.original_name }}">
+          <img src="{{ photo.thumb_url }}" alt="{{ photo.original_name }}" />
+        </a>
+        <div class="oaf-photo-meta">
+          <div class="oaf-photo-name" title="{{ photo.original_name }}">{{ photo.original_name }}</div>
+          <div class="text-muted">{{ photo.width }}×{{ photo.height }} · {{ photo.date_added }}</div>
+          <div class="oaf-photo-actions">
+            <a class="btn btn-default btn-xs" href="{{ photo.image_url }}" target="_blank" rel="noopener">{{ button_open }}</a>
+            {% if can_modify %}
+            <button type="button" class="btn btn-danger btn-xs oaf-delete" data-photo-id="{{ photo.photo_id }}">{{ button_delete }}</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p id="oaf-empty" class="text-muted">{{ text_no_photos }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+.oaf-dropzone {
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  padding: 16px;
+  text-align: center;
+  background: #fafafa;
+}
+.oaf-dropzone.oaf-dragover {
+  border-color: #1e91cf;
+  background: #eef7fc;
+}
+.oaf-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.oaf-photo {
+  width: 180px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+}
+.oaf-photo img {
+  display: block;
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  background: #f0f0f0;
+}
+.oaf-photo-meta {
+  padding: 8px;
+  font-size: 12px;
+}
+.oaf-photo-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.oaf-photo-actions {
+  margin-top: 6px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+</style>
+
+<script type="text/javascript"><!--
+(function() {
+  var uploadUrl = {{ js_upload_url|raw }};
+  var deleteUrl = {{ js_delete_url|raw }};
+  var canModify = {{ js_can_modify|raw }};
+  var confirmDelete = {{ js_confirm_delete|raw }};
+  var textUploading = {{ js_text_uploading|raw }};
+  var textConverting = {{ js_text_converting|raw }};
+  var textNoPhotos = {{ js_text_no_photos|raw }};
+  var buttonOpen = {{ js_button_open|raw }};
+  var buttonDelete = {{ js_button_delete|raw }};
+  var errorHeicClient = {{ js_error_heic_client|raw }};
+  var heic2anyUrl = {{ js_heic2any_url|raw }};
+  var heic2anyLoading = null;
+
+  function showAlert(type, message) {
+    $('#oaf-alert').html('<div class="alert alert-' + type + ' alert-dismissible"><i class="fa fa-' + (type === 'success' ? 'check' : 'exclamation') + '-circle"></i> ' + message + ' <button type="button" class="close" data-dismiss="alert">&times;</button></div>');
+  }
+
+  function parseAjaxError(xhr) {
+    try {
+      var json = JSON.parse(xhr.responseText);
+      if (json && json.error) return json.error;
+    } catch (e) {}
+    var snippet = (xhr.responseText || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (snippet) return 'Upload failed (' + xhr.status + '): ' + snippet.substring(0, 180);
+    return 'Upload failed (' + xhr.status + ')';
+  }
+
+  function isHeicFile(file) {
+    var name = (file.name || '').toLowerCase();
+    var type = (file.type || '').toLowerCase();
+    return /\.(heic|heif)$/.test(name) || type.indexOf('heic') !== -1 || type.indexOf('heif') !== -1;
+  }
+
+  function loadHeic2Any() {
+    if (typeof window.heic2any === 'function') {
+      return $.Deferred().resolve().promise();
+    }
+    if (heic2anyLoading) return heic2anyLoading;
+
+    heic2anyLoading = $.ajax({
+      url: heic2anyUrl,
+      dataType: 'script',
+      cache: true
+    }).then(function() {
+      if (typeof window.heic2any !== 'function') {
+        return $.Deferred().reject('heic2any missing').promise();
+      }
+    });
+
+    return heic2anyLoading;
+  }
+
+  function convertHeicToJpeg(file) {
+    return loadHeic2Any().then(function() {
+      return window.heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: 0.92
+      });
+    }).then(function(result) {
+      var blob = Array.isArray(result) ? result[0] : result;
+      var base = (file.name || 'photo').replace(/\.(heic|heif)$/i, '');
+      return new File([blob], base + '.jpg', { type: 'image/jpeg' });
+    });
+  }
+
+  /** Decode → max side 2000 → JPEG. Original file never leaves the browser. */
+  function resizeForUpload(file, maxSide) {
+    maxSide = maxSide || 2000;
+
+    return new Promise(function(resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+
+      img.onload = function() {
+        URL.revokeObjectURL(url);
+
+        var w = img.naturalWidth || img.width;
+        var h = img.naturalHeight || img.height;
+
+        if (!w || !h) {
+          reject(new Error('bad dimensions'));
+          return;
+        }
+
+        var scale = Math.min(1, maxSide / Math.max(w, h));
+        var tw = Math.max(1, Math.round(w * scale));
+        var th = Math.max(1, Math.round(h * scale));
+        var canvas = document.createElement('canvas');
+        canvas.width = tw;
+        canvas.height = th;
+
+        var ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('canvas'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, tw, th);
+
+        if (canvas.toBlob) {
+          canvas.toBlob(function(blob) {
+            if (!blob) {
+              reject(new Error('toBlob'));
+              return;
+            }
+            var base = (file.name || 'photo').replace(/\.[^.]+$/, '');
+            resolve(new File([blob], base + '.jpg', { type: 'image/jpeg' }));
+          }, 'image/jpeg', 0.85);
+        } else {
+          try {
+            var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            var bin = atob(dataUrl.split(',')[1]);
+            var arr = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            var base = (file.name || 'photo').replace(/\.[^.]+$/, '');
+            resolve(new File([arr], base + '.jpg', { type: 'image/jpeg' }));
+          } catch (e) {
+            reject(e);
+          }
+        }
+      };
+
+      img.onerror = function() {
+        URL.revokeObjectURL(url);
+        reject(new Error('decode'));
+      };
+
+      img.src = url;
+    });
+  }
+
+  function prepareFile(file) {
+    $('#oaf-upload-status').show().text(textConverting);
+
+    var ready = isHeicFile(file)
+      ? convertHeicToJpeg(file)
+      : $.Deferred().resolve(file).promise();
+
+    return $.when(ready).then(function(decoded) {
+      return resizeForUpload(decoded, 2000);
+    }).catch(function() {
+      showAlert('danger', errorHeicClient);
+      return $.Deferred().reject().promise();
+    });
+  }
+
+  function appendPhoto(photo) {
+    $('#oaf-empty').remove();
+    var html = '';
+    html += '<div class="oaf-photo" data-photo-id="' + photo.photo_id + '">';
+    html += '  <a href="' + photo.image_url + '" target="_blank" rel="noopener" title="' + $('<div>').text(photo.original_name).html() + '">';
+    html += '    <img src="' + photo.thumb_url + '" alt="' + $('<div>').text(photo.original_name).html() + '" />';
+    html += '  </a>';
+    html += '  <div class="oaf-photo-meta">';
+    html += '    <div class="oaf-photo-name" title="' + $('<div>').text(photo.original_name).html() + '">' + $('<div>').text(photo.original_name).html() + '</div>';
+    html += '    <div class="text-muted">' + photo.width + '×' + photo.height + ' · ' + photo.date_added + '</div>';
+    html += '    <div class="oaf-photo-actions">';
+    html += '      <a class="btn btn-default btn-xs" href="' + photo.image_url + '" target="_blank" rel="noopener">' + buttonOpen + '</a>';
+    if (canModify) {
+      html += '      <button type="button" class="btn btn-danger btn-xs oaf-delete" data-photo-id="' + photo.photo_id + '">' + buttonDelete + '</button>';
+    }
+    html += '    </div>';
+    html += '  </div>';
+    html += '</div>';
+    $('#oaf-photos').append(html);
+  }
+
+  function uploadFile(file) {
+    return prepareFile(file).then(function(readyFile) {
+      var formData = new FormData();
+      formData.append('file', readyFile);
+
+      $('#oaf-upload-status').show().text(textUploading);
+
+      return $.ajax({
+        url: uploadUrl,
+        type: 'post',
+        data: formData,
+        dataType: 'json',
+        cache: false,
+        contentType: false,
+        processData: false
+      }).done(function(json) {
+        if (json.error) {
+          showAlert('danger', json.error);
+        }
+        if (json.success && json.photo) {
+          appendPhoto(json.photo);
+          showAlert('success', json.success);
+        }
+      }).fail(function(xhr) {
+        showAlert('danger', parseAjaxError(xhr));
+      });
+    });
+  }
+
+  function uploadFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return;
+
+    var chain = $.Deferred().resolve();
+    files.forEach(function(file) {
+      chain = chain.then(function() { return uploadFile(file); });
+    });
+    chain.always(function() {
+      $('#oaf-upload-status').hide();
+      $('#oaf-file-input').val('');
+    });
+  }
+
+  if (canModify) {
+    $('#oaf-button-upload').on('click', function() {
+      $('#oaf-file-input').trigger('click');
+    });
+
+    $('#oaf-file-input').on('change', function() {
+      uploadFiles(this.files);
+    });
+
+    var $dz = $('#oaf-dropzone');
+    $dz.on('drag dragstart dragend dragover dragenter dragleave drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }).on('dragover dragenter', function() {
+      $dz.addClass('oaf-dragover');
+    }).on('dragleave dragend drop', function() {
+      $dz.removeClass('oaf-dragover');
+    }).on('drop', function(e) {
+      uploadFiles(e.originalEvent.dataTransfer.files);
+    });
+
+    $('#oaf-photos').on('click', '.oaf-delete', function() {
+      var photoId = $(this).data('photo-id');
+      if (!confirm(confirmDelete)) return;
+
+      $.ajax({
+        url: deleteUrl,
+        type: 'post',
+        data: { photo_id: photoId },
+        dataType: 'json'
+      }).done(function(json) {
+        if (json.error) {
+          showAlert('danger', json.error);
+          return;
+        }
+        $('.oaf-photo[data-photo-id="' + photoId + '"]').remove();
+        if (!$('#oaf-photos .oaf-photo').length) {
+          $('#oaf-photos').html('<p id="oaf-empty" class="text-muted">' + textNoPhotos + '</p>');
+        }
+        if (json.success) {
+          showAlert('success', json.success);
+        }
+      }).fail(function(xhr) {
+        showAlert('danger', parseAjaxError(xhr));
+      });
+    });
+  }
+})();
+//--></script>
