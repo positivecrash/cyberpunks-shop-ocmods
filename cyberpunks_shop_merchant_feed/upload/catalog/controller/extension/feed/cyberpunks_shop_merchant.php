@@ -31,36 +31,22 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 		$google_category = trim((string)$this->config->get('feed_cyberpunks_shop_merchant_google_category'));
 		$image_rows = $this->loadVariantImageRows();
 
-		$mappings = CyberpunksShopVariantIdentifiersStorage::loadAll($this->registry);
+		$merchant_product_ids = $this->merchantFeedProductIds();
+		$mappings_by_product = $this->groupVariantMappingsByProduct(
+			CyberpunksShopVariantIdentifiersStorage::loadAll($this->registry)
+		);
+
 		$product_cache = array();
 		$option_lookup_cache = array();
 		$seen_ids = array();
 		$items_xml = '';
 
-		foreach ($mappings as $mapping) {
-			if (!is_array($mapping)) {
+		foreach ($merchant_product_ids as $product_id) {
+			$product_id = (int)$product_id;
+
+			if ($product_id <= 0) {
 				continue;
 			}
-
-			$status = isset($mapping['t']) ? $mapping['t'] : (isset($mapping['status']) ? $mapping['status'] : 1);
-			if (empty($status)) {
-				continue;
-			}
-
-			$product_id = isset($mapping['p']) ? (int)$mapping['p'] : (isset($mapping['product_id']) ? (int)$mapping['product_id'] : 0);
-			$signature = isset($mapping['s']) ? trim((string)$mapping['s']) : (isset($mapping['option_value_signature']) ? trim((string)$mapping['option_value_signature']) : '');
-			$sku = isset($mapping['k']) ? trim((string)$mapping['k']) : (isset($mapping['sku']) ? trim((string)$mapping['sku']) : '');
-			$gtin = isset($mapping['g']) ? trim((string)$mapping['g']) : (isset($mapping['gtin']) ? trim((string)$mapping['gtin']) : '');
-
-			if ($product_id <= 0 || $sku === '') {
-				continue;
-			}
-
-			$id_key = strtolower($sku);
-			if (isset($seen_ids[$id_key])) {
-				continue;
-			}
-			$seen_ids[$id_key] = true;
 
 			if (!isset($product_cache[$product_id])) {
 				$product_cache[$product_id] = $this->model_catalog_product->getProduct($product_id);
@@ -71,33 +57,104 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 				continue;
 			}
 
-			// Skip orphan numeric signatures (option value removed from the product).
-			if (!$this->signatureStillValid($product_id, $signature, $option_lookup_cache)) {
+			$product_mappings = isset($mappings_by_product[$product_id]) ? $mappings_by_product[$product_id] : array();
+			$emitted_variant = false;
+
+			foreach ($product_mappings as $mapping) {
+				$signature = isset($mapping['s']) ? trim((string)$mapping['s']) : (isset($mapping['option_value_signature']) ? trim((string)$mapping['option_value_signature']) : '');
+				$sku = isset($mapping['k']) ? trim((string)$mapping['k']) : (isset($mapping['sku']) ? trim((string)$mapping['sku']) : '');
+				$gtin = isset($mapping['g']) ? trim((string)$mapping['g']) : (isset($mapping['gtin']) ? trim((string)$mapping['gtin']) : '');
+
+				if ($sku === '') {
+					continue;
+				}
+
+				$id_key = strtolower($sku);
+				if (isset($seen_ids[$id_key])) {
+					continue;
+				}
+
+				if (!$this->signatureStillValid($product_id, $signature, $option_lookup_cache)) {
+					continue;
+				}
+
+				$seen_ids[$id_key] = true;
+
+				$title = html_entity_decode($product['name'], ENT_QUOTES, 'UTF-8');
+				$pairs = $this->namedPairsFromMapping($product_id, $signature, $option_lookup_cache);
+				$variant_attrs = $this->variantAttributesFromPairs($pairs);
+
+				if ($variant_attrs['color'] !== '') {
+					$title .= ', ' . $variant_attrs['color'];
+				} elseif ($variant_attrs['pattern'] !== '') {
+					$title .= ', ' . $variant_attrs['pattern'];
+				} else {
+					$option_label = $this->titleSuffixFromSignature($signature);
+					if ($option_label !== '') {
+						$title .= ' - ' . $option_label;
+					}
+				}
+
+				$description = trim(strip_tags(html_entity_decode($product['description'], ENT_QUOTES, 'UTF-8')));
+				$link = $this->url->link('product/product', 'product_id=' . $product_id);
+				$link_sep = (strpos($link, '?') !== false) ? '&' : '?';
+				$link .= $link_sep . 'variant=' . rawurlencode($sku);
+				$brand = html_entity_decode(isset($product['manufacturer']) ? $product['manufacturer'] : '', ENT_QUOTES, 'UTF-8');
+
+				$image_link = $this->resolveImageLink($product_id, $signature, $product, $image_rows, $option_lookup_cache);
+
+				$base_price = (!is_null($product['special']) && (float)$product['special'] >= 0)
+					? (float)$product['special']
+					: (float)$product['price'];
+				$price = $this->currency->format(
+					$this->tax->calculate($base_price, $product['tax_class_id'], $this->config->get('config_tax')),
+					$currency_code,
+					$currency_value,
+					false
+				);
+
+				$availability = $this->resolveAvailability($product_id, $signature, $product, $option_lookup_cache);
+
+				$items_xml .= $this->buildItemXml(array(
+					'id'               => $sku,
+					'item_group_id'    => (string)$product_id,
+					'title'            => $title,
+					'description'      => $description,
+					'link'             => $link,
+					'image_link'       => $image_link,
+					'availability'     => $availability,
+					'price'            => $price . ' ' . $currency_code,
+					'brand'            => $brand,
+					'gtin'             => $gtin,
+					'mpn'              => $sku,
+					'color'            => $variant_attrs['color'],
+					'pattern'          => $variant_attrs['pattern'],
+					'google_category'  => $google_category,
+					'product_type'     => $this->firstProductType($product_id),
+				));
+
+				$emitted_variant = true;
+			}
+
+			if ($emitted_variant) {
 				continue;
 			}
 
-			$title = html_entity_decode($product['name'], ENT_QUOTES, 'UTF-8');
-			$pairs = $this->namedPairsFromMapping($product_id, $signature, $option_lookup_cache);
-			$variant_attrs = $this->variantAttributesFromPairs($pairs);
+			$model = trim(isset($product['model']) ? (string)$product['model'] : '');
+			$feed_id = $model !== '' ? $model : ('oc-' . $product_id);
+			$id_key = strtolower($feed_id);
 
-			if ($variant_attrs['color'] !== '') {
-				$title .= ', ' . $variant_attrs['color'];
-			} elseif ($variant_attrs['pattern'] !== '') {
-				$title .= ', ' . $variant_attrs['pattern'];
-			} else {
-				$option_label = $this->titleSuffixFromSignature($signature);
-				if ($option_label !== '') {
-					$title .= ' - ' . $option_label;
-				}
+			if (isset($seen_ids[$id_key])) {
+				continue;
 			}
+			$seen_ids[$id_key] = true;
 
+			$title = html_entity_decode($product['name'], ENT_QUOTES, 'UTF-8');
 			$description = trim(strip_tags(html_entity_decode($product['description'], ENT_QUOTES, 'UTF-8')));
 			$link = $this->url->link('product/product', 'product_id=' . $product_id);
-			$link_sep = (strpos($link, '?') !== false) ? '&' : '?';
-			$link .= $link_sep . 'variant=' . rawurlencode($sku);
 			$brand = html_entity_decode(isset($product['manufacturer']) ? $product['manufacturer'] : '', ENT_QUOTES, 'UTF-8');
-
-			$image_link = $this->resolveImageLink($product_id, $signature, $product, $image_rows, $option_lookup_cache);
+			$gtin = $this->productGtin($product);
+			$image_link = $this->absoluteImageUrl(!empty($product['image']) ? (string)$product['image'] : '');
 
 			$base_price = (!is_null($product['special']) && (float)$product['special'] >= 0)
 				? (float)$product['special']
@@ -109,50 +166,25 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 				false
 			);
 
-			$availability = $this->resolveAvailability($product_id, $signature, $product, $option_lookup_cache);
+			$availability = ((int)$product['quantity'] > 0) ? 'in stock' : 'out of stock';
 
-			$items_xml .= "<item>\n";
-			$items_xml .= '  <g:id>' . $this->xmlText($sku) . "</g:id>\n";
-			$items_xml .= '  <g:item_group_id>' . $this->xmlText((string)$product_id) . "</g:item_group_id>\n";
-			$items_xml .= '  <title><![CDATA[' . $title . "]]></title>\n";
-			$items_xml .= '  <description><![CDATA[' . $description . "]]></description>\n";
-			$items_xml .= '  <link>' . $this->xmlText($link) . "</link>\n";
-			if ($image_link !== '') {
-				$items_xml .= '  <g:image_link>' . $this->xmlText($image_link) . "</g:image_link>\n";
-			}
-			$items_xml .= '  <g:condition>new</g:condition>\n';
-			$items_xml .= '  <g:availability>' . $availability . "</g:availability>\n";
-			$items_xml .= '  <g:price>' . $this->xmlText($price . ' ' . $currency_code) . "</g:price>\n";
-
-			if ($variant_attrs['color'] !== '') {
-				$items_xml .= '  <g:color><![CDATA[' . $variant_attrs['color'] . "]]></g:color>\n";
-			}
-			if ($variant_attrs['pattern'] !== '') {
-				$items_xml .= '  <g:pattern><![CDATA[' . $variant_attrs['pattern'] . "]]></g:pattern>\n";
-			}
-
-			if ($brand !== '') {
-				$items_xml .= '  <g:brand><![CDATA[' . $brand . "]]></g:brand>\n";
-			}
-
-			if ($gtin !== '') {
-				$items_xml .= '  <g:gtin>' . $this->xmlText($gtin) . "</g:gtin>\n";
-			} elseif ($brand !== '') {
-				$items_xml .= '  <g:mpn><![CDATA[' . $sku . "]]></g:mpn>\n";
-			} else {
-				$items_xml .= "  <g:identifier_exists>false</g:identifier_exists>\n";
-			}
-
-			if ($google_category !== '') {
-				$items_xml .= '  <g:google_product_category>' . $this->xmlText($google_category) . "</g:google_product_category>\n";
-			}
-
-			$product_type = $this->firstProductType($product_id);
-			if ($product_type !== '') {
-				$items_xml .= '  <g:product_type><![CDATA[' . $product_type . "]]></g:product_type>\n";
-			}
-
-			$items_xml .= "</item>\n";
+			$items_xml .= $this->buildItemXml(array(
+				'id'               => $feed_id,
+				'item_group_id'    => (string)$product_id,
+				'title'            => $title,
+				'description'      => $description,
+				'link'             => $link,
+				'image_link'       => $image_link,
+				'availability'     => $availability,
+				'price'            => $price . ' ' . $currency_code,
+				'brand'            => $brand,
+				'gtin'             => $gtin,
+				'mpn'              => $feed_id,
+				'color'            => '',
+				'pattern'          => '',
+				'google_category'  => $google_category,
+				'product_type'     => $this->firstProductType($product_id),
+			));
 		}
 
 		$output  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
@@ -167,6 +199,148 @@ class ControllerExtensionFeedCyberpunksShopMerchant extends Controller {
 
 		$this->response->addHeader('Content-Type: application/xml; charset=utf-8');
 		$this->response->setOutput($output);
+	}
+
+	/**
+	 * Enabled Variant Identifiers rows grouped by product_id.
+	 *
+	 * @param array $mappings
+	 * @return array<int,array[]>
+	 */
+	private function groupVariantMappingsByProduct(array $mappings) {
+		$by_product = array();
+
+		foreach ($mappings as $mapping) {
+			if (!is_array($mapping)) {
+				continue;
+			}
+
+			$status = isset($mapping['t']) ? $mapping['t'] : (isset($mapping['status']) ? $mapping['status'] : 1);
+			if (empty($status)) {
+				continue;
+			}
+
+			$product_id = isset($mapping['p']) ? (int)$mapping['p'] : (isset($mapping['product_id']) ? (int)$mapping['product_id'] : 0);
+			if ($product_id <= 0) {
+				continue;
+			}
+
+			if (!isset($by_product[$product_id])) {
+				$by_product[$product_id] = array();
+			}
+
+			$by_product[$product_id][] = $mapping;
+		}
+
+		return $by_product;
+	}
+
+	/**
+	 * Product IDs with Custom checkbox field_key merchant_feed = 1.
+	 *
+	 * @return int[]
+	 */
+	private function merchantFeedProductIds() {
+		$table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . 'cyberpunks_product_field') . "'");
+		$value_table = $this->db->query("SHOW TABLES LIKE '" . $this->db->escape(DB_PREFIX . 'cyberpunks_product_field_value') . "'");
+
+		if (!$table->num_rows || !$value_table->num_rows) {
+			return array();
+		}
+
+		$field = $this->db->query("SELECT field_id FROM `" . DB_PREFIX . "cyberpunks_product_field` WHERE field_key = 'merchant_feed' AND status = '1' LIMIT 1");
+
+		if (!$field->num_rows) {
+			return array();
+		}
+
+		$field_id = (int)$field->row['field_id'];
+
+		$query = $this->db->query("SELECT DISTINCT p.product_id
+			FROM `" . DB_PREFIX . "product` p
+			LEFT JOIN `" . DB_PREFIX . "product_to_store` p2s ON (p.product_id = p2s.product_id)
+			INNER JOIN `" . DB_PREFIX . "cyberpunks_product_field_value` fv ON (fv.product_id = p.product_id AND fv.field_id = '" . $field_id . "' AND fv.value = '1')
+			WHERE p2s.store_id = '" . (int)$this->config->get('config_store_id') . "'
+				AND p.status = '1'
+				AND p.date_available <= NOW()
+			ORDER BY p.product_id ASC");
+
+		$ids = array();
+
+		foreach ($query->rows as $row) {
+			$ids[] = (int)$row['product_id'];
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * First non-empty GTIN-ish field from OpenCart product Data tab.
+	 */
+	private function productGtin(array $product) {
+		foreach (array('ean', 'upc', 'jan', 'isbn') as $key) {
+			$value = isset($product[$key]) ? trim((string)$product[$key]) : '';
+			if ($value !== '') {
+				return $value;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * @param array{
+	 *   id:string,item_group_id:string,title:string,description:string,link:string,
+	 *   image_link:string,availability:string,price:string,brand:string,gtin:string,
+	 *   mpn:string,color:string,pattern:string,google_category:string,product_type:string
+	 * } $item
+	 */
+	private function buildItemXml(array $item) {
+		$xml  = "<item>\n";
+		$xml .= '  <g:id>' . $this->xmlText($item['id']) . "</g:id>\n";
+		$xml .= '  <g:item_group_id>' . $this->xmlText($item['item_group_id']) . "</g:item_group_id>\n";
+		$xml .= '  <title><![CDATA[' . $item['title'] . "]]></title>\n";
+		$xml .= '  <description><![CDATA[' . $item['description'] . "]]></description>\n";
+		$xml .= '  <link>' . $this->xmlText($item['link']) . "</link>\n";
+
+		if ($item['image_link'] !== '') {
+			$xml .= '  <g:image_link>' . $this->xmlText($item['image_link']) . "</g:image_link>\n";
+		}
+
+		$xml .= "  <g:condition>new</g:condition>\n";
+		$xml .= '  <g:availability>' . $item['availability'] . "</g:availability>\n";
+		$xml .= '  <g:price>' . $this->xmlText($item['price']) . "</g:price>\n";
+
+		if ($item['color'] !== '') {
+			$xml .= '  <g:color><![CDATA[' . $item['color'] . "]]></g:color>\n";
+		}
+		if ($item['pattern'] !== '') {
+			$xml .= '  <g:pattern><![CDATA[' . $item['pattern'] . "]]></g:pattern>\n";
+		}
+
+		if ($item['brand'] !== '') {
+			$xml .= '  <g:brand><![CDATA[' . $item['brand'] . "]]></g:brand>\n";
+		}
+
+		if ($item['gtin'] !== '') {
+			$xml .= '  <g:gtin>' . $this->xmlText($item['gtin']) . "</g:gtin>\n";
+		} elseif ($item['brand'] !== '') {
+			$xml .= '  <g:mpn><![CDATA[' . $item['mpn'] . "]]></g:mpn>\n";
+		} else {
+			$xml .= "  <g:identifier_exists>false</g:identifier_exists>\n";
+		}
+
+		if ($item['google_category'] !== '') {
+			$xml .= '  <g:google_product_category>' . $this->xmlText($item['google_category']) . "</g:google_product_category>\n";
+		}
+
+		if ($item['product_type'] !== '') {
+			$xml .= '  <g:product_type><![CDATA[' . $item['product_type'] . "]]></g:product_type>\n";
+		}
+
+		$xml .= "</item>\n";
+
+		return $xml;
 	}
 
 	private function loadVariantImageRows() {

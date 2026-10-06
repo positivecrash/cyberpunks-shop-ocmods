@@ -24,6 +24,9 @@ Custom HTML is used automatically when a **Template** is selected or the status 
 
 ## Changelog
 
+### 1.1.6
+- `{order_products}`: rasterize theme variant previews (webp) to JPEG under `image/cache/cyberpunks_mail/` with absolute HTTPS URLs — mail image proxies (Proton etc.) often break raw `/catalog/view/theme/…webp` while cart shows them fine
+
 ### 1.1.5
 - `{order_products}` images use **Variant Images** OCMOD mapping when available (same as cart/checkout)
 

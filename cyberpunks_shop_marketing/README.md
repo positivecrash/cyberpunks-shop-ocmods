@@ -24,6 +24,9 @@ Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag i
 
 ## Changelog
 
+### 1.6.4
+- After **user** consent click (Accept / Save / Reject path), push `dataLayer` event `cookie_consent_update` with `analytics_storage` / `ad_storage` so GTM can fire a granted GA4 `page_view` on the landing URL (fixes Unassigned sessions). Stored-choice replay does **not** push this event.
+
 ### 1.6.3
 - Consent: always center the modal (including mobile); hide banner on Privacy Policy URL; use site `:disabled` checkbox styles (no custom override)
 

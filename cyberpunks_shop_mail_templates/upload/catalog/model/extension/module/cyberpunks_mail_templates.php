@@ -528,10 +528,15 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 
 	/**
 	 * Product thumb for order emails — variant mapping first, then catalog image.
+	 *
+	 * Mail clients / image proxies often break raw theme .webp URLs under
+	 * /catalog/view/theme/… (Proton tracker proxy, Gmail, etc.). Cart can use
+	 * those paths; email must ship a JPEG under /image/cache/ with an absolute https URL.
 	 */
 	private function resolveOrderProductImage($product_id, array $options, $store_url) {
 		$product_id = (int)$product_id;
-		$image = '';
+		$width = 128;
+		$height = 128;
 
 		if (!isset($this->model_tool_image)) {
 			$this->load->model('tool/image');
@@ -554,24 +559,16 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 				);
 
 				if ($resolved_image !== '') {
-					if (method_exists('CyberpunksShopVariantImagesStorage', 'pathToUrl')) {
-						$image = CyberpunksShopVariantImagesStorage::pathToUrl($resolved_image, $this->model_tool_image, 128, 128);
-					} else {
-						$resolved = ltrim((string)$resolved_image, '/');
+					$mail_url = $this->themePathToMailJpegUrl($resolved_image, $width, $height, $store_url);
 
-						if (strpos($resolved, 'catalog/view/theme/') === 0) {
-							$image = '/' . $resolved;
-						} elseif ($resolved !== '' && is_file(DIR_IMAGE . $resolved)) {
-							$image = $this->model_tool_image->resize($resolved, 128, 128);
-						} else {
-							$image = '/' . $resolved;
-						}
+					if ($mail_url !== '') {
+						return $mail_url;
 					}
 				}
 			}
 		}
 
-		if ($image === '' && $product_id) {
+		if ($product_id) {
 			if (!isset($this->model_catalog_product)) {
 				$this->load->model('catalog/product');
 			}
@@ -579,15 +576,137 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 			$product_info = $this->model_catalog_product->getProduct($product_id);
 
 			if (!empty($product_info['image'])) {
-				$image = $this->model_tool_image->resize($product_info['image'], 128, 128);
+				$catalog_image = ltrim((string)$product_info['image'], '/');
+
+				// Product main image may also live under the theme tree.
+				if (strpos($catalog_image, 'catalog/view/theme/') === 0) {
+					$mail_url = $this->themePathToMailJpegUrl($catalog_image, $width, $height, $store_url);
+
+					if ($mail_url !== '') {
+						return $mail_url;
+					}
+				}
+
+				$image = $this->model_tool_image->resize($catalog_image, $width, $height);
+
+				if ($image) {
+					return $this->ensureAbsoluteMailUrl((string)$image, $store_url);
+				}
 			}
 		}
 
-		if ($image !== '' && strpos($image, 'http') !== 0 && strpos($image, '//') !== 0) {
-			$image = rtrim((string)$store_url, '/') . '/' . ltrim($image, '/');
+		return '';
+	}
+
+	/**
+	 * Rasterize a theme (or DIR_IMAGE) asset to JPEG in image/cache/cyberpunks_mail/
+	 * and return an absolute https URL safe for email image proxies.
+	 */
+	private function themePathToMailJpegUrl($path, $width, $height, $store_url) {
+		$path = ltrim((string)$path, '/');
+
+		if ($path === '') {
+			return '';
 		}
 
-		return $image;
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_shop_variant_images_storage.php')
+			&& method_exists('CyberpunksShopVariantImagesStorage', 'preferExistingThemePath')
+			&& strpos($path, 'catalog/view/theme/') === 0
+		) {
+			$preferred = CyberpunksShopVariantImagesStorage::preferExistingThemePath($path);
+
+			if ($preferred !== '') {
+				$path = ltrim($preferred, '/');
+			}
+		}
+
+		$source = '';
+
+		if (strpos($path, 'catalog/view/theme/') === 0) {
+			$root = dirname(DIR_APPLICATION);
+			$candidate = $root . '/' . $path;
+
+			if (is_file($candidate)) {
+				$source = $candidate;
+			}
+		} elseif (is_file(DIR_IMAGE . $path)) {
+			$source = DIR_IMAGE . $path;
+		}
+
+		if ($source === '' || !is_file($source)) {
+			return '';
+		}
+
+		$width = max(16, (int)$width);
+		$height = max(16, (int)$height);
+		$hash = substr(md5($path . '|' . filemtime($source) . '|' . $width . 'x' . $height), 0, 20);
+		$relative = 'cache/cyberpunks_mail/' . $hash . '-' . $width . 'x' . $height . '.jpg';
+		$destination = DIR_IMAGE . $relative;
+
+		if (!is_file($destination)) {
+			$dir = dirname($destination);
+
+			if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+				return '';
+			}
+
+			try {
+				$image = new Image($source);
+				$image->resize($width, $height);
+				$image->save($destination, 85);
+			} catch (Exception $e) {
+				return '';
+			}
+
+			if (!is_file($destination)) {
+				return '';
+			}
+		}
+
+		return $this->absoluteImageCacheUrl($relative, $store_url);
+	}
+
+	private function absoluteImageCacheUrl($relative_under_image, $store_url) {
+		$relative_under_image = ltrim(str_replace(' ', '%20', (string)$relative_under_image), '/');
+		$base = $this->mailImageBaseUrl($store_url);
+
+		return rtrim($base, '/') . '/image/' . $relative_under_image;
+	}
+
+	private function ensureAbsoluteMailUrl($url, $store_url) {
+		$url = trim((string)$url);
+
+		if ($url === '') {
+			return '';
+		}
+
+		if (strpos($url, 'http://') === 0 || strpos($url, 'https://') === 0 || strpos($url, '//') === 0) {
+			return $url;
+		}
+
+		return rtrim($this->mailImageBaseUrl($store_url), '/') . '/' . ltrim($url, '/');
+	}
+
+	private function mailImageBaseUrl($store_url) {
+		$ssl = trim((string)$this->config->get('config_ssl'));
+
+		if ($ssl !== '') {
+			return rtrim($ssl, '/') . '/';
+		}
+
+		$url = trim((string)$this->config->get('config_url'));
+
+		if ($url !== '') {
+			return rtrim($url, '/') . '/';
+		}
+
+		$store_url = trim((string)$store_url);
+
+		if ($store_url !== '') {
+			return rtrim($store_url, '/') . '/';
+		}
+
+		return rtrim($this->resolveMailBaseUrl(), '/') . '/';
 	}
 
 	/**
@@ -600,7 +719,7 @@ class ModelExtensionModuleCyberpunksMailTemplates extends Model {
 			return '';
 		}
 
-		$store_url = isset($data['store_url']) ? rtrim((string)$data['store_url'], '/') . '/' : HTTP_SERVER;
+		$store_url = $this->mailImageBaseUrl(isset($data['store_url']) ? $data['store_url'] : '');
 		$rows = '';
 
 		foreach ($products as $product) {

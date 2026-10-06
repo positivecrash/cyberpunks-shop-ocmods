@@ -41,6 +41,10 @@ class CyberpunksRevolutOrderSync {
 			$name = self::clean($contact['name']);
 		}
 		$phone = self::clean(isset($customer['phone']) ? $customer['phone'] : '');
+		// Wallets often put phone on payments[].payer, not customer.
+		if ($phone === '') {
+			$phone = self::clean(self::payerPhone($revolut_order));
+		}
 
 		$registry->get('load')->model('checkout/order');
 		$existing = $registry->get('model_checkout_order')->getOrder($oc_order_id);
@@ -85,6 +89,12 @@ class CyberpunksRevolutOrderSync {
 
 		if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
 			$set[] = "email = '" . $db->escape($email) . "'";
+		}
+
+		// Overwrite stock "Revolut Pay" with real wallet/card type when API knows it.
+		$payment_title = self::paymentMethodTitle($revolut_order);
+		if ($payment_title !== '') {
+			$set[] = "payment_method = '" . $db->escape($payment_title) . "'";
 		}
 
 		$street_1 = self::pick($ship, array('street_line_1', 'streetLine1', 'address_1', 'street'));
@@ -170,6 +180,62 @@ class CyberpunksRevolutOrderSync {
 			return $order['shipping_address'];
 		}
 		return array();
+	}
+
+	/** Best-effort phone from payments[].payer — never throws; empty if absent. */
+	private static function payerPhone(array $order) {
+		if (empty($order['payments']) || !is_array($order['payments'])) {
+			return '';
+		}
+		foreach ($order['payments'] as $payment) {
+			if (!is_array($payment) || empty($payment['payer']['phone'])) {
+				continue;
+			}
+			$state = isset($payment['state']) ? strtolower((string)$payment['state']) : '';
+			if ($state === 'declined' || $state === 'failed' || $state === 'cancelled' || $state === 'canceled') {
+				continue;
+			}
+			return (string)$payment['payer']['phone'];
+		}
+		return '';
+	}
+
+	/** Human title from payments[].payment_method.type — empty = leave OC alone. */
+	private static function paymentMethodTitle(array $order) {
+		$type = self::paymentMethodType($order);
+		if ($type === 'apple_pay') {
+			return 'Apple Pay';
+		}
+		if ($type === 'google_pay') {
+			return 'Google Pay';
+		}
+		if ($type === 'card') {
+			return 'Credit / Debit card';
+		}
+		if ($type === 'revolut_pay_card' || $type === 'revolut_pay_account' || $type === 'revolut_pay') {
+			return 'Revolut Pay';
+		}
+		if ($type === 'sepa_direct_debit') {
+			return 'SEPA Direct Debit';
+		}
+		return '';
+	}
+
+	private static function paymentMethodType(array $order) {
+		if (empty($order['payments']) || !is_array($order['payments'])) {
+			return '';
+		}
+		foreach ($order['payments'] as $payment) {
+			if (!is_array($payment) || empty($payment['payment_method']['type'])) {
+				continue;
+			}
+			$state = isset($payment['state']) ? strtolower((string)$payment['state']) : '';
+			if ($state === 'declined' || $state === 'failed' || $state === 'cancelled' || $state === 'canceled') {
+				continue;
+			}
+			return strtolower(trim((string)$payment['payment_method']['type']));
+		}
+		return '';
 	}
 
 	private static function pick($arr, $keys) {

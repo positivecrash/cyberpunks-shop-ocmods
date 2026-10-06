@@ -130,9 +130,24 @@
 		gtag('consent', 'update', map);
 	}
 
+	/**
+	 * User-driven consent only (Accept / Reject / Save). Replay of a stored choice
+	 * must not push this — returning visitors already get a granted page_view.
+	 * GTM: GA4 page_view on cookie_consent_update when analytics_storage = granted.
+	 */
+	function notifyConsentUpdate(map) {
+		if (!map) return;
+		w.dataLayer.push({
+			event: 'cookie_consent_update',
+			analytics_storage: map.analytics_storage,
+			ad_storage: map.ad_storage
+		});
+	}
+
 	function applyMap(choice, map) {
 		consentUpdate(map);
 		persistRecord(choice, map);
+		notifyConsentUpdate(map);
 	}
 
 	gtag('consent', 'default', {

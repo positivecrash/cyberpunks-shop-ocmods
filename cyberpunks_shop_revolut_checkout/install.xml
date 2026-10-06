@@ -2,9 +2,9 @@
 <modification>
 	<name>Cyberpunks Shop Revolut Checkout</name>
 	<code>cyberpunks_shop_revolut_checkout</code>
-	<version>1.2.12</version>
+	<version>1.2.18</version>
 	<author>positivecrash</author>
-	<description>Card field on /payment, soft appRedirection, reliable finalize; sync Revolut name/shipping onto OC order before status/mail.</description>
+	<description>Card field on /payment, soft appRedirection, reliable finalize; sync name/shipping/phone/label; do not let stock force Revolut Pay.</description>
 
 	<!-- Mobile return URL on Merchant order create -->
 	<file path="catalog/controller/extension/payment/revolut.php">
@@ -152,7 +152,14 @@
         $oc_order_id = (int)$oc_order_id;
         $order_status_id = (int)$order_status_id;
 
-        // BEFORE status/mail: pull name + shipping from Revolut (Merchant API + Fast-checkout cache).
+        // Stock updateMethodTitle often forces "Revolut Pay" — run it first, then sync overwrites with real type.
+        try {
+            $this->updateMethodTitle($oc_order_id);
+        } catch (Exception $e) {
+            $this->log->write("finalizeOrder: Unable to update order details for Revolut order ID: {$revolut_order_id}. Error: {$e->getMessage()}");
+        }
+
+        // Name + shipping + payment label from Revolut (Merchant API + Fast-checkout cache).
         try {
             $sync_file = DIR_SYSTEM . 'library/cyberpunks_revolut_order_sync.php';
             if (is_file($sync_file)) {
@@ -190,12 +197,6 @@
             } catch (Exception $e) {
                 $this->log->write('finalizeOrder fallback: ' . $e->getMessage());
             }
-        }
-
-        try {
-            $this->updateMethodTitle($oc_order_id);
-        } catch (Exception $e) {
-            $this->log->write("finalizeOrder: Unable to update order details for Revolut order ID: {$revolut_order_id}. Error: {$e->getMessage()}");
         }
 
         if (!$status_ok) {
@@ -267,6 +268,13 @@
             $comment = "Revolut Payment Gateway - Order Payment Authorised. Transaction ID: {$revolut_order_id}";
             return $this->finalizeOrder($oc_order_id, $revolut_order_id, $this->config->get('payment_revolut_authorised_status_id'), $comment);
         }]]></add>
+		</operation>
+
+		<!-- Stock always writes "Revolut Pay" and wipes the real label. Do not write — sync sets Google/Apple/Card when API has type. -->
+		<operation error="skip">
+			<search><![CDATA[        $this->model_extension_payment_revolut->updatePaymentMethodName($oc_order_id, $payment_title);]]></search>
+			<add position="replace"><![CDATA[        // Cyberpunks: leave payment_method alone (sync writes Google Pay / Apple Pay / …).
+        // $this->model_extension_payment_revolut->updatePaymentMethodName($oc_order_id, $payment_title);]]></add>
 		</operation>
 
 		<!-- Do not push OC quote placeholders ("Express checkout" / "City" / "00000") to Revolut. -->
