@@ -55,6 +55,8 @@ Admin: **Extensions → Modules → Cyberpunks Language Overrides** — original
 
 **CSV import/export** (Theme Strings tab): download/upload all strings. Columns: `source_text`, `comment`, then one column per enabled non-English language (`nl-nl`, `de-de`, …). Import merges by Original EN; empty cells do not clear existing translations.
 
+Cart/checkout starter pack: import `theme-strings-cart-checkout.csv` from this folder (NL/DE/ES/EL) after theme deploy.
+
 ## URL locale / SEO
 
 Same as 1.6.x: `/en/` `/nl/`, shared SEO keywords across languages, hreflang. Route SEO keywords auto-copy to new active languages. **Product / category / information / manufacturer SEO keywords** are also copied to every active language when a language is added (or when gaps are detected on storefront / module open).

@@ -1,0 +1,67 @@
+source_text,comment,nl-nl,de-de,es-es,el-gr
+Your cart,cart,Je winkelwagen,Dein Warenkorb,Tu carrito,Το καλάθι σας
+Checkout,cart CTA / page title,Afrekenen,Zur Kasse,Finalizar compra,Ολοκλήρωση αγοράς
+Remove,cart item,Verwijderen,Entfernen,Eliminar,Αφαίρεση
+remove,coupon link,verwijderen,entfernen,eliminar,αφαίρεση
+Remove item,cart aria,Item verwijderen,Artikel entfernen,Eliminar artículo,Αφαίρεση προϊόντος
+Remove coupon from order,cart aria,Coupon van bestelling verwijderen,Gutschein von der Bestellung entfernen,Eliminar cupón del pedido,Αφαίρεση κουπονιού από την παραγγελία
+Quantity,cart qty,Aantal,Menge,Cantidad,Ποσότητα
+Cart items,cart aria,Winkelwagenitems,Warenkorbartikel,Artículos del carrito,Προϊόντα καλαθιού
+Checkout options,cart aria,Afrekenopties,Checkout-Optionen,Opciones de pago,Επιλογές ολοκλήρωσης
+Items in cart: %s,cart aria,Artikelen in winkelwagen: %s,Artikel im Warenkorb: %s,Artículos en el carrito: %s,Προϊόντα στο καλάθι: %s
+product preview,cart img alt,productvoorbeeld,Produktvorschau,vista previa del producto,προεπισκόπηση προϊόντος
+Available: %s,cart stock,Beschikbaar: %s,Verfügbar: %s,Disponible: %s,Διαθέσιμο: %s
+Availability (shared across all options): %s,cart stock,Beschikbaarheid (gedeeld voor alle opties): %s,Verfügbarkeit (für alle Optionen gemeinsam): %s,Disponibilidad (compartida entre todas las opciones): %s,Διαθεσιμότητα (κοινή για όλες τις επιλογές): %s
+Nothing is here so far,empty cart,Er is hier nog niets,Hier ist noch nichts,Aquí no hay nada todavía,Δεν υπάρχει τίποτα ακόμα
+Choose your country,cart shipping,Kies je land,Land wählen,Elige tu país,Επιλέξτε χώρα
+Choose delivery country,cart shipping aria,Kies bezorgland,Lieferland wählen,Elige el país de entrega,Επιλέξτε χώρα παράδοσης
+Choose delivery type,cart shipping aria,Kies bezorgtype,Lieferart wählen,Elige el tipo de entrega,Επιλέξτε τύπο παράδοσης
+Search,cart country search,Zoeken,Suchen,Buscar,Αναζήτηση
+Search country,cart country search aria,Land zoeken,Land suchen,Buscar país,Αναζήτηση χώρας
+Countries,cart country listbox,Landen,Länder,Países,Χώρες
+Contact Information,checkout,Contactgegevens,Kontaktinformationen,Información de contacto,Στοιχεία επικοινωνίας
+Shipping address,checkout,Verzendadres,Lieferadresse,Dirección de envío,Διεύθυνση αποστολής
+Shipping method,checkout,Verzendmethode,Versandart,Método de envío,Τρόπος αποστολής
+Payment method,checkout,Betaalmethode,Zahlungsmethode,Método de pago,Τρόπος πληρωμής
+Review order,checkout,Bestelling controleren,Bestellung prüfen,Revisar pedido,Έλεγχος παραγγελίας
+Proceed,checkout button,Doorgaan,Weiter,Continuar,Συνέχεια
+or,checkout divider,of,oder,o,ή
+Required,form validation,Verplicht,Pflichtfeld,Obligatorio,Υποχρεωτικό
+Loading,checkout loader,Laden,Wird geladen,Cargando,Φόρτωση
+Qty: %s,checkout review,Aantal: %s,Anz.: %s,Cant.: %s,Ποσ.: %s
+Phone number,checkout express,Telefoonnummer,Telefonnummer,Número de teléfono,Αριθμός τηλεφώνου
+E-Mail,checkout express / form,E-mail,E-Mail,Correo electrónico,Email
+First Name,checkout form,Voornaam,Vorname,Nombre,Όνομα
+Last Name,checkout form,Achternaam,Nachname,Apellidos,Επώνυμο
+Telephone,checkout form,Telefoon,Telefon,Teléfono,Τηλέφωνο
+Company,checkout form,Bedrijf,Firma,Empresa,Εταιρεία
+Address 1,checkout form,Adres 1,Adresse 1,Dirección 1,Διεύθυνση 1
+Address 2,checkout form,Adres 2,Adresse 2,Dirección 2,Διεύθυνση 2
+City,checkout form,Plaats,Stadt,Ciudad,Πόλη
+Post Code,checkout form,Postcode,Postleitzahl,Código postal,Ταχυδρομικός κώδικας
+Country,checkout form,Land,Land,País,Χώρα
+Region / State,checkout form,Regio / Provincie,Bundesland / Region,Región / Provincia,Περιφέρεια / Νομός
+Credit / Debit card,payment,Credit-/debitcard,Kredit-/Debitkarte,Tarjeta de crédito/débito,Πιστωτική / χρεωστική κάρτα
+Card holder's name,payment,Naam kaarthouder,Name des Karteninhabers,Nombre del titular,Όνομα κατόχου κάρτας
+Please complete contact details first.,checkout js,Vul eerst je contactgegevens in.,Bitte zuerst die Kontaktdaten ausfüllen.,Completa primero los datos de contacto.,Συμπληρώστε πρώτα τα στοιχεία επικοινωνίας.
+Please complete contact details.,checkout js,Vul je contactgegevens in.,Bitte Kontaktdaten ausfüllen.,Completa los datos de contacto.,Συμπληρώστε τα στοιχεία επικοινωνίας.
+Checkout error. Please try again.,checkout js,Afrekenfout. Probeer het opnieuw.,Checkout-Fehler. Bitte erneut versuchen.,Error en el pago. Inténtalo de nuevo.,Σφάλμα ολοκλήρωσης. Δοκιμάστε ξανά.
+"Some required fields are empty, please, fill them",checkout js,Sommige verplichte velden zijn leeg — vul ze in.,Einige Pflichtfelder sind leer — bitte ausfüllen.,Algunos campos obligatorios están vacíos; rellénalos.,Ορισμένα υποχρεωτικά πεδία είναι κενά — συμπληρώστε τα.
+Checkout failed to initialize. Please reload the page.,checkout js,Afrekenen kon niet starten. Herlaad de pagina.,Checkout konnte nicht geladen werden. Bitte Seite neu laden.,No se pudo iniciar el checkout. Recarga la página.,Αποτυχία εκκίνησης ολοκλήρωσης. Ανανεώστε τη σελίδα.
+Request failed,checkout js,Verzoek mislukt,Anfrage fehlgeschlagen,Solicitud fallida,Αποτυχία αιτήματος
+"To use Revolut Pay, please, enter your email",checkout express,Vul je e-mail in om Revolut Pay te gebruiken,"Gib deine E-Mail ein, um Revolut Pay zu nutzen",Introduce tu correo para usar Revolut Pay,Εισαγάγετε το email σας για να χρησιμοποιήσετε το Revolut Pay
+"To use Revolut Pay, please, enter your phone number",checkout express,Vul je telefoonnummer in om Revolut Pay te gebruiken,"Gib deine Telefonnummer ein, um Revolut Pay zu nutzen",Introduce tu teléfono para usar Revolut Pay,Εισαγάγετε τον αριθμό τηλεφώνου σας για να χρησιμοποιήσετε το Revolut Pay
+"Please complete your email in Apple Pay / Google Pay, or enter it below.",checkout express,Vul je e-mail in bij Apple Pay / Google Pay of hieronder.,Bitte E-Mail in Apple Pay / Google Pay oder unten angeben.,Completa tu correo en Apple Pay / Google Pay o introdúcelo abajo.,Συμπληρώστε το email στο Apple Pay / Google Pay ή εισαγάγετέ το παρακάτω.
+Please complete shipping details or use the form below.,checkout express,Vul verzendgegevens in of gebruik het formulier hieronder.,Bitte Lieferdaten ausfüllen oder das Formular unten nutzen.,Completa los datos de envío o usa el formulario de abajo.,Συμπληρώστε τα στοιχεία αποστολής ή χρησιμοποιήστε τη φόρμα παρακάτω.
+Cart total changed. Please tap the payment button again.,checkout express,Winkelwagenbedrag gewijzigd. Tik opnieuw op de betaalknop.,Warenkorbsumme geändert. Bitte erneut auf die Zahlung tippen.,El total del carrito cambió. Pulsa de nuevo el botón de pago.,Το σύνολο του καλαθιού άλλαξε. Πατήστε ξανά το κουμπί πληρωμής.
+Unable to create payment,checkout express,Betaling kon niet worden aangemaakt,Zahlung konnte nicht erstellt werden,No se pudo crear el pago,Αδυναμία δημιουργίας πληρωμής
+Unable to complete the order,checkout express,Bestelling kon niet worden afgerond,Bestellung konnte nicht abgeschlossen werden,No se pudo completar el pedido,Αδυναμία ολοκλήρωσης παραγγελίας
+Payment failed,checkout express,Betaling mislukt,Zahlung fehlgeschlagen,Pago fallido,Αποτυχία πληρωμής
+Payment succeeded but order token is missing.,checkout express,"Betaling gelukt, maar ordertoken ontbreekt.","Zahlung erfolgreich, aber Bestell-Token fehlt.","Pago correcto, pero falta el token del pedido.","Η πληρωμή πέτυχε, αλλά λείπει το token παραγγελίας."
+Missing contact or shipping details from Apple Pay / Google Pay.,checkout express,Contact- of verzendgegevens van Apple Pay / Google Pay ontbreken.,Kontakt- oder Lieferdaten von Apple Pay / Google Pay fehlen.,Faltan datos de contacto o envío de Apple Pay / Google Pay.,Λείπουν στοιχεία επικοινωνίας ή αποστολής από Apple Pay / Google Pay.
+Sub-Total,order total title,Subtotaal,Zwischensumme,Subtotal,Υποσύνολο
+Total,order total title,Totaal,Gesamtsumme,Total,Σύνολο
+Delivery,order total / shipping title,Levering,Lieferung,Entrega,Παράδοση
+Coupon,order total title,Kortingscode,Gutschein,Cupón,Κουπόνι
+Pay Now,payment confirm,Nu betalen,Jetzt bezahlen,Pagar ahora,Πληρωμή τώρα
+Confirm Order,payment confirm,Bestelling bevestigen,Bestellung bestätigen,Confirmar pedido,Επιβεβαίωση παραγγελίας
