@@ -1,11 +1,11 @@
 <?php
 /**
  * Sale price (special / qty discount) + coupon: do not stack.
- * For each cart line pick the better outcome for the customer:
- *   - keep sale price (no coupon on that line), or
- *   - apply coupon alone against the catalog (non-sale) price.
- * Relative to the cart subtotal (already at sale prices), the coupon total line
- * is adjusted so the paid amount matches that choice.
+ *
+ * Percentage coupons: per line, sale alone vs coupon alone on catalog price.
+ * Fixed coupons: if any eligible line is not on sale, apply the full fixed amount
+ * (distributed across non-sale lines); sale lines get no coupon share.
+ * If every eligible line is on sale, fall back to per-line best-of.
  */
 class CyberpunksCouponCombine {
 	const SESSION_KEY = 'cyberpunks_coupon_combine';
@@ -74,8 +74,25 @@ class CyberpunksCouponCombine {
 		$type = $coupon_info['type'];
 		$coupon_value = (float)$coupon_info['discount'];
 
+		$non_sale_sub_total = 0.0;
+		$has_non_sale = false;
+
+		foreach ($meta as $row) {
+			if (!$row['on_sale']) {
+				$has_non_sale = true;
+				$non_sale_sub_total += $row['cart_total'];
+			}
+		}
+
+		// Fixed coupon + at least one full-price line → apply the whole amount (not a pro-rata scrap).
+		$fixed_full_on_non_sale = ($type == 'F' && $has_non_sale && $non_sale_sub_total > 0.0001);
+
 		if ($type == 'F') {
-			$coupon_value = min($coupon_value, $catalog_sub_total > 0 ? $catalog_sub_total : $cart_sub_total);
+			if ($fixed_full_on_non_sale) {
+				$coupon_value = min($coupon_value, $cart_sub_total);
+			} else {
+				$coupon_value = min($coupon_value, $catalog_sub_total > 0 ? $catalog_sub_total : $cart_sub_total);
+			}
 		}
 
 		$discount_total = 0.0;
@@ -90,7 +107,15 @@ class CyberpunksCouponCombine {
 			$on_sale = $row['on_sale'];
 			$discount = 0.0;
 
-			if ($type == 'F') {
+			if ($type == 'F' && $fixed_full_on_non_sale) {
+				if ($on_sale) {
+					$used_best_of = true;
+					$kept_sale++;
+					$discount = 0.0;
+				} else {
+					$discount = $coupon_value * ($cart_line / $non_sale_sub_total);
+				}
+			} elseif ($type == 'F') {
 				$share_catalog = ($catalog_sub_total > 0)
 					? $coupon_value * ($catalog_line / $catalog_sub_total)
 					: 0.0;

@@ -18,10 +18,9 @@ Theme picks cart/checkout thumbs: `variant_image` → `fields.category_image` �
 
 OpenCart’s default coupon total stacks on the cart subtotal (already at special/qty prices). This package replaces that with a Shopify-style rule:
 
-- For each eligible line that is already on sale, compare **sale alone** vs **coupon alone on the catalog price**.
-- Apply whichever leaves the customer paying less (coupon line amount is adjusted accordingly; no stacking).
-- Soft `alert-info` on cart (`#cart-alerts`) and checkout review totals explains what happened.
-- OCMOD passes a short code (`kept_sale` / `used_coupon` / `mixed`); English copy + translations live in the theme partial + `theme-strings-cart-checkout.csv` (`cb_lang`).
+- **Percentage:** per sale line, sale alone vs coupon alone on catalog price (no stack).
+- **Fixed:** if any eligible line is full price, apply the **whole** fixed amount (on non-sale lines); sale lines get no coupon share. If everything is on sale, per-line best-of.
+- Soft `alert-info` on cart / checkout when best-of applied; theme strings in CSV.
 
 Library: `system/library/cyberpunks_coupon_combine.php`.
 
