@@ -1,5 +1,7 @@
 source_text,comment,nl-nl,de-de,es-es,el-gr
 Your cart,cart,Je winkelwagen,Dein Warenkorb,Tu carrito,Το καλάθι σας
+OFF,discount badge,KORTING,RABATT,DTO.,ΕΚΠΤ.
+"Original price: %s",cart price aria,Oorspronkelijke prijs: %s,Originalpreis: %s,Precio original: %s,Αρχική τιμή: %s
 Checkout,cart CTA / page title,Afrekenen,Zur Kasse,Finalizar compra,Ολοκλήρωση αγοράς
 Remove,cart item,Verwijderen,Entfernen,Eliminar,Αφαίρεση
 remove,coupon link,verwijderen,entfernen,eliminar,αφαίρεση
@@ -63,5 +65,8 @@ Sub-Total,order total title,Subtotaal,Zwischensumme,Subtotal,Υποσύνολο
 Total,order total title,Totaal,Gesamtsumme,Total,Σύνολο
 Delivery,order total / shipping title,Levering,Lieferung,Entrega,Παράδοση
 Coupon,order total title,Kortingscode,Gutschein,Cupón,Κουπόνι
+"Your coupon was not stacked on items already on sale — the sale price was better for you.",cart coupon combine,Je coupon is niet gestapeld op artikelen die al in de aanbieding zijn — de aanbiedingsprijs was voordeliger voor jou.,Dein Gutschein wurde nicht mit bereits reduzierten Artikeln kombiniert — der Sale-Preis war günstiger für dich.,Tu cupón no se acumuló con artículos ya en oferta: el precio de oferta te salía mejor.,Το κουπόνι σας δεν συνδυάστηκε με προϊόντα ήδη σε έκπτωση — η τιμή έκπτωσης ήταν καλύτερη για εσάς.
+"For items on sale, we used the coupon alone instead of stacking — that costs you less.",cart coupon combine,"Voor artikelen in de aanbieding gebruikten we alleen de coupon, zonder te stapelen — dat is voordeliger voor jou.","Bei Sale-Artikeln haben wir nur den Gutschein angewendet, ohne zu kombinieren — das ist günstiger für dich.","En artículos en oferta aplicamos solo el cupón, sin acumular — te sale más barato.","Στα προϊόντα σε έκπτωση εφαρμόσαμε μόνο το κουπόνι, χωρίς συνδυασμό — σας κοστίζει λιγότερο."
+"Discounts are not stacked with sale prices. We applied whichever costs you less — the sale price alone, or the coupon alone.",cart coupon combine,"Kortingen worden niet gestapeld met aanbiedingsprijzen. We pasten toe wat voor jou voordeliger is — alleen de aanbiedingsprijs, of alleen de coupon.","Rabatte werden nicht mit Sale-Preisen kombiniert. Wir haben die günstigere Option angewendet — nur der Sale-Preis oder nur der Gutschein.","Los descuentos no se acumulan con precios de oferta. Aplicamos lo que te sale más barato: solo la oferta, o solo el cupón.","Οι εκπτώσεις δεν συνδυάζονται με τιμές προσφοράς. Εφαρμόσαμε ό,τι σας κοστίζει λιγότερο — μόνο η τιμή έκπτωσης ή μόνο το κουπόνι."
 Pay Now,payment confirm,Nu betalen,Jetzt bezahlen,Pagar ahora,Πληρωμή τώρα
 Confirm Order,payment confirm,Bestelling bevestigen,Bestellung bestätigen,Confirmar pedido,Επιβεβαίωση παραγγελίας

@@ -242,9 +242,10 @@ class CyberpunksUrlLocale {
 			return self::applyLanguageQuery($url_info, $code);
 		}
 
-		// Cart and checkout stay on default URLs without locale prefix.
+		// Cart / checkout / payment stay without /nl/ prefix, but must carry ?language=
+		// so the language switcher can change locale (href is otherwise identical /cart).
 		if (self::isSkippedPath($path)) {
-			return $link;
+			return self::applyLanguageQuery($url_info, $code);
 		}
 
 		$path_trim = trim($path, '/');

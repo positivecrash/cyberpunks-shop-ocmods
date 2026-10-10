@@ -2,9 +2,94 @@
 <modification>
 	<name>Cyberpunks Shop Checkout</name>
 	<code>cyberpunks_shop_checkout</code>
-	<version>1.0.25</version>
+	<version>1.0.30</version>
 	<author>positivecrash</author>
-	<description>Unified checkout: facade API, hardening, review data for checkout and success pages.</description>
+	<description>Unified checkout: facade API, hardening, review data for checkout and success pages. Coupon vs sale best-of (no stack).</description>
+
+	<!-- Coupon + sale: Shopify-style best-of (do not stack). Library uploaded with this package.
+	     OCMOD matches ONE line at a time — keep <search> single-line. -->
+	<file path="catalog/model/extension/total/coupon.php">
+		<operation error="skip">
+			<search><![CDATA[public function getTotal($total) {]]></search>
+			<add position="replace"><![CDATA[public function getTotal($total) {
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php');
+
+			if (class_exists('CyberpunksCouponCombine') && CyberpunksCouponCombine::applyGetTotal($this, $total)) {
+				return;
+			}
+		}
+]]></add>
+		</operation>
+	</file>
+
+	<!-- After language_overrides rewrites the totals loop; inject notice before checkout URL. -->
+	<file path="catalog/controller/checkout/cart.php">
+		<!-- Sale price: catalog (struck) total + discount % for theme badge under cart line price. -->
+		<operation error="skip">
+			<search><![CDATA[$data['vouchers'] = array();]]></search>
+			<add position="before"><![CDATA[
+			if (!empty($data['products']) && is_file(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php')) {
+				require_once(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php');
+
+				if (class_exists('CyberpunksCouponCombine')) {
+					$cp_currency = isset($this->session->data['currency']) ? $this->session->data['currency'] : $this->config->get('config_currency');
+
+					foreach ($this->cart->getProducts() as $cp_cart_product) {
+						$cp_cart_id = isset($cp_cart_product['cart_id']) ? (string)$cp_cart_product['cart_id'] : '';
+
+						if ($cp_cart_id === '') {
+							continue;
+						}
+
+						$cp_catalog_line = (float)CyberpunksCouponCombine::catalogLineTotal($this, $cp_cart_product);
+						$cp_cart_line = (float)$cp_cart_product['total'];
+
+						if ($cp_catalog_line <= 0 || ($cp_catalog_line - $cp_cart_line) <= 0.0001) {
+							continue;
+						}
+
+						$cp_qty = max(1, (int)$cp_cart_product['quantity']);
+						$cp_catalog_unit = $cp_catalog_line / $cp_qty;
+						$cp_unit_old = $this->tax->calculate($cp_catalog_unit, $cp_cart_product['tax_class_id'], $this->config->get('config_tax'));
+						$cp_total_old = $this->currency->format($cp_unit_old * $cp_qty, $cp_currency);
+						$cp_pct = (int)round((($cp_catalog_line - $cp_cart_line) / $cp_catalog_line) * 100);
+
+						if ($cp_pct < 1) {
+							continue;
+						}
+
+						foreach ($data['products'] as $cp_key => $cp_row) {
+							if (!isset($cp_row['cart_id']) || (string)$cp_row['cart_id'] !== $cp_cart_id) {
+								continue;
+							}
+
+							$data['products'][$cp_key]['total_old'] = $cp_total_old;
+							$data['products'][$cp_key]['discount_percent'] = $cp_pct;
+							break;
+						}
+					}
+				}
+			}
+
+]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[$data['checkout'] = $this->url->link('checkout/checkout', '', true);]]></search>
+			<add position="before"><![CDATA[
+			$data['coupon_combine_notice'] = '';
+			$data['coupon_code'] = isset($this->session->data['coupon']) ? (string)$this->session->data['coupon'] : '';
+			$data['coupon_discount_label'] = '';
+			if (is_file(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php')) {
+				require_once(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php');
+				if (class_exists('CyberpunksCouponCombine')) {
+					$data['coupon_combine_notice'] = CyberpunksCouponCombine::noticeCode($this->session);
+					$data['coupon_discount_label'] = CyberpunksCouponCombine::discountLabel($this);
+				}
+			}
+]]></add>
+		</operation>
+	</file>
 
 	<file path="catalog/controller/checkout/shipping_method.php">
 		<operation error="skip">
@@ -216,6 +301,16 @@
 					'title' => $cp_total_title,
 					'text'  => $this->currency->format(isset($total_row['value']) ? $total_row['value'] : 0, $currency)
 				);
+			}
+
+			$data['coupon_combine_notice'] = '';
+			$data['coupon_discount_label'] = '';
+			if (is_file(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php')) {
+				require_once(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php');
+				if (class_exists('CyberpunksCouponCombine')) {
+					$data['coupon_combine_notice'] = CyberpunksCouponCombine::noticeCode($this->session);
+					$data['coupon_discount_label'] = CyberpunksCouponCombine::discountLabel($this);
+				}
 			}
 		} catch (Exception $e) {
 			$this->log->write('cyberpunks_shop_checkout review: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());

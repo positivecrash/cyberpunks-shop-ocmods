@@ -10,8 +10,20 @@ Unified checkout package (replaces `checkout_facade`, `checkout_hardening`, `che
 | **Hardening** (OCMOD) | Safe `comment` handling in shipping/payment method saves |
 | **Review data** (OCMOD) | `products` / `totals` on `checkout/checkout` for theme review column |
 | **Success review** (OCMOD) | Order summary data on `checkout/success` |
+| **Coupon combine** (upload + OCMOD) | Sale price + coupon: best-of per line (no stack), soft info notice on cart/checkout |
 
 Theme picks cart/checkout thumbs: `variant_image` → `fields.category_image` → `thumb`.
+
+### Coupon vs sale (1.0.26+)
+
+OpenCart’s default coupon total stacks on the cart subtotal (already at special/qty prices). This package replaces that with a Shopify-style rule:
+
+- For each eligible line that is already on sale, compare **sale alone** vs **coupon alone on the catalog price**.
+- Apply whichever leaves the customer paying less (coupon line amount is adjusted accordingly; no stacking).
+- Soft `alert-info` on cart (`#cart-alerts`) and checkout review totals explains what happened.
+- OCMOD passes a short code (`kept_sale` / `used_coupon` / `mixed`); English copy + translations live in the theme partial + `theme-strings-cart-checkout.csv` (`cb_lang`).
+
+Library: `system/library/cyberpunks_coupon_combine.php`.
 
 ## Install / upgrade from split packages
 
@@ -20,7 +32,7 @@ Theme picks cart/checkout thumbs: `variant_image` → `fields.category_image` �
    - `cyberpunks_shop_checkout_hardening`
    - `cyberpunks_shop_checkout_review_data`
    - `cyberpunks_shop_checkout_success_review_data`
-2. Upload `cyberpunks_shop_checkout_1_0_22.ocmod.zip` via **Extensions → Installer**.
+2. Upload `cyberpunks_shop_checkout_1_0_30.ocmod.zip` via **Extensions → Installer**.
 3. **Refresh** modifications.
 4. Enable **Cyberpunks Checkout Facade** under **Extensions → Extensions → Modules** (same module as before — settings keys unchanged).
 

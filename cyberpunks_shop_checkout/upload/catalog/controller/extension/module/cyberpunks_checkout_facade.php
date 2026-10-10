@@ -8,6 +8,8 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 
 		$data = array();
 		$data['coupon_code'] = isset($this->session->data['coupon']) ? (string)$this->session->data['coupon'] : '';
+		$data['coupon_combine_notice'] = '';
+		$data['coupon_discount_label'] = '';
 
 		// Compute totals (same style as checkout/confirm).
 		$this->load->model('setting/extension');
@@ -62,6 +64,14 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 				'title' => $cp_total_title,
 				'text'  => $this->currency->format($total_row['value'], $this->session->data['currency'])
 			);
+		}
+
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php');
+			if (class_exists('CyberpunksCouponCombine')) {
+				$data['coupon_combine_notice'] = CyberpunksCouponCombine::noticeCode($this->session);
+				$data['coupon_discount_label'] = CyberpunksCouponCombine::discountLabel($this);
+			}
 		}
 
 		$this->response->setOutput($this->load->view('checkout/review_totals', $data));
@@ -1537,6 +1547,16 @@ class ControllerExtensionModuleCyberpunksCheckoutFacade extends Controller {
 		}
 
 		$data['coupon_code'] = isset($this->session->data['coupon']) ? (string)$this->session->data['coupon'] : '';
+
+		$data['coupon_combine_notice'] = '';
+		$data['coupon_discount_label'] = '';
+		if (is_file(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php')) {
+			require_once(DIR_SYSTEM . 'library/cyberpunks_coupon_combine.php');
+			if (class_exists('CyberpunksCouponCombine')) {
+				$data['coupon_combine_notice'] = CyberpunksCouponCombine::noticeCode($this->session);
+				$data['coupon_discount_label'] = CyberpunksCouponCombine::discountLabel($this);
+			}
+		}
 
 		$data['cp_checkout_summary'] = $this->buildCheckoutOrderSummary();
 	}

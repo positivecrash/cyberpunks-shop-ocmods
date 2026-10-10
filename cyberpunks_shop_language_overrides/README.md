@@ -5,7 +5,7 @@ Minimal Dutch core (`nl-nl.php`), URL locales (`/en/`, `/nl/`), **cb_lang** them
 ## Install
 
 1. `./build-ocmod.sh cyberpunks_shop_language_overrides`
-2. Upload `cyberpunks_shop_language_overrides_1_9_2.ocmod.zip`
+2. Upload `cyberpunks_shop_language_overrides_1_9_3.ocmod.zip`
 3. Extensions → Modifications → **Refresh**
 4. Open **Extensions → Modules → Cyberpunks Language Overrides** once (tables + seed)
 5. Clear Twig cache if needed: `system/storage/cache/template/`
