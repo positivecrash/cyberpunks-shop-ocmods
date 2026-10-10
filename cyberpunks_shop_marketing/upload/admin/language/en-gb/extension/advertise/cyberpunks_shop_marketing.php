@@ -13,7 +13,9 @@ $_['text_meta_section'] = 'Meta Conversions API';
 $_['text_consent_section'] = 'Google cookie consent';
 $_['text_matomo_section'] = 'Matomo Analytics';
 $_['text_shared_section'] = 'Shared';
+$_['text_trustpilot_section'] = 'Trustpilot (product page)';
 $_['text_setup_hint'] = 'GTM + Matomo marketing tags and ecommerce events. Replaces the separate GTM and Matomo extensions. Google Merchant Center / Shopping feed is not included yet.';
+$_['text_tp_sync_success'] = 'Success: Trustpilot summary synced into the fields below. Save if you want to keep any manual edits afterward.';
 
 $_['entry_status'] = 'Status';
 $_['entry_gtm_status'] = 'Enable GTM';
@@ -40,6 +42,14 @@ $_['entry_matomo_ecommerce'] = 'Ecommerce order tracking';
 $_['entry_matomo_disable_cookies'] = 'Disable analytics cookies';
 $_['entry_matomo_respect_dnt'] = 'Respect Do Not Track';
 $_['entry_item_id_field'] = 'Product identifier';
+$_['entry_tp_status'] = 'Show Trustpilot block';
+$_['entry_tp_score'] = 'Score';
+$_['entry_tp_stars'] = 'Stars score (e.g. 4.5)';
+$_['entry_tp_label'] = 'Label';
+$_['entry_tp_reviews'] = 'Reviews count';
+$_['entry_tp_url'] = 'TrustPilot URL';
+$_['entry_tp_sync'] = 'Synchronize';
+$_['entry_tp_last_sync'] = 'Last sync';
 
 $_['help_container'] = 'Format: GTM-XXXXXXX. Injects the GTM container snippet into the theme header via OCMOD.';
 $_['help_events'] = 'Events are pushed to window.dataLayer. Configure GA4 tags and triggers inside Google Tag Manager.';
@@ -60,9 +70,13 @@ $_['help_matomo_ecommerce'] = 'Send order and line items on checkout success (en
 $_['help_matomo_disable_cookies'] = 'Matomo does not set first-party analytics cookies when enabled.';
 $_['help_matomo_dnt'] = 'If the browser sends DNT:1, the Matomo snippet is not output on catalog pages.';
 $_['help_item_id_field'] = 'Used for GA4 item_id and Matomo ecommerce SKU.';
+$_['help_tp'] = 'Values shown on the product page Trustpilot block. Fill manually, or save the TrustPilot URL and click Synchronize to pull score / label / stars / reviews from that page.';
+$_['help_tp_stars'] = 'Controls the star fill in CSS (half steps: 0.5, 1, 1.5 … 5). Often close to the Score.';
+$_['help_tp_sync'] = 'Save the TrustPilot URL first, then click Synchronize. Pulls score / label / stars / reviews via Trustpilot’s TrustBox data API (same source as the footer widget). If it still fails, enter values manually.';
 
 $_['button_save'] = 'Save';
 $_['button_cancel'] = 'Cancel';
+$_['button_tp_sync'] = 'Synchronize';
 
 $_['error_permission'] = 'Warning: You do not have permission to modify marketing settings!';
 $_['error_container_id'] = 'GTM container ID is required (format GTM-XXXXXXX) when GTM is enabled.';
@@ -70,3 +84,5 @@ $_['error_consent_expiry_days'] = 'Consent expiry must be between 1 and 3650 day
 $_['error_matomo_server'] = 'Matomo base URL is required when Matomo is enabled.';
 $_['error_matomo_server_url'] = 'Matomo base URL must be a valid URL (including https://).';
 $_['error_matomo_site_id'] = 'Site ID must be a positive integer when Matomo is enabled.';
+$_['error_tp_sync'] = 'Could not sync from Trustpilot. Save a TrustPilot URL first, or enter values manually.';
+$_['error_tp_sync_url'] = 'Save a TrustPilot URL first, then click Synchronize.';

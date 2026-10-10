@@ -16,6 +16,7 @@ Files live under `extension/advertise/` so the extension appears in **Extensions
 - **view_item** dataLayer event on product pages
 - **add_to_cart** dataLayer event after successful add-to-cart AJAX
 - **begin_checkout** dataLayer event on checkout (non-empty cart)
+- **Trustpilot product-page summary** (manual admin fields + Synchronize from TrustPilot URL)
 - Single admin screen for GTM and Matomo settings
 
 Google Merchant Center / product feed export is **not** included yet.
@@ -23,6 +24,26 @@ Google Merchant Center / product feed export is **not** included yet.
 Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag inside GTM.
 
 ## Changelog
+
+### 1.7.5
+- Trustpilot label from star rating (4.5 → Excellent), matching trustpilot.com — not TrustScore decimals
+
+### 1.7.4
+- Fix Trustpilot Synchronize: domain parse regex broke Business Unit resolution (TrustBox API never called)
+
+### 1.7.3
+- Trustpilot Synchronize: use TrustBox widget JSON API (HTML review page is WAF-blocked)
+
+### 1.7.2
+- Admin settings split into tabs (GTM, Meta CAPI, Consent, Matomo, Trustpilot, Shared)
+
+### 1.7.1
+- Trustpilot admin UI simplified: Score, Label, Stars score, Reviews count, TrustPilot URL + Synchronize button (no cron / API / bars in UI)
+- No prefills; product block shows only when Score is set
+
+### 1.7.0
+- Trustpilot product-page summary: admin fields + sync from public page
+- Catalog event injects `trustpilot_summary` into `product/product` view data for theme partial
 
 ### 1.6.4
 - After **user** consent click (Accept / Save / Reject path), push `dataLayer` event `cookie_consent_update` with `analytics_storage` / `ad_storage` so GTM can fire a granted GA4 `page_view` on the landing URL (fixes Unassigned sessions). Stored-choice replay does **not** push this event.
@@ -116,7 +137,7 @@ Do **not** add gtag.js or GA4 directly to the theme — configure GA4 as a tag i
 1. Extensions → Installer → upload `.ocmod.zip`
 2. Extensions → Modifications → **Refresh**
 3. Extensions → **Advertising** → **Cyberpunks Shop Marketing** → **Install** (green +) → Edit
-4. Configure GTM and/or Matomo
+4. Configure GTM, Matomo, and/or Trustpilot (product-page summary)
 
 If upgrading from v1.0.0 (Modules):
 

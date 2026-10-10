@@ -1284,4 +1284,447 @@ class ModelExtensionAdvertiseCyberpunksShopMarketing extends Model {
 	private function roundMoney($value) {
 		return round((float)$value, 2);
 	}
+
+	/**
+	 * Product-page Trustpilot summary block (manual settings or admin Sync).
+	 */
+	public function getTrustpilotSummaryForStorefront() {
+		$status = $this->config->get('advertise_cyberpunks_shop_marketing_tp_status');
+
+		if ($status === 0 || $status === '0') {
+			return null;
+		}
+
+		$score = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_tp_score'));
+
+		if ($score === '') {
+			return null;
+		}
+
+		$reviews_raw = $this->config->get('advertise_cyberpunks_shop_marketing_tp_reviews');
+		$reviews = ($reviews_raw === '' || $reviews_raw === null) ? 0 : max(0, (int)$reviews_raw);
+		$stars = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_tp_stars'));
+		$label = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_tp_label'));
+		$url = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_tp_url'));
+
+		if ($stars === '') {
+			$stars = $this->starsCssFromScore($score);
+		}
+
+		if ($label === '') {
+			$label = $this->labelFromStars($stars !== '' ? $stars : $score);
+		}
+
+		return array(
+			'enabled' => true,
+			'score'   => $score,
+			'stars'   => $stars,
+			'label'   => $label,
+			'reviews' => $reviews,
+			'url'     => $url,
+			'bars'    => array(
+				5 => $this->clampPercent($this->config->get('advertise_cyberpunks_shop_marketing_tp_bar_5'), 100),
+				4 => $this->clampPercent($this->config->get('advertise_cyberpunks_shop_marketing_tp_bar_4'), 0),
+				3 => $this->clampPercent($this->config->get('advertise_cyberpunks_shop_marketing_tp_bar_3'), 0),
+				2 => $this->clampPercent($this->config->get('advertise_cyberpunks_shop_marketing_tp_bar_2'), 0),
+				1 => $this->clampPercent($this->config->get('advertise_cyberpunks_shop_marketing_tp_bar_1'), 0),
+			),
+		);
+	}
+
+	/**
+	 * Pull score / review count from Trustpilot.
+	 * Prefer TrustBox widget JSON (works without API key); then official API; then public HTML (often WAF-blocked).
+	 *
+	 * @return array{ok:bool,message:string,data?:array}
+	 */
+	public function syncTrustpilotSummary($force = false) {
+		$api_key = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_tp_api_key'));
+		$url = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_tp_url'));
+
+		if ($url === '') {
+			return array(
+				'ok'      => false,
+				'message' => 'Save a TrustPilot URL first, then click Synchronize.',
+			);
+		}
+
+		$business_unit_id = $this->resolveTrustpilotBusinessUnitId($url);
+		$parsed = null;
+
+		if ($business_unit_id !== '') {
+			$parsed = $this->fetchTrustpilotViaTrustbox($business_unit_id);
+		}
+
+		if (!$parsed && $api_key !== '' && $business_unit_id !== '') {
+			$parsed = $this->fetchTrustpilotViaApi($business_unit_id, $api_key);
+		}
+
+		if (!$parsed) {
+			$parsed = $this->fetchTrustpilotViaPublicPage($url);
+		}
+
+		if (!$parsed || empty($parsed['score'])) {
+			return array(
+				'ok'      => false,
+				'message' => 'Could not fetch Trustpilot summary (page is blocked by Trustpilot WAF). Enter values manually.',
+			);
+		}
+
+		$this->load->model('setting/setting');
+		$store_id = (int)$this->config->get('config_store_id');
+		$settings = $this->model_setting_setting->getSetting('advertise_cyberpunks_shop_marketing', $store_id);
+
+		$settings['advertise_cyberpunks_shop_marketing_tp_score'] = (string)$parsed['score'];
+		$settings['advertise_cyberpunks_shop_marketing_tp_stars'] = isset($parsed['stars'])
+			? (string)$parsed['stars']
+			: $this->starsCssFromScore($parsed['score']);
+		$settings['advertise_cyberpunks_shop_marketing_tp_reviews'] = (int)$parsed['reviews'];
+
+		if (!empty($parsed['label'])) {
+			$settings['advertise_cyberpunks_shop_marketing_tp_label'] = (string)$parsed['label'];
+		}
+
+		if (!empty($parsed['bars']) && is_array($parsed['bars'])) {
+			foreach (array(5, 4, 3, 2, 1) as $star) {
+				if (isset($parsed['bars'][$star])) {
+					$settings['advertise_cyberpunks_shop_marketing_tp_bar_' . $star] = (int)$parsed['bars'][$star];
+				}
+			}
+		}
+
+		$settings['advertise_cyberpunks_shop_marketing_tp_last_sync'] = date('Y-m-d H:i:s');
+		$this->model_setting_setting->editSetting('advertise_cyberpunks_shop_marketing', $settings, $store_id);
+
+		// Refresh runtime config for this request.
+		foreach ($settings as $key => $value) {
+			$this->config->set($key, $value);
+		}
+
+		return array(
+			'ok'      => true,
+			'message' => 'Trustpilot summary updated.',
+			'data'    => $parsed,
+			'forced'  => (bool)$force,
+		);
+	}
+
+	/**
+	 * Same public JSON the TrustBox widget uses (no API key).
+	 * Template id matches the footer TrustBox on cyberpunks.shop.
+	 */
+	private function fetchTrustpilotViaTrustbox($business_unit_id) {
+		$template_id = '56278e9abfbbba0bdcd568bc';
+		$endpoint = 'https://widget.trustpilot.com/trustbox-data/' . rawurlencode($template_id)
+			. '?businessUnitId=' . rawurlencode($business_unit_id)
+			. '&locale=en-US';
+
+		$body = $this->httpGet($endpoint, true);
+
+		if ($body === '') {
+			return null;
+		}
+
+		$json = json_decode($body, true);
+
+		if (!is_array($json) || empty($json['businessUnit']) || !is_array($json['businessUnit'])) {
+			return null;
+		}
+
+		$unit = $json['businessUnit'];
+		$score = null;
+
+		if (isset($unit['trustScore'])) {
+			$score = round((float)$unit['trustScore'], 1);
+		} elseif (isset($unit['stars'])) {
+			$score = round((float)$unit['stars'], 1);
+		}
+
+		if ($score === null) {
+			return null;
+		}
+
+		$reviews = 0;
+		$bars = array();
+
+		if (isset($unit['numberOfReviews']['total'])) {
+			$reviews = (int)$unit['numberOfReviews']['total'];
+		}
+
+		if (isset($unit['numberOfReviews']['fiveStars'])) {
+			$dist = array(
+				5 => (int)$unit['numberOfReviews']['fiveStars'],
+				4 => (int)$unit['numberOfReviews']['fourStars'],
+				3 => (int)$unit['numberOfReviews']['threeStars'],
+				2 => (int)$unit['numberOfReviews']['twoStars'],
+				1 => (int)$unit['numberOfReviews']['oneStar'],
+			);
+
+			if ($reviews > 0) {
+				foreach ($dist as $star => $count) {
+					$bars[$star] = (int)round(($count / $reviews) * 100);
+				}
+			}
+		}
+
+		$stars = isset($unit['stars'])
+			? $this->starsCssFromScore($unit['stars'])
+			: $this->starsCssFromScore($score);
+
+		return array(
+			'score'   => number_format($score, 1, '.', ''),
+			'stars'   => $stars,
+			'reviews' => $reviews,
+			'label'   => $this->labelFromStars($stars),
+			'bars'    => $bars,
+		);
+	}
+
+	private function resolveTrustpilotBusinessUnitId($url) {
+		$stored = trim((string)$this->config->get('advertise_cyberpunks_shop_marketing_tp_business_unit_id'));
+
+		if ($stored !== '') {
+			return $stored;
+		}
+
+		$domain = $this->domainFromTrustpilotUrl($url);
+
+		// Public Business Unit ID from the storefront TrustBox (footer).
+		if ($domain === 'cyberpunks.shop') {
+			return '6abcd4989965784ef33976bf';
+		}
+
+		return '';
+	}
+
+	private function domainFromTrustpilotUrl($url) {
+		$path = parse_url($url, PHP_URL_PATH);
+
+		if (!is_string($path) || $path === '') {
+			$host = parse_url($url, PHP_URL_HOST);
+
+			return is_string($host) ? strtolower($host) : '';
+		}
+
+		// Use ~ delimiter — '#' inside the character class would end a #-delimited pattern.
+		if (preg_match('~/review/([^/?#]+)~i', $path, $m)) {
+			return strtolower(trim($m[1]));
+		}
+
+		return '';
+	}
+
+	private function fetchTrustpilotViaApi($business_unit_id, $api_key) {
+		$endpoint = 'https://api.trustpilot.com/v1/business-units/' . rawurlencode($business_unit_id) . '?apikey=' . rawurlencode($api_key);
+		$body = $this->httpGet($endpoint, true);
+
+		if ($body === '') {
+			return null;
+		}
+
+		$json = json_decode($body, true);
+
+		if (!is_array($json)) {
+			return null;
+		}
+
+		$score = null;
+
+		if (isset($json['score']['trustScore'])) {
+			$score = round((float)$json['score']['trustScore'], 1);
+		} elseif (isset($json['score']['stars'])) {
+			$score = round((float)$json['score']['stars'], 1);
+		}
+
+		$reviews = 0;
+
+		if (isset($json['numberOfReviews']['total'])) {
+			$reviews = (int)$json['numberOfReviews']['total'];
+		} elseif (isset($json['numberOfReviews'])) {
+			$reviews = (int)$json['numberOfReviews'];
+		}
+
+		if ($score === null) {
+			return null;
+		}
+
+		$bars = array();
+		$dist = null;
+
+		if (isset($json['numberOfReviews']['fiveStars'])) {
+			$dist = array(
+				5 => (int)$json['numberOfReviews']['fiveStars'],
+				4 => (int)$json['numberOfReviews']['fourStars'],
+				3 => (int)$json['numberOfReviews']['threeStars'],
+				2 => (int)$json['numberOfReviews']['twoStars'],
+				1 => (int)$json['numberOfReviews']['oneStar'],
+			);
+		} elseif (isset($json['stars'])) {
+			// some payloads expose stars as map
+			$dist = array(
+				5 => isset($json['stars']['5']) ? (int)$json['stars']['5'] : 0,
+				4 => isset($json['stars']['4']) ? (int)$json['stars']['4'] : 0,
+				3 => isset($json['stars']['3']) ? (int)$json['stars']['3'] : 0,
+				2 => isset($json['stars']['2']) ? (int)$json['stars']['2'] : 0,
+				1 => isset($json['stars']['1']) ? (int)$json['stars']['1'] : 0,
+			);
+		}
+
+		if ($dist && $reviews > 0) {
+			foreach ($dist as $star => $count) {
+				$bars[$star] = (int)round(($count / $reviews) * 100);
+			}
+		}
+
+		$stars = isset($json['score']['stars'])
+			? $this->starsCssFromScore($json['score']['stars'])
+			: $this->starsCssFromScore($score);
+
+		return array(
+			'score'   => number_format($score, 1, '.', ''),
+			'stars'   => $stars,
+			'reviews' => $reviews,
+			'label'   => $this->labelFromStars($stars),
+			'bars'    => $bars,
+		);
+	}
+
+	private function fetchTrustpilotViaPublicPage($url) {
+		$body = $this->httpGet($url);
+
+		if ($body === '') {
+			return null;
+		}
+
+		$score = null;
+		$reviews = 0;
+
+		if (preg_match('/"@type"\s*:\s*"AggregateRating"[^}]*"ratingValue"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/i', $body, $m)) {
+			$score = round((float)$m[1], 1);
+		} elseif (preg_match('/"ratingValue"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?[^}]*"@type"\s*:\s*"AggregateRating"/i', $body, $m)) {
+			$score = round((float)$m[1], 1);
+		} elseif (preg_match('/"trustScore"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i', $body, $m)) {
+			$score = round((float)$m[1], 1);
+		}
+
+		if (preg_match('/"reviewCount"\s*:\s*"?([0-9]+)"?/i', $body, $m)) {
+			$reviews = (int)$m[1];
+		} elseif (preg_match('/"numberOfReviews"\s*:\s*\{\s*"total"\s*:\s*([0-9]+)/i', $body, $m)) {
+			$reviews = (int)$m[1];
+		} elseif (preg_match('/"total"\s*:\s*([0-9]+)[^}]*"usedForTrustScoreCalculation"/i', $body, $m)) {
+			$reviews = (int)$m[1];
+		}
+
+		if ($score === null) {
+			return null;
+		}
+
+		$stars = $this->starsCssFromScore($score);
+
+		return array(
+			'score'   => number_format($score, 1, '.', ''),
+			'stars'   => $stars,
+			'reviews' => $reviews,
+			'label'   => $this->labelFromStars($stars),
+			'bars'    => array(),
+		);
+	}
+
+	private function httpGet($url, $prefer_json = false) {
+		$accept = $prefer_json ? 'application/json,text/plain,*/*' : 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8';
+		$ua = 'Mozilla/5.0 (compatible; CyberpunksShopTrustpilotSync/1.1; +https://cyberpunks.shop)';
+
+		if (!function_exists('curl_init')) {
+			$ctx = stream_context_create(array(
+				'http' => array(
+					'method'  => 'GET',
+					'timeout' => 12,
+					'header'  => "User-Agent: {$ua}\r\nAccept: {$accept}\r\n",
+				),
+			));
+			$body = @file_get_contents($url, false, $ctx);
+
+			return is_string($body) ? $body : '';
+		}
+
+		$ch = curl_init($url);
+		curl_setopt_array($ch, array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_CONNECTTIMEOUT => 8,
+			CURLOPT_TIMEOUT        => 15,
+			CURLOPT_HTTPHEADER     => array(
+				'User-Agent: ' . $ua,
+				'Accept: ' . $accept,
+			),
+		));
+		$body = curl_exec($ch);
+		$code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+
+		if (!is_string($body) || $code < 200 || $code >= 300) {
+			return '';
+		}
+
+		return $body;
+	}
+
+	private function starsCssFromScore($score) {
+		$score = (float)$score;
+		$half = round($score * 2) / 2;
+
+		if ($half < 0) {
+			$half = 0;
+		}
+
+		if ($half > 5) {
+			$half = 5;
+		}
+
+		return rtrim(rtrim(number_format($half, 1, '.', ''), '0'), '.') ?: '0';
+	}
+
+	/**
+	 * Trustpilot labels follow the star rating (4.5 → Excellent), not TrustScore decimals.
+	 * A 4.3 TrustScore with 4.5 stars is still "Excellent" on trustpilot.com.
+	 */
+	private function labelFromStars($stars) {
+		$half = round((float)$stars * 2) / 2;
+
+		if ($half >= 4.5) {
+			return 'Excellent';
+		}
+
+		if ($half >= 3.5) {
+			return 'Great';
+		}
+
+		if ($half >= 2.5) {
+			return 'Average';
+		}
+
+		if ($half >= 1.5) {
+			return 'Poor';
+		}
+
+		return 'Bad';
+	}
+
+	private function clampPercent($value, $default = 0) {
+		if ($value === null || $value === '') {
+			return (int)$default;
+		}
+
+		$n = (int)$value;
+
+		if ($n < 0) {
+			return 0;
+		}
+
+		if ($n > 100) {
+			return 100;
+		}
+
+		return $n;
+	}
 }

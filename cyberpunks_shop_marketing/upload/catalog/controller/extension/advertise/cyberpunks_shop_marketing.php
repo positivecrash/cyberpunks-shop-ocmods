@@ -170,6 +170,26 @@ class ControllerExtensionAdvertiseCyberpunksShopMarketing extends Controller {
 		$output = $html;
 	}
 
+	/**
+	 * Inject Trustpilot summary into product.twig view data.
+	 */
+	public function prepareProductView(&$route, &$data) {
+		if (!is_array($data)) {
+			return;
+		}
+
+		if (!is_file(DIR_APPLICATION . 'model/extension/advertise/cyberpunks_shop_marketing.php')) {
+			return;
+		}
+
+		$this->load->model('extension/advertise/cyberpunks_shop_marketing');
+		$summary = $this->model_extension_advertise_cyberpunks_shop_marketing->getTrustpilotSummaryForStorefront();
+
+		if ($summary) {
+			$data['trustpilot_summary'] = $summary;
+		}
+	}
+
 	private function injectBeforeBodyClose($html, $block) {
 		$pos = stripos($html, '</body>');
 

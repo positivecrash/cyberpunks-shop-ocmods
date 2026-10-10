@@ -42,260 +42,319 @@
             </div>
           </div>
 
-          <hr>
-          <h4>{{ text_gtm_section }}</h4>
-
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-gtm-status">{{ entry_gtm_status }}</label>
-            <div class="col-sm-10">
-              <select name="advertise_cyberpunks_shop_marketing_gtm_status" id="input-gtm-status" class="form-control" style="max-width:200px">
-                <option value="1" {% if advertise_cyberpunks_shop_marketing_gtm_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
-                <option value="0" {% if not advertise_cyberpunks_shop_marketing_gtm_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group required">
-            <label class="col-sm-2 control-label" for="input-container-id">{{ entry_container_id }}</label>
-            <div class="col-sm-10">
-              <input type="text" name="advertise_cyberpunks_shop_marketing_gtm_container_id" value="{{ advertise_cyberpunks_shop_marketing_gtm_container_id }}" placeholder="GTM-XXXXXXX" id="input-container-id" class="form-control" />
-              {% if error_container_id %}
-              <div class="text-danger">{{ error_container_id }}</div>
-              {% endif %}
-              <p class="help-block">{{ help_container }}</p>
-              <p class="help-block">{{ help_no_gtag }}</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label">{{ entry_event_purchase }}</label>
-            <div class="col-sm-10">
-              <label class="checkbox-inline">
-                <input type="checkbox" name="advertise_cyberpunks_shop_marketing_gtm_event_purchase" value="1" {% if advertise_cyberpunks_shop_marketing_gtm_event_purchase %}checked="checked"{% endif %} />
-                {{ text_enabled }}
-              </label>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label">{{ entry_event_view_item }}</label>
-            <div class="col-sm-10">
-              <label class="checkbox-inline">
-                <input type="checkbox" name="advertise_cyberpunks_shop_marketing_gtm_event_view_item" value="1" {% if advertise_cyberpunks_shop_marketing_gtm_event_view_item %}checked="checked"{% endif %} />
-                {{ text_enabled }}
-              </label>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label">{{ entry_event_add_to_cart }}</label>
-            <div class="col-sm-10">
-              <label class="checkbox-inline">
-                <input type="checkbox" name="advertise_cyberpunks_shop_marketing_gtm_event_add_to_cart" value="1" {% if advertise_cyberpunks_shop_marketing_gtm_event_add_to_cart %}checked="checked"{% endif %} />
-                {{ text_enabled }}
-              </label>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label">{{ entry_event_begin_checkout }}</label>
-            <div class="col-sm-10">
-              <label class="checkbox-inline">
-                <input type="checkbox" name="advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout" value="1" {% if advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout %}checked="checked"{% endif %} />
-                {{ text_enabled }}
-              </label>
-              <p class="help-block">{{ help_events }}</p>
-            </div>
-          </div>
-
-          <hr>
-          <h4>{{ text_meta_section }}</h4>
-          <p class="help-block" style="margin-top:0">{{ help_meta_capi }}</p>
-
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-meta-capi-status">{{ entry_meta_capi_status }}</label>
-            <div class="col-sm-10">
-              <select name="advertise_cyberpunks_shop_marketing_meta_capi_status" id="input-meta-capi-status" class="form-control" style="max-width:200px">
-                <option value="1" {% if advertise_cyberpunks_shop_marketing_meta_capi_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
-                <option value="0" {% if not advertise_cyberpunks_shop_marketing_meta_capi_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-meta-pixel-id">{{ entry_meta_pixel_id }}</label>
-            <div class="col-sm-10">
-              <input type="text" name="advertise_cyberpunks_shop_marketing_meta_pixel_id" value="{{ advertise_cyberpunks_shop_marketing_meta_pixel_id }}" placeholder="Dataset / Pixel ID" id="input-meta-pixel-id" class="form-control" autocomplete="off" />
-              {% if error_meta_pixel_id %}
-              <div class="text-danger">{{ error_meta_pixel_id }}</div>
-              {% endif %}
-              <p class="help-block">{{ help_meta_pixel_id }}</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-meta-access-token">{{ entry_meta_access_token }}</label>
-            <div class="col-sm-10">
-              <input type="text" name="advertise_cyberpunks_shop_marketing_meta_access_token" value="{{ advertise_cyberpunks_shop_marketing_meta_access_token }}" placeholder="EAAB…" id="input-meta-access-token" class="form-control" autocomplete="off" spellcheck="false" />
-              {% if error_meta_access_token %}
-              <div class="text-danger">{{ error_meta_access_token }}</div>
-              {% endif %}
-              <p class="help-block">{{ help_meta_access_token }}</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-meta-test-event-code">{{ entry_meta_test_event_code }}</label>
-            <div class="col-sm-10">
-              <input type="text" name="advertise_cyberpunks_shop_marketing_meta_test_event_code" value="{{ advertise_cyberpunks_shop_marketing_meta_test_event_code }}" id="input-meta-test-event-code" class="form-control" autocomplete="off" />
-              <p class="help-block">{{ help_meta_test_event_code }}</p>
-            </div>
-          </div>
-
-          <hr>
-          <h4>{{ text_consent_section }}</h4>
-
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-consent-status">{{ entry_consent_status }}</label>
-            <div class="col-sm-10">
-              <select name="advertise_cyberpunks_shop_marketing_consent_status" id="input-consent-status" class="form-control" style="max-width:200px">
-                <option value="1" {% if advertise_cyberpunks_shop_marketing_consent_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
-                <option value="0" {% if not advertise_cyberpunks_shop_marketing_consent_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
-              </select>
-              <p class="help-block">{{ help_consent }}</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label">{{ entry_consent_message }}</label>
-            <div class="col-sm-10">
-              {% for language in languages %}
-              <div class="input-group" style="margin-bottom:8px;">
-                <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
-                <textarea name="advertise_cyberpunks_shop_marketing_consent_message[{{ language.language_id }}]" rows="3" class="form-control">{{ advertise_cyberpunks_shop_marketing_consent_message[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_message[language.language_id] : '' }}</textarea>
+          <ul class="nav nav-tabs">
+            <li class="active"><a href="#tab-gtm" data-toggle="tab">{{ text_gtm_section }}</a></li>
+            <li><a href="#tab-meta" data-toggle="tab">{{ text_meta_section }}</a></li>
+            <li><a href="#tab-consent" data-toggle="tab">{{ text_consent_section }}</a></li>
+            <li><a href="#tab-matomo" data-toggle="tab">{{ text_matomo_section }}</a></li>
+            <li><a href="#tab-trustpilot" data-toggle="tab">{{ text_trustpilot_section }}</a></li>
+            <li><a href="#tab-shared" data-toggle="tab">{{ text_shared_section }}</a></li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane active" id="tab-gtm">
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-gtm-status">{{ entry_gtm_status }}</label>
+                <div class="col-sm-10">
+                  <select name="advertise_cyberpunks_shop_marketing_gtm_status" id="input-gtm-status" class="form-control" style="max-width:200px">
+                    <option value="1" {% if advertise_cyberpunks_shop_marketing_gtm_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                    <option value="0" {% if not advertise_cyberpunks_shop_marketing_gtm_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                  </select>
+                </div>
               </div>
-              {% else %}
-              <p class="help-block">No store languages enabled.</p>
-              {% endfor %}
-              <p class="help-block">{{ help_consent_message }}</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label">{{ entry_consent_privacy_label }}</label>
-            <div class="col-sm-10">
-              {% for language in languages %}
-              <div class="input-group" style="margin-bottom:8px;">
-                <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
-                <input type="text" name="advertise_cyberpunks_shop_marketing_consent_privacy_label[{{ language.language_id }}]" value="{{ advertise_cyberpunks_shop_marketing_consent_privacy_label[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_privacy_label[language.language_id] : '' }}" class="form-control" />
+              <div class="form-group required">
+                <label class="col-sm-2 control-label" for="input-container-id">{{ entry_container_id }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="advertise_cyberpunks_shop_marketing_gtm_container_id" value="{{ advertise_cyberpunks_shop_marketing_gtm_container_id }}" placeholder="GTM-XXXXXXX" id="input-container-id" class="form-control" />
+                  {% if error_container_id %}
+                  <div class="text-danger">{{ error_container_id }}</div>
+                  {% endif %}
+                  <p class="help-block">{{ help_container }}</p>
+                  <p class="help-block">{{ help_no_gtag }}</p>
+                </div>
               </div>
-              {% endfor %}
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-consent-privacy-url">{{ entry_consent_privacy_url }}</label>
-            <div class="col-sm-10">
-              <input type="text" name="advertise_cyberpunks_shop_marketing_consent_privacy_url" value="{{ advertise_cyberpunks_shop_marketing_consent_privacy_url }}" placeholder="/privacy-policy" id="input-consent-privacy-url" class="form-control" />
-              <p class="help-block">{{ help_consent_privacy }}</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label">{{ entry_consent_deny_label }}</label>
-            <div class="col-sm-10">
-              {% for language in languages %}
-              <div class="input-group" style="margin-bottom:8px; max-width:360px;">
-                <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
-                <input type="text" name="advertise_cyberpunks_shop_marketing_consent_deny_label[{{ language.language_id }}]" value="{{ advertise_cyberpunks_shop_marketing_consent_deny_label[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_deny_label[language.language_id] : '' }}" class="form-control" />
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_event_purchase }}</label>
+                <div class="col-sm-10">
+                  <label class="checkbox-inline">
+                    <input type="checkbox" name="advertise_cyberpunks_shop_marketing_gtm_event_purchase" value="1" {% if advertise_cyberpunks_shop_marketing_gtm_event_purchase %}checked="checked"{% endif %} />
+                    {{ text_enabled }}
+                  </label>
+                </div>
               </div>
-              {% endfor %}
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label">{{ entry_consent_grant_label }}</label>
-            <div class="col-sm-10">
-              {% for language in languages %}
-              <div class="input-group" style="margin-bottom:8px; max-width:360px;">
-                <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
-                <input type="text" name="advertise_cyberpunks_shop_marketing_consent_grant_label[{{ language.language_id }}]" value="{{ advertise_cyberpunks_shop_marketing_consent_grant_label[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_grant_label[language.language_id] : '' }}" class="form-control" />
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_event_view_item }}</label>
+                <div class="col-sm-10">
+                  <label class="checkbox-inline">
+                    <input type="checkbox" name="advertise_cyberpunks_shop_marketing_gtm_event_view_item" value="1" {% if advertise_cyberpunks_shop_marketing_gtm_event_view_item %}checked="checked"{% endif %} />
+                    {{ text_enabled }}
+                  </label>
+                </div>
               </div>
-              {% endfor %}
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_event_add_to_cart }}</label>
+                <div class="col-sm-10">
+                  <label class="checkbox-inline">
+                    <input type="checkbox" name="advertise_cyberpunks_shop_marketing_gtm_event_add_to_cart" value="1" {% if advertise_cyberpunks_shop_marketing_gtm_event_add_to_cart %}checked="checked"{% endif %} />
+                    {{ text_enabled }}
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_event_begin_checkout }}</label>
+                <div class="col-sm-10">
+                  <label class="checkbox-inline">
+                    <input type="checkbox" name="advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout" value="1" {% if advertise_cyberpunks_shop_marketing_gtm_event_begin_checkout %}checked="checked"{% endif %} />
+                    {{ text_enabled }}
+                  </label>
+                  <p class="help-block">{{ help_events }}</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-consent-expiry-days">{{ entry_consent_expiry_days }}</label>
-            <div class="col-sm-10">
-              <input type="number" name="advertise_cyberpunks_shop_marketing_consent_expiry_days" value="{{ advertise_cyberpunks_shop_marketing_consent_expiry_days }}" min="1" max="3650" id="input-consent-expiry-days" class="form-control" style="max-width:120px" />
-              {% if error_consent_expiry_days %}
-              <div class="text-danger">{{ error_consent_expiry_days }}</div>
-              {% endif %}
-              <p class="help-block">{{ help_consent_expiry_days }}</p>
-            </div>
-          </div>
 
-          <hr>
-          <h4>{{ text_matomo_section }}</h4>
+            <div class="tab-pane" id="tab-meta">
+              <p class="help-block">{{ help_meta_capi }}</p>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-meta-capi-status">{{ entry_meta_capi_status }}</label>
+                <div class="col-sm-10">
+                  <select name="advertise_cyberpunks_shop_marketing_meta_capi_status" id="input-meta-capi-status" class="form-control" style="max-width:200px">
+                    <option value="1" {% if advertise_cyberpunks_shop_marketing_meta_capi_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                    <option value="0" {% if not advertise_cyberpunks_shop_marketing_meta_capi_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-meta-pixel-id">{{ entry_meta_pixel_id }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="advertise_cyberpunks_shop_marketing_meta_pixel_id" value="{{ advertise_cyberpunks_shop_marketing_meta_pixel_id }}" placeholder="Dataset / Pixel ID" id="input-meta-pixel-id" class="form-control" autocomplete="off" />
+                  {% if error_meta_pixel_id %}
+                  <div class="text-danger">{{ error_meta_pixel_id }}</div>
+                  {% endif %}
+                  <p class="help-block">{{ help_meta_pixel_id }}</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-meta-access-token">{{ entry_meta_access_token }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="advertise_cyberpunks_shop_marketing_meta_access_token" value="{{ advertise_cyberpunks_shop_marketing_meta_access_token }}" placeholder="EAAB…" id="input-meta-access-token" class="form-control" autocomplete="off" spellcheck="false" />
+                  {% if error_meta_access_token %}
+                  <div class="text-danger">{{ error_meta_access_token }}</div>
+                  {% endif %}
+                  <p class="help-block">{{ help_meta_access_token }}</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-meta-test-event-code">{{ entry_meta_test_event_code }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="advertise_cyberpunks_shop_marketing_meta_test_event_code" value="{{ advertise_cyberpunks_shop_marketing_meta_test_event_code }}" id="input-meta-test-event-code" class="form-control" autocomplete="off" />
+                  <p class="help-block">{{ help_meta_test_event_code }}</p>
+                </div>
+              </div>
+            </div>
 
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-matomo-status">{{ entry_matomo_status }}</label>
-            <div class="col-sm-10">
-              <select name="advertise_cyberpunks_shop_marketing_matomo_status" id="input-matomo-status" class="form-control" style="max-width:200px">
-                <option value="1" {% if advertise_cyberpunks_shop_marketing_matomo_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
-                <option value="0" {% if not advertise_cyberpunks_shop_marketing_matomo_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
-              </select>
+            <div class="tab-pane" id="tab-consent">
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-consent-status">{{ entry_consent_status }}</label>
+                <div class="col-sm-10">
+                  <select name="advertise_cyberpunks_shop_marketing_consent_status" id="input-consent-status" class="form-control" style="max-width:200px">
+                    <option value="1" {% if advertise_cyberpunks_shop_marketing_consent_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                    <option value="0" {% if not advertise_cyberpunks_shop_marketing_consent_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                  </select>
+                  <p class="help-block">{{ help_consent }}</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_consent_message }}</label>
+                <div class="col-sm-10">
+                  {% for language in languages %}
+                  <div class="input-group" style="margin-bottom:8px;">
+                    <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                    <textarea name="advertise_cyberpunks_shop_marketing_consent_message[{{ language.language_id }}]" rows="3" class="form-control">{{ advertise_cyberpunks_shop_marketing_consent_message[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_message[language.language_id] : '' }}</textarea>
+                  </div>
+                  {% else %}
+                  <p class="help-block">No store languages enabled.</p>
+                  {% endfor %}
+                  <p class="help-block">{{ help_consent_message }}</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_consent_privacy_label }}</label>
+                <div class="col-sm-10">
+                  {% for language in languages %}
+                  <div class="input-group" style="margin-bottom:8px;">
+                    <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                    <input type="text" name="advertise_cyberpunks_shop_marketing_consent_privacy_label[{{ language.language_id }}]" value="{{ advertise_cyberpunks_shop_marketing_consent_privacy_label[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_privacy_label[language.language_id] : '' }}" class="form-control" />
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-consent-privacy-url">{{ entry_consent_privacy_url }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="advertise_cyberpunks_shop_marketing_consent_privacy_url" value="{{ advertise_cyberpunks_shop_marketing_consent_privacy_url }}" placeholder="/privacy-policy" id="input-consent-privacy-url" class="form-control" />
+                  <p class="help-block">{{ help_consent_privacy }}</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_consent_deny_label }}</label>
+                <div class="col-sm-10">
+                  {% for language in languages %}
+                  <div class="input-group" style="margin-bottom:8px; max-width:360px;">
+                    <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                    <input type="text" name="advertise_cyberpunks_shop_marketing_consent_deny_label[{{ language.language_id }}]" value="{{ advertise_cyberpunks_shop_marketing_consent_deny_label[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_deny_label[language.language_id] : '' }}" class="form-control" />
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_consent_grant_label }}</label>
+                <div class="col-sm-10">
+                  {% for language in languages %}
+                  <div class="input-group" style="margin-bottom:8px; max-width:360px;">
+                    <span class="input-group-addon"><img src="language/{{ language.code }}/{{ language.code }}.png" title="{{ language.name }}" /></span>
+                    <input type="text" name="advertise_cyberpunks_shop_marketing_consent_grant_label[{{ language.language_id }}]" value="{{ advertise_cyberpunks_shop_marketing_consent_grant_label[language.language_id] is defined ? advertise_cyberpunks_shop_marketing_consent_grant_label[language.language_id] : '' }}" class="form-control" />
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-consent-expiry-days">{{ entry_consent_expiry_days }}</label>
+                <div class="col-sm-10">
+                  <input type="number" name="advertise_cyberpunks_shop_marketing_consent_expiry_days" value="{{ advertise_cyberpunks_shop_marketing_consent_expiry_days }}" min="1" max="3650" id="input-consent-expiry-days" class="form-control" style="max-width:120px" />
+                  {% if error_consent_expiry_days %}
+                  <div class="text-danger">{{ error_consent_expiry_days }}</div>
+                  {% endif %}
+                  <p class="help-block">{{ help_consent_expiry_days }}</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-matomo-server">{{ entry_matomo_server }}</label>
-            <div class="col-sm-10">
-              <input type="url" name="advertise_cyberpunks_shop_marketing_matomo_server" value="{{ advertise_cyberpunks_shop_marketing_matomo_server }}" placeholder="https://matomo.example.com" id="input-matomo-server" class="form-control" />
-              <p class="help-block">{{ help_matomo_server }}</p>
-              {% if error_matomo_server %}
-              <div class="text-danger">{{ error_matomo_server }}</div>
-              {% endif %}
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-matomo-site-id">{{ entry_matomo_site_id }}</label>
-            <div class="col-sm-10">
-              <input type="number" name="advertise_cyberpunks_shop_marketing_matomo_site_id" value="{{ advertise_cyberpunks_shop_marketing_matomo_site_id }}" min="1" id="input-matomo-site-id" class="form-control" style="max-width:120px" />
-              <p class="help-block">{{ help_matomo_site_id }}</p>
-              {% if error_matomo_site_id %}
-              <div class="text-danger">{{ error_matomo_site_id }}</div>
-              {% endif %}
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-matomo-ecommerce">{{ entry_matomo_ecommerce }}</label>
-            <div class="col-sm-10">
-              <select name="advertise_cyberpunks_shop_marketing_matomo_ecommerce" id="input-matomo-ecommerce" class="form-control" style="max-width:200px">
-                <option value="1" {% if advertise_cyberpunks_shop_marketing_matomo_ecommerce %}selected="selected"{% endif %}>{{ text_enabled }}</option>
-                <option value="0" {% if not advertise_cyberpunks_shop_marketing_matomo_ecommerce %}selected="selected"{% endif %}>{{ text_disabled }}</option>
-              </select>
-              <p class="help-block">{{ help_matomo_ecommerce }}</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-matomo-disable-cookies">{{ entry_matomo_disable_cookies }}</label>
-            <div class="col-sm-10">
-              <select name="advertise_cyberpunks_shop_marketing_matomo_disable_cookies" id="input-matomo-disable-cookies" class="form-control" style="max-width:200px">
-                <option value="1" {% if advertise_cyberpunks_shop_marketing_matomo_disable_cookies %}selected="selected"{% endif %}>{{ text_enabled }}</option>
-                <option value="0" {% if not advertise_cyberpunks_shop_marketing_matomo_disable_cookies %}selected="selected"{% endif %}>{{ text_disabled }}</option>
-              </select>
-              <p class="help-block">{{ help_matomo_disable_cookies }}</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-matomo-dnt">{{ entry_matomo_respect_dnt }}</label>
-            <div class="col-sm-10">
-              <select name="advertise_cyberpunks_shop_marketing_matomo_respect_dnt" id="input-matomo-dnt" class="form-control" style="max-width:200px">
-                <option value="1" {% if advertise_cyberpunks_shop_marketing_matomo_respect_dnt %}selected="selected"{% endif %}>{{ text_enabled }}</option>
-                <option value="0" {% if not advertise_cyberpunks_shop_marketing_matomo_respect_dnt %}selected="selected"{% endif %}>{{ text_disabled }}</option>
-              </select>
-              <p class="help-block">{{ help_matomo_dnt }}</p>
-            </div>
-          </div>
 
-          <hr>
-          <h4>{{ text_shared_section }}</h4>
+            <div class="tab-pane" id="tab-matomo">
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-matomo-status">{{ entry_matomo_status }}</label>
+                <div class="col-sm-10">
+                  <select name="advertise_cyberpunks_shop_marketing_matomo_status" id="input-matomo-status" class="form-control" style="max-width:200px">
+                    <option value="1" {% if advertise_cyberpunks_shop_marketing_matomo_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                    <option value="0" {% if not advertise_cyberpunks_shop_marketing_matomo_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-matomo-server">{{ entry_matomo_server }}</label>
+                <div class="col-sm-10">
+                  <input type="url" name="advertise_cyberpunks_shop_marketing_matomo_server" value="{{ advertise_cyberpunks_shop_marketing_matomo_server }}" placeholder="https://matomo.example.com" id="input-matomo-server" class="form-control" />
+                  <p class="help-block">{{ help_matomo_server }}</p>
+                  {% if error_matomo_server %}
+                  <div class="text-danger">{{ error_matomo_server }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-matomo-site-id">{{ entry_matomo_site_id }}</label>
+                <div class="col-sm-10">
+                  <input type="number" name="advertise_cyberpunks_shop_marketing_matomo_site_id" value="{{ advertise_cyberpunks_shop_marketing_matomo_site_id }}" min="1" id="input-matomo-site-id" class="form-control" style="max-width:120px" />
+                  <p class="help-block">{{ help_matomo_site_id }}</p>
+                  {% if error_matomo_site_id %}
+                  <div class="text-danger">{{ error_matomo_site_id }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-matomo-ecommerce">{{ entry_matomo_ecommerce }}</label>
+                <div class="col-sm-10">
+                  <select name="advertise_cyberpunks_shop_marketing_matomo_ecommerce" id="input-matomo-ecommerce" class="form-control" style="max-width:200px">
+                    <option value="1" {% if advertise_cyberpunks_shop_marketing_matomo_ecommerce %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                    <option value="0" {% if not advertise_cyberpunks_shop_marketing_matomo_ecommerce %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                  </select>
+                  <p class="help-block">{{ help_matomo_ecommerce }}</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-matomo-disable-cookies">{{ entry_matomo_disable_cookies }}</label>
+                <div class="col-sm-10">
+                  <select name="advertise_cyberpunks_shop_marketing_matomo_disable_cookies" id="input-matomo-disable-cookies" class="form-control" style="max-width:200px">
+                    <option value="1" {% if advertise_cyberpunks_shop_marketing_matomo_disable_cookies %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                    <option value="0" {% if not advertise_cyberpunks_shop_marketing_matomo_disable_cookies %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                  </select>
+                  <p class="help-block">{{ help_matomo_disable_cookies }}</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-matomo-dnt">{{ entry_matomo_respect_dnt }}</label>
+                <div class="col-sm-10">
+                  <select name="advertise_cyberpunks_shop_marketing_matomo_respect_dnt" id="input-matomo-dnt" class="form-control" style="max-width:200px">
+                    <option value="1" {% if advertise_cyberpunks_shop_marketing_matomo_respect_dnt %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                    <option value="0" {% if not advertise_cyberpunks_shop_marketing_matomo_respect_dnt %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                  </select>
+                  <p class="help-block">{{ help_matomo_dnt }}</p>
+                </div>
+              </div>
+            </div>
 
-          <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-item-id-field">{{ entry_item_id_field }}</label>
-            <div class="col-sm-10">
-              <select name="advertise_cyberpunks_shop_marketing_item_id_field" id="input-item-id-field" class="form-control" style="max-width:280px">
-                <option value="model" {% if advertise_cyberpunks_shop_marketing_item_id_field == 'model' %}selected="selected"{% endif %}>{{ text_model }}</option>
-                <option value="sku" {% if advertise_cyberpunks_shop_marketing_item_id_field == 'sku' %}selected="selected"{% endif %}>{{ text_sku }}</option>
-              </select>
-              <p class="help-block">{{ help_item_id }}</p>
+            <div class="tab-pane" id="tab-trustpilot">
+              <p class="help-block">{{ help_tp }}</p>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-tp-status">{{ entry_tp_status }}</label>
+                <div class="col-sm-10">
+                  <select name="advertise_cyberpunks_shop_marketing_tp_status" id="input-tp-status" class="form-control" style="max-width:200px">
+                    <option value="1" {% if advertise_cyberpunks_shop_marketing_tp_status %}selected="selected"{% endif %}>{{ text_enabled }}</option>
+                    <option value="0" {% if not advertise_cyberpunks_shop_marketing_tp_status %}selected="selected"{% endif %}>{{ text_disabled }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-tp-score">{{ entry_tp_score }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="advertise_cyberpunks_shop_marketing_tp_score" value="{{ advertise_cyberpunks_shop_marketing_tp_score }}" placeholder="4.3" id="input-tp-score" class="form-control" style="max-width:120px" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-tp-label">{{ entry_tp_label }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="advertise_cyberpunks_shop_marketing_tp_label" value="{{ advertise_cyberpunks_shop_marketing_tp_label }}" placeholder="Excellent" id="input-tp-label" class="form-control" style="max-width:280px" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-tp-stars">{{ entry_tp_stars }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="advertise_cyberpunks_shop_marketing_tp_stars" value="{{ advertise_cyberpunks_shop_marketing_tp_stars }}" placeholder="4.5" id="input-tp-stars" class="form-control" style="max-width:120px" />
+                  <p class="help-block">{{ help_tp_stars }}</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-tp-reviews">{{ entry_tp_reviews }}</label>
+                <div class="col-sm-10">
+                  <input type="number" min="0" step="1" name="advertise_cyberpunks_shop_marketing_tp_reviews" value="{{ advertise_cyberpunks_shop_marketing_tp_reviews }}" placeholder="8" id="input-tp-reviews" class="form-control" style="max-width:120px" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-tp-url">{{ entry_tp_url }}</label>
+                <div class="col-sm-10">
+                  <input type="text" name="advertise_cyberpunks_shop_marketing_tp_url" value="{{ advertise_cyberpunks_shop_marketing_tp_url }}" placeholder="https://www.trustpilot.com/review/cyberpunks.shop" id="input-tp-url" class="form-control" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="col-sm-2 control-label">{{ entry_tp_sync }}</label>
+                <div class="col-sm-10">
+                  <a href="{{ sync_trustpilot }}" class="btn btn-primary"><i class="fa fa-refresh"></i> {{ button_tp_sync }}</a>
+                  {% if advertise_cyberpunks_shop_marketing_tp_last_sync %}
+                  <p class="help-block">{{ entry_tp_last_sync }}: {{ advertise_cyberpunks_shop_marketing_tp_last_sync }}</p>
+                  {% endif %}
+                  <p class="help-block">{{ help_tp_sync }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-pane" id="tab-shared">
+              <div class="form-group">
+                <label class="col-sm-2 control-label" for="input-item-id-field">{{ entry_item_id_field }}</label>
+                <div class="col-sm-10">
+                  <select name="advertise_cyberpunks_shop_marketing_item_id_field" id="input-item-id-field" class="form-control" style="max-width:280px">
+                    <option value="model" {% if advertise_cyberpunks_shop_marketing_item_id_field == 'model' %}selected="selected"{% endif %}>{{ text_model }}</option>
+                    <option value="sku" {% if advertise_cyberpunks_shop_marketing_item_id_field == 'sku' %}selected="selected"{% endif %}>{{ text_sku }}</option>
+                  </select>
+                  <p class="help-block">{{ help_item_id }}</p>
+                </div>
+              </div>
             </div>
           </div>
         </form>
